@@ -4,6 +4,8 @@ import type { ExtractedProductData, ExtractionTask } from './types';
 import { logger } from '../utils/logger';
 import { storage } from '../storage';
 import { ExtractionMonitoring } from './extraction-monitoring';
+import { validateScrapingUrl, DEFAULT_ALLOWED_RETAILER_DOMAINS } from '../utils/url-validation';
+import { urlLockService } from '../services/url-lock-service';
 
 /** Result of a successful extraction task */
 interface ExtractionTaskResult {
@@ -149,44 +151,68 @@ export class DataExtractionAgent extends BaseAgent {
     const startTime = Date.now();
     let errorMessage: string | undefined;
 
-    try {
-      const extractedData = await this.extractProductData(task.url, task.retailer);
+    // DISTRIBUTED LOCK: Prevent concurrent scraping of the same URL
+    // Uses Redis-based locking with 5-minute TTL (300 seconds)
+    const result = await urlLockService.withLock<ExtractionTaskResult | ExtractionTaskFailure>(
+      task.url,
+      async (): Promise<ExtractionTaskResult | ExtractionTaskFailure> => {
+        try {
+          const extractedData = await this.extractProductData(task.url, task.retailer);
 
-      if (extractedData.price) {
-        await this.storeProductData(extractedData, task.url, task.retailer, task.searchQuery);
-        logger.info(`Successfully extracted and stored product: ${extractedData.title}`);
+          if (extractedData.price) {
+            await this.storeProductData(extractedData, task.url, task.retailer, task.searchQuery);
+            logger.info(`Successfully extracted and stored product: ${extractedData.title}`);
 
-        const duration = Date.now() - startTime;
+            const duration = Date.now() - startTime;
 
-        // Record successful extraction (non-blocking)
-        void ExtractionMonitoring.recordAttempt(task.retailer, true, duration);
+            // Record successful extraction (non-blocking)
+            void ExtractionMonitoring.recordAttempt(task.retailer, true, duration);
 
-        return { success: true, data: extractedData };
-      } else {
-        logger.warn(`No price found for ${task.url}`);
+            return { success: true as const, data: extractedData };
+          } else {
+            logger.warn(`No price found for ${task.url}`);
 
-        errorMessage = 'No price data found';
-        const duration = Date.now() - startTime;
+            errorMessage = 'No price data found';
+            const duration = Date.now() - startTime;
 
-        // Record failed extraction (non-blocking)
-        void ExtractionMonitoring.recordAttempt(task.retailer, false, duration, errorMessage);
+            // Record failed extraction (non-blocking)
+            void ExtractionMonitoring.recordAttempt(task.retailer, false, duration, errorMessage);
 
-        return { success: false, reason: errorMessage };
-      }
-    } catch (error) {
-      errorMessage = error instanceof Error ? error.message : String(error);
-      const duration = Date.now() - startTime;
+            return { success: false as const, reason: errorMessage };
+          }
+        } catch (error) {
+          errorMessage = error instanceof Error ? error.message : String(error);
+          const duration = Date.now() - startTime;
 
-      logger.error(`Playwright extraction failed for ${task.url}`, {
-        error: errorMessage,
+          logger.error(`Playwright extraction failed for ${task.url}`, {
+            error: errorMessage,
+            url: task.url,
+          });
+
+          // Record failed extraction (non-blocking)
+          void ExtractionMonitoring.recordAttempt(task.retailer, false, duration, errorMessage);
+
+          throw error;
+        }
+      },
+      { ttlSeconds: 300 } // 5 minute lock
+    );
+
+    // Lock held by another worker - skip gracefully
+    if (result === null) {
+      logger.info(`URL already being scraped by another worker, skipping`, {
         url: task.url,
       });
 
-      // Record failed extraction (non-blocking)
-      void ExtractionMonitoring.recordAttempt(task.retailer, false, duration, errorMessage);
-
-      throw error;
+      // Return failure (no retry needed)
+      // This is intentional - another worker is handling this URL
+      return {
+        success: false as const,
+        reason: 'URL already being scraped by another worker',
+      };
     }
+
+    return result;
   }
 
   /**
@@ -197,6 +223,17 @@ export class DataExtractionAgent extends BaseAgent {
     url: string,
     retailerDomain: string
   ): Promise<ExtractedProductData> {
+    // SECURITY: Validate URL to prevent SSRF attacks
+    const validationResult = validateScrapingUrl(url, {
+      allowedDomains: [...DEFAULT_ALLOWED_RETAILER_DOMAINS],
+    });
+
+    if (!validationResult.valid || !validationResult.parsedUrl) {
+      throw new Error(`URL validation failed: ${validationResult.error || 'Invalid URL'}`);
+    }
+
+    const validatedUrl = validationResult.parsedUrl;
+
     // SIMPLE: Launch new browser per request (optimize later if needed)
     this.browser = await chromium.launch({
       headless: true,
@@ -222,7 +259,7 @@ export class DataExtractionAgent extends BaseAgent {
 
     try {
       // Navigate and wait for content
-      await page.goto(url, {
+      await page.goto(validatedUrl.toString(), {
         waitUntil: 'domcontentloaded',
         timeout: 30000,
       });
@@ -237,12 +274,26 @@ export class DataExtractionAgent extends BaseAgent {
           timeout: 10000,
           state: 'visible',
         });
-      } catch {
+      } catch (selectorError) {
         logger.warn(
-          `Price selector not found immediately for ${retailerDomain}, attempting extraction anyway`
+          `Price selector not found immediately for ${retailerDomain}, attempting extraction anyway`,
+          {
+            error: selectorError instanceof Error ? selectorError.message : String(selectorError),
+            selector: strategy.priceSelectors[0],
+            url,
+          }
         );
-        // Give page a bit more time for dynamic content
-        await page.waitForTimeout(2000);
+        // Fallback: wait for network to be idle (indicates AJAX/dynamic content loaded)
+        try {
+          await page.waitForLoadState('networkidle', { timeout: 5000 });
+        } catch (networkError) {
+          logger.warn('Network idle wait failed, falling back to DOM load', {
+            error: networkError instanceof Error ? networkError.message : String(networkError),
+            retailerDomain,
+          });
+          // If networkidle also fails, try waiting for DOM to be fully loaded
+          await page.waitForLoadState('load', { timeout: 5000 });
+        }
       }
 
       // Extract data AFTER JavaScript execution
@@ -291,7 +342,11 @@ export class DataExtractionAgent extends BaseAgent {
         if (text && text.trim()) {
           return text.trim();
         }
-      } catch {
+      } catch (error) {
+        logger.debug('Text selector failed, trying next', {
+          error: error instanceof Error ? error.message : String(error),
+          selector,
+        });
         continue; // Try next selector
       }
     }
@@ -312,7 +367,11 @@ export class DataExtractionAgent extends BaseAgent {
             return price;
           }
         }
-      } catch {
+      } catch (error) {
+        logger.debug('Price selector failed, trying next', {
+          error: error instanceof Error ? error.message : String(error),
+          selector,
+        });
         continue;
       }
     }
@@ -370,7 +429,11 @@ export class DataExtractionAgent extends BaseAgent {
         if (src && src.startsWith('http')) {
           return src;
         }
-      } catch {
+      } catch (error) {
+        logger.debug('Image selector failed, trying next', {
+          error: error instanceof Error ? error.message : String(error),
+          selector,
+        });
         continue;
       }
     }

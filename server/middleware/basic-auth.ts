@@ -152,6 +152,23 @@ export async function basicAuth(
       await clearFailedLoginsAsync(user.email);
     }
 
+    // SECURITY: Transparent password hash upgrade on successful login
+    // Check if password was hashed with fewer rounds than current standard
+    try {
+      const { hashNeedsUpgrade, hashPassword } = await import('../auth.js');
+      if (await hashNeedsUpgrade(user.passwordHash)) {
+        const newHash = await hashPassword(password);
+        await storage.updateUserPasswordHash(user.id, newHash);
+        logger.info('Password hash upgraded on Basic Auth login', { userId: user.id });
+      }
+    } catch (upgradeError) {
+      // Log error but don't fail auth - upgrade will happen next time
+      logger.warn('Failed to upgrade password hash on Basic Auth login', {
+        userId: user.id,
+        error: upgradeError instanceof Error ? upgradeError.message : String(upgradeError),
+      });
+    }
+
     // Authentication successful - attach user to request
     req.user = user;
     logger.info('Basic auth successful', { userId: user.id, username: user.username });

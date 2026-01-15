@@ -56,8 +56,18 @@ import {
   cleanupEventSubscriptions,
 } from './services/event-subscriptions';
 import { storageCache } from './services/storage-cache';
+import { pool } from './db';
+import { notificationQueue } from './jobs/notification-processor';
+import { priceSnapshotQueue } from './jobs/price-snapshot-queue';
+import type { Server } from 'http';
 
 const serverLog = createLogger('Server');
+
+// Track HTTP server instance for graceful shutdown
+let httpServer: Server | null = null;
+
+// Track shutdown state to prevent multiple shutdown attempts
+let isShuttingDown = false;
 
 // Validate environment variables on startup
 validateEnvironment();
@@ -67,7 +77,13 @@ setupGlobalErrorHandlers();
 
 const app = express();
 
-// SENTRY: Request handler must be first middleware
+// HEALTH CHECKS: Must be FIRST - before all middleware
+// Health endpoints must be accessible without auth, CSRF, rate limiting, etc.
+// Load balancers and Kubernetes probes need fast, reliable responses
+import { healthRouter } from './routes/health';
+app.use(healthRouter);
+
+// SENTRY: Request handler must be first middleware (after health checks)
 app.use(sentryRequestHandler);
 app.use(sentryTracingHandler);
 
@@ -255,6 +271,9 @@ app.use(sanitizeInput);
   });
   const server = registerRoutes(app);
 
+  // Store server reference for graceful shutdown
+  httpServer = server;
+
   // Initialize advanced caching system
   const { initializeAdvancedCache, performInitialCacheWarming } = await import(
     './cache-initialization'
@@ -399,44 +418,116 @@ app.use(sanitizeInput);
 
 // Graceful shutdown handler
 async function gracefulShutdown(signal: string) {
+  // Prevent duplicate shutdown attempts
+  if (isShuttingDown) {
+    log('Shutdown already in progress, ignoring duplicate signal');
+    return;
+  }
+
+  isShuttingDown = true;
   log(`${signal} received, starting graceful shutdown...`);
 
+  // Set a hard deadline for shutdown (30 seconds)
+  const SHUTDOWN_TIMEOUT = 30000;
+  const forceExitTimeout = setTimeout(() => {
+    serverLog.error('Graceful shutdown timed out after 30 seconds, forcing exit');
+    process.exit(1);
+  }, SHUTDOWN_TIMEOUT);
+
   try {
-    // Step 1: Stop all timers and cleanup intervals
+    // Step 1: Stop accepting new connections
+    if (httpServer) {
+      log('Stopping HTTP server (no new connections accepted)...');
+      const server = httpServer; // Capture for closure
+      await new Promise<void>((resolve, reject) => {
+        server.close((err) => {
+          if (err) {
+            serverLog.error('Error closing HTTP server', {
+              error: err instanceof Error ? err.message : String(err),
+            });
+            reject(err);
+          } else {
+            log('HTTP server stopped accepting new connections');
+            resolve();
+          }
+        });
+      });
+    }
+
+    // Step 2: Stop all timers and cleanup intervals
     log('Running cleanup manager...');
     await cleanupManager.cleanup();
     const stats = cleanupManager.getStats();
     log(`Cleaned up ${stats.intervals} intervals and ran ${stats.cleanupHandlers} handlers`);
 
-    // Step 2: Close WebSocket connections
+    // Step 3: Close job queues (wait for active jobs to complete)
+    log('Closing Bull job queues...');
+    try {
+      if (notificationQueue) {
+        await notificationQueue.close();
+        log('Notification queue closed');
+      }
+    } catch (error) {
+      serverLog.error('Error closing notification queue', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    try {
+      if (priceSnapshotQueue) {
+        await priceSnapshotQueue.close();
+        log('Price snapshot queue closed');
+      }
+    } catch (error) {
+      serverLog.error('Error closing price snapshot queue', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    // Step 4: Close WebSocket connections
     log('Closing WebSocket connections...');
     await websocketService.shutdown();
     shutdownWebSocket();
     log('WebSocket connections closed');
 
-    // Step 2.5: Cleanup event bus subscriptions
+    // Step 5: Cleanup event bus subscriptions
     log('Cleaning up event subscriptions...');
     cleanupEventSubscriptions();
     log('Event subscriptions cleaned up');
 
-    // Step 3: Close advanced cache (pub/sub subscriber)
+    // Step 6: Close advanced cache (pub/sub subscriber)
     log('Closing advanced cache service...');
     await advancedCache.close();
     log('Advanced cache service closed');
 
-    // Step 4: Close Redis connections (both ioredis and redis clients)
+    // Step 7: Close Redis connections (both ioredis and redis clients)
     log('Closing Redis connections...');
     await closeRedis();
     log('Redis connections closed');
 
-    // Exit process
-    log('Graceful shutdown completed');
+    // Step 8: Close database connection pool
+    log('Closing database connection pool...');
+    try {
+      await pool.end();
+      log('Database connection pool closed');
+    } catch (error) {
+      serverLog.error('Error closing database pool', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    // Clear the force exit timeout
+    clearTimeout(forceExitTimeout);
+
+    // Exit process successfully
+    log('Graceful shutdown completed successfully');
     process.exit(0);
   } catch (error) {
     serverLog.error('Error during graceful shutdown', {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
     });
+    clearTimeout(forceExitTimeout);
     process.exit(1);
   }
 }

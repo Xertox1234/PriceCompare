@@ -115,7 +115,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product/1',
+        url: 'https://amazon.com/product/1',
         retailer: 'example.com',
         searchQuery: 'widget',
       };
@@ -153,7 +153,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://unknown-retailer.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'unknown-retailer.com',
       };
 
@@ -192,7 +192,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
         const task: ExtractionTask = {
           action: 'extract_product_data',
-          url: 'https://example.com/product',
+          url: 'https://amazon.com/product',
           retailer: 'example.com',
         };
 
@@ -223,7 +223,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -253,7 +253,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -283,7 +283,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -316,7 +316,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -351,7 +351,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -380,7 +380,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -415,7 +415,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -445,7 +445,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -475,7 +475,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -505,7 +505,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -529,7 +529,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -547,7 +547,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -562,7 +562,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -696,7 +696,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -726,7 +726,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -756,7 +756,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -796,7 +796,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
         const task: ExtractionTask = {
           action: 'extract_product_data',
-          url: 'https://example.com/product',
+          url: 'https://amazon.com/product',
           retailer: 'example.com',
         };
 
@@ -827,7 +827,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -855,14 +855,14 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
       await playwrightAgent.processTask(task);
 
       expect(mockedAxios.get).toHaveBeenCalledWith(
-        'https://example.com/product',
+        'https://amazon.com/product',
         expect.objectContaining({
           headers: expect.objectContaining({
             'User-Agent': expect.any(String),
@@ -889,7 +889,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -937,7 +937,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -968,7 +968,7 @@ describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -1025,7 +1025,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
     mockPage = {
       goto: vi.fn().mockResolvedValue(undefined),
       waitForSelector: vi.fn().mockResolvedValue(undefined),
-      waitForTimeout: vi.fn().mockResolvedValue(undefined),
+      waitForLoadState: vi.fn().mockResolvedValue(undefined),
       locator: vi.fn().mockReturnValue({
         first: vi.fn().mockReturnThis(),
         textContent: vi.fn().mockResolvedValue(null),
@@ -1065,7 +1065,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -1096,7 +1096,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -1137,7 +1137,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -1154,7 +1154,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -1182,7 +1182,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -1212,7 +1212,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://react-app.example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -1246,15 +1246,15 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://slow-app.example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
       const result = await playwrightAgent.processTask(task);
 
       expect(result.success).toBe(true);
-      // Should fall back to timeout wait
-      expect(mockPage.waitForTimeout).toHaveBeenCalledWith(2000);
+      // Should fall back to load state wait
+      expect(mockPage.waitForLoadState).toHaveBeenCalledWith('networkidle', { timeout: 5000 });
     });
 
     it('handles React/Vue/Angular applications', async () => {
@@ -1274,7 +1274,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://spa.example.com/product/123',
+        url: 'https://amazon.com/product/123',
         retailer: 'example.com',
       };
 
@@ -1306,13 +1306,13 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
       await playwrightAgent.processTask(task);
 
-      expect(mockPage.goto).toHaveBeenCalledWith('https://example.com/product', {
+      expect(mockPage.goto).toHaveBeenCalledWith('https://amazon.com/product', {
         waitUntil: 'domcontentloaded',
         timeout: 30000,
       });
@@ -1323,7 +1323,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://slow-site.example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -1352,7 +1352,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -1395,7 +1395,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -1430,7 +1430,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -1489,7 +1489,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://unknown-retailer.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'unknown-retailer.com',
       };
 
@@ -1514,7 +1514,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -1535,7 +1535,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -1566,7 +1566,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 
@@ -1594,7 +1594,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
 
       const task: ExtractionTask = {
         action: 'extract_product_data',
-        url: 'https://example.com/product',
+        url: 'https://amazon.com/product',
         retailer: 'example.com',
       };
 

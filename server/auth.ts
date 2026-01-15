@@ -146,6 +146,24 @@ passport.use(
           });
         }
 
+        // SECURITY: Transparent password hash upgrade on login
+        // Check if password was hashed with fewer rounds than current standard
+        if (await hashNeedsUpgrade(user.passwordHash)) {
+          try {
+            const newHash = await hashPassword(password);
+            const { storage } = await import('./storage.js');
+            await storage.updateUserPasswordHash(user.id, newHash);
+            // Note: Hash upgrade success logged in storage layer
+          } catch (upgradeError) {
+            // Log error but don't fail login - upgrade will happen next time
+            const { logger } = await import('./utils/logger.js');
+            logger.warn('Failed to upgrade password hash on login', {
+              userId: user.id,
+              error: upgradeError instanceof Error ? upgradeError.message : String(upgradeError),
+            });
+          }
+        }
+
         // Successful login - clear any failed attempts (Redis-backed)
         await clearFailedLoginsAsync(email);
         // Note: Success logging will happen in route handler where we have access to req
@@ -203,6 +221,17 @@ passport.deserializeUser(async (id: number, done) => {
 export async function hashPassword(password: string): Promise<string> {
   const { PASSWORD } = await import('./utils/constants.js');
   return bcrypt.hash(password, PASSWORD.BCRYPT_ROUNDS);
+}
+
+/**
+ * Check if a password hash needs to be upgraded to current bcrypt rounds
+ * @param hash - The bcrypt hash to check
+ * @returns True if the hash was created with fewer rounds than current standard
+ */
+export async function hashNeedsUpgrade(hash: string): Promise<boolean> {
+  const { PASSWORD } = await import('./utils/constants.js');
+  const rounds = bcrypt.getRounds(hash);
+  return rounds < PASSWORD.BCRYPT_ROUNDS;
 }
 
 export async function createUser(userData: {

@@ -1,5 +1,6 @@
 import { Express, Request } from 'express';
 import { z } from 'zod';
+import bcrypt from 'bcrypt';
 import { storage } from '../storage';
 import { passport, findUserByEmail, findUserById, hashPassword, User, SafeUser } from '../auth';
 import { generateCsrfToken, csrfProtection } from '../middleware/security';
@@ -16,6 +17,11 @@ import {
 } from '../services/password-reset-service';
 import { emailService } from '../services/email-service';
 import { isAuthenticated } from './helpers';
+import {
+  passwordResetLimiter,
+  loginLimiter,
+  registrationLimiter,
+} from '../middleware/auth-rate-limiter';
 
 // Import PASSWORD constants for consistency
 import { PASSWORD } from '../utils/constants';
@@ -45,6 +51,14 @@ const resetPasswordSchema = z.object({
     .max(PASSWORD.MAX_LENGTH, `Password must be less than ${PASSWORD.MAX_LENGTH} characters`),
 });
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Current password is required'),
+  newPassword: z
+    .string()
+    .min(PASSWORD.MIN_LENGTH, `Password must be at least ${PASSWORD.MIN_LENGTH} characters`)
+    .max(PASSWORD.MAX_LENGTH, `Password must be less than ${PASSWORD.MAX_LENGTH} characters`),
+});
+
 /**
  * Helper function to log password reset attempts with consistent structure
  */
@@ -62,6 +76,40 @@ function logPasswordResetAttempt(
     success,
     message,
   });
+}
+
+/**
+ * SECURITY: Normalize response time to prevent timing-based email enumeration
+ *
+ * Typical password reset flow (when user exists) takes 200-600ms due to:
+ * - Database lookup (~50ms)
+ * - Token generation (~10ms)
+ * - Email sending (~150-500ms)
+ *
+ * When user doesn't exist, the operation would take ~10ms (immediate return).
+ * This timing difference allows attackers to enumerate valid emails.
+ *
+ * This function ensures non-existent email requests take similar time by:
+ * 1. Measuring elapsed time since request start
+ * 2. Adding random delay to match typical user-exists response time
+ * 3. Using randomization to prevent statistical analysis
+ *
+ * @param startTime - Request start timestamp from Date.now()
+ */
+async function normalizeResponseTime(startTime: number): Promise<void> {
+  const crypto = await import('crypto');
+
+  // Typical time for full password reset flow (ms)
+  const TYPICAL_RESET_TIME_MIN = 200;
+  const TYPICAL_RESET_TIME_MAX = 600;
+
+  const elapsedTime = Date.now() - startTime;
+  const targetTime = crypto.randomInt(TYPICAL_RESET_TIME_MIN, TYPICAL_RESET_TIME_MAX);
+  const remainingDelay = Math.max(0, targetTime - elapsedTime);
+
+  if (remainingDelay > 0) {
+    await new Promise(resolve => setTimeout(resolve, remainingDelay));
+  }
 }
 
 /**
@@ -85,7 +133,7 @@ export function registerAuthRoutes(app: Express): void {
   });
 
   // User registration
-  app.post('/api/auth/register', csrfProtection, async (req, res): Promise<void> => {
+  app.post('/api/auth/register', registrationLimiter, csrfProtection, async (req, res): Promise<void> => {
     try {
       // SECURITY: Do not log request bodies in production (may contain sensitive data)
       // Use type guard to safely access email for logging
@@ -143,6 +191,7 @@ export function registerAuthRoutes(app: Express): void {
         },
       });
 
+      // SECURITY: Regenerate session ID after registration to prevent session fixation
       // Log the user in after registration
       req.login(user as Express.User, (err): void => {
         if (err) {
@@ -153,18 +202,57 @@ export function registerAuthRoutes(app: Express): void {
           sendErrorFromException(res, err, 'LoginAfterRegistration');
           return;
         }
-        sendSuccess(
-          res,
-          {
-            user: {
-              id: user.id,
-              username: user.username,
-              email: user.email,
-              role: user.role || 'user',
-            },
-          },
-          201
-        );
+
+        // Regenerate session ID to prevent session fixation
+        const userData = user;
+        req.session.regenerate((regenerateErr: Error | null): void => {
+          if (regenerateErr) {
+            logger.error('Session regeneration failed after registration', {
+              error: regenerateErr.message,
+              userId: user.id,
+            });
+            // Continue with original session - registration was successful
+            sendSuccess(
+              res,
+              {
+                user: {
+                  id: user.id,
+                  username: user.username,
+                  email: user.email,
+                  role: user.role || 'user',
+                },
+              },
+              201
+            );
+            return;
+          }
+
+          // Re-establish user in the new session
+          req.login(userData as Express.User, (reloginErr: Error | null): void => {
+            if (reloginErr) {
+              logger.error('Re-login after regeneration failed', {
+                error: reloginErr.message,
+                userId: userData.id,
+              });
+              // Registration succeeded but session setup failed
+              sendError(res, 'Registration successful but session setup failed. Please login.', 500);
+              return;
+            }
+
+            sendSuccess(
+              res,
+              {
+                user: {
+                  id: userData.id,
+                  username: userData.username,
+                  email: userData.email,
+                  role: userData.role || 'user',
+                },
+              },
+              201
+            );
+          });
+        });
       });
     } catch (error: unknown) {
       sendErrorFromException(res, error, 'Register');
@@ -172,7 +260,7 @@ export function registerAuthRoutes(app: Express): void {
   });
 
   // User login
-  app.post('/api/auth/login', csrfProtection, (req, res, next) => {
+  app.post('/api/auth/login', loginLimiter, csrfProtection, (req, res, next) => {
     // Use custom callback to capture authentication result for logging
     // Type the authenticate callback properly
     type AuthInfo = {
@@ -217,21 +305,65 @@ export function registerAuthRoutes(app: Express): void {
           return;
         }
 
-        // SECURITY: Log successful login
-        logSecurityEvent(SecurityEventType.LOGIN_SUCCESS, req, {
-          userId: user.id,
-          username: user.username,
-          email: user.email,
-          success: true,
-        });
+        // SECURITY: Regenerate session ID to prevent session fixation attacks
+        // This ensures that any pre-login session ID cannot be used by an attacker
+        const userData = user;
+        req.session.regenerate((regenerateErr: Error | null): void => {
+          if (regenerateErr) {
+            logger.error('Session regeneration failed after login', {
+              error: regenerateErr.message,
+              userId: user.id,
+            });
+            // Continue with original session rather than failing the login
+            logSecurityEvent(SecurityEventType.LOGIN_SUCCESS, req, {
+              userId: user.id,
+              username: user.username,
+              email: user.email,
+              success: true,
+              metadata: { sessionRegenerated: false },
+            });
 
-        sendSuccess(res, {
-          user: {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            role: user.role || 'user',
-          },
+            sendSuccess(res, {
+              user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                role: user.role || 'user',
+              },
+            });
+            return;
+          }
+
+          // Re-establish user in the new session
+          req.login(userData, (reloginErr: Error | null): void => {
+            if (reloginErr) {
+              logger.error('Re-login after regeneration failed', {
+                error: reloginErr.message,
+                userId: userData.id,
+              });
+              // Session was regenerated but user data lost - this is a critical error
+              sendError(res, 'Login failed', 500);
+              return;
+            }
+
+            // SECURITY: Log successful login with session regeneration
+            logSecurityEvent(SecurityEventType.LOGIN_SUCCESS, req, {
+              userId: userData.id,
+              username: userData.username,
+              email: userData.email,
+              success: true,
+              metadata: { sessionRegenerated: true },
+            });
+
+            sendSuccess(res, {
+              user: {
+                id: userData.id,
+                username: userData.username,
+                email: userData.email,
+                role: userData.role || 'user',
+              },
+            });
+          });
         });
       });
     };
@@ -272,7 +404,10 @@ export function registerAuthRoutes(app: Express): void {
   });
 
   // Password reset - Request token
-  app.post('/api/auth/forgot-password', csrfProtection, async (req, res): Promise<void> => {
+  app.post('/api/auth/forgot-password', passwordResetLimiter, csrfProtection, async (req, res): Promise<void> => {
+    // SECURITY: Track timing to prevent timing-based email enumeration
+    const startTime = Date.now();
+
     try {
       // Validate input with Zod schema
       const { email } = forgotPasswordSchema.parse(req.body);
@@ -287,6 +422,9 @@ export function registerAuthRoutes(app: Express): void {
         if (rateLimitExceeded) {
           // Log the rate limit event using helper
           logPasswordResetAttempt(req, email, user, false, 'Rate limit exceeded');
+
+          // SECURITY: Normalize response time even for rate-limited requests
+          await normalizeResponseTime(startTime);
 
           // SECURITY: Still return success to prevent email enumeration
           sendSuccess(res, {
@@ -322,6 +460,10 @@ export function registerAuthRoutes(app: Express): void {
           emailSent ? undefined : 'Failed to send email'
         );
       } else {
+        // SECURITY: User doesn't exist - simulate similar operations to prevent timing attack
+        // This ensures response time is similar to when user exists
+        await normalizeResponseTime(startTime);
+
         // User doesn't exist, but log this attempt
         logPasswordResetAttempt(req, email, null, false, 'User not found');
       }
@@ -334,6 +476,10 @@ export function registerAuthRoutes(app: Express): void {
       logger.error('Forgot password error', {
         error: error instanceof Error ? error.message : String(error),
       });
+
+      // SECURITY: Normalize timing even for errors to prevent enumeration
+      await normalizeResponseTime(startTime);
+
       // SECURITY: Don't reveal internal errors
       sendSuccess(res, {
         message: 'If an account exists with this email, a password reset link has been sent.',
@@ -438,6 +584,92 @@ export function registerAuthRoutes(app: Express): void {
         error: error instanceof Error ? error.message : String(error),
       });
       sendErrorFromException(res, error, 'ResetPassword');
+    }
+  });
+
+  // Password change - Change password for authenticated user
+  app.post('/api/auth/change-password', csrfProtection, async (req, res): Promise<void> => {
+    try {
+      // Check authentication
+      if (!isAuthenticated(req)) {
+        sendError(res, 'Not authenticated', 401);
+        return;
+      }
+
+      // Validate input with Zod schema
+      const parseResult = changePasswordSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        sendError(res, 'Validation failed', 400, parseResult.error.flatten().fieldErrors);
+        return;
+      }
+
+      const { currentPassword, newPassword } = parseResult.data;
+
+      // Validate new password strength
+      const passwordValidation = validatePassword(newPassword);
+      if (!passwordValidation.valid) {
+        sendError(res, passwordValidation.errors[0], 400);
+        return;
+      }
+
+      // Fetch user with password hash
+      const user = await storage.getUserWithPassword(req.user.id);
+      if (!user) {
+        sendError(res, 'User not found', 404);
+        return;
+      }
+
+      // Verify current password
+      const isValid = await bcrypt.compare(currentPassword, user.passwordHash);
+      if (!isValid) {
+        // SECURITY: Log failed password change attempt
+        logSecurityEvent(SecurityEventType.PASSWORD_RESET_COMPLETED, req, {
+          userId: req.user.id,
+          email: user.email,
+          username: user.username,
+          success: false,
+          message: 'Incorrect current password',
+        });
+
+        sendError(res, 'Current password is incorrect', 401);
+        return;
+      }
+
+      // Prevent setting same password
+      const isSamePassword = await bcrypt.compare(newPassword, user.passwordHash);
+      if (isSamePassword) {
+        sendError(res, 'New password must be different from current password', 400);
+        return;
+      }
+
+      // Hash and save new password
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateUserPasswordHash(req.user.id, hashedPassword);
+
+      // Invalidate other sessions (keep current one)
+      await storage.invalidateUserSessions(req.user.id, req.sessionID);
+
+      // SECURITY: Log successful password change
+      logSecurityEvent(SecurityEventType.PASSWORD_RESET_COMPLETED, req, {
+        userId: req.user.id,
+        email: user.email,
+        username: user.username,
+        success: true,
+        message: 'Password changed via authenticated endpoint',
+      });
+
+      // Send confirmation email if email service is ready
+      if (emailService.isReady()) {
+        await emailService.sendPasswordResetConfirmationEmail(user.email, user.username);
+      }
+
+      sendSuccess(res, { message: 'Password changed successfully' });
+    } catch (error: unknown) {
+      logger.error('Change password error', {
+        error: error instanceof Error ? error.message : String(error),
+        userId: req.user?.id,
+      });
+      sendErrorFromException(res, error, 'ChangePassword');
     }
   });
 

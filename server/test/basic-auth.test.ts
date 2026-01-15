@@ -431,4 +431,83 @@ describe('HTTP Basic Auth - Integration Tests', () => {
       expect(response.body.success).toBe(true);
     });
   });
+
+  describe('Password Hash Upgrade (Security)', () => {
+    let weakUserId: number;
+
+    afterEach(async () => {
+      // Cleanup weak hash test user after each test
+      if (weakUserId) {
+        await db.execute(sql`DELETE FROM users WHERE id = ${weakUserId}`);
+      }
+    });
+
+    test('should upgrade weak password hash on successful login', async () => {
+      // Create a test user with a weak hash (4 rounds - bcrypt minimum)
+      const bcrypt = await import('bcrypt');
+      const weakPassword = 'TestPassword123!';
+      const weakHash = await bcrypt.hash(weakPassword, 4); // Only 4 rounds (weak, less than 12)
+
+      // Create user normally first
+      const weakUser = await storage.registerUser({
+        username: 'weak_hash_user',
+        email: 'weakhash@example.com',
+        passwordHash: await hashPassword('temporary'), // Create with normal hash
+      });
+
+      weakUserId = weakUser.id;
+
+      // Then update to use weak hash (simulating legacy data)
+      await storage.updateUserPasswordHash(weakUserId, weakHash);
+
+      // Verify hash has 4 rounds (less than our standard of 12)
+      const rounds = bcrypt.getRounds(weakHash);
+      expect(rounds).toBe(4);
+
+      // Attempt login (should succeed and upgrade hash)
+      await request(app)
+        .get('/api/v1/scraping/status')
+        .auth('weak_hash_user', weakPassword)
+        .expect(200);
+
+      // Verify hash was upgraded to 12 rounds
+      const updatedUser = await storage.getUserWithPassword(weakUserId);
+      expect(updatedUser).not.toBeNull();
+      if (updatedUser) {
+        const newRounds = bcrypt.getRounds(updatedUser.passwordHash);
+        expect(newRounds).toBe(12);
+
+        // Verify password still works with new hash
+        const isValid = await bcrypt.compare(weakPassword, updatedUser.passwordHash);
+        expect(isValid).toBe(true);
+      }
+    });
+
+    test('should not upgrade hash if already at current rounds', async () => {
+      // User already has 12-round hash (created by normal registration)
+      const bcrypt = await import('bcrypt');
+
+      // Get existing user's hash (should already be 12 rounds)
+      const user = await storage.getUserWithPassword(testUser.id);
+      expect(user).not.toBeNull();
+
+      if (user) {
+        const rounds = bcrypt.getRounds(user.passwordHash);
+        expect(rounds).toBe(12);
+
+        // Login should succeed without upgrade
+        await request(app)
+          .get('/api/v1/scraping/status')
+          .auth('basicauth_test_user', testPassword)
+          .expect(200);
+
+        // Hash should remain unchanged (same value)
+        const afterUser = await storage.getUserWithPassword(testUser.id);
+        expect(afterUser).not.toBeNull();
+        if (afterUser) {
+          expect(afterUser.passwordHash).toBe(user.passwordHash);
+        }
+      }
+    });
+  });
 });

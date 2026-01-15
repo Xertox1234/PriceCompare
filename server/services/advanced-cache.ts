@@ -551,8 +551,13 @@ export class AdvancedCacheService {
               if (useL1) {
                 this.l1Cache.set(key, parsed);
               }
-            } catch {
+            } catch (error) {
               this.stats.errors++;
+              logger.error('Failed to parse cached value from Redis', {
+                error: error instanceof Error ? error.message : String(error),
+                key,
+                valuePreview: value.substring(0, 100),
+              });
             }
           } else {
             this.stats.l2Misses++;
@@ -934,7 +939,12 @@ class SpecializedCache {
         await advancedCache.set(this.getFullKey(key), value, this.tier, false);
       }
       return true;
-    } catch {
+    } catch (error) {
+      logger.debug('Cache wrapper set failed', {
+        error: error instanceof Error ? error.message : String(error),
+        key,
+        tier: this.tier,
+      });
       return false;
     }
   }
@@ -946,7 +956,11 @@ class SpecializedCache {
     try {
       await advancedCache.invalidate(this.getFullKey(key));
       return true;
-    } catch {
+    } catch (error) {
+      logger.debug('Cache wrapper delete failed', {
+        error: error instanceof Error ? error.message : String(error),
+        key,
+      });
       return false;
     }
   }
@@ -981,7 +995,11 @@ class SpecializedCache {
     try {
       await advancedCache.invalidatePattern(`${this.keyPrefix}*`);
       return true;
-    } catch {
+    } catch (error) {
+      logger.debug('Cache wrapper clear failed', {
+        error: error instanceof Error ? error.message : String(error),
+        prefix: this.keyPrefix,
+      });
       return false;
     }
   }

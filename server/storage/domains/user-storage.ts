@@ -191,6 +191,38 @@ export class UserStorage extends BaseStorage {
     }
   }
 
+  /**
+   * Get user by ID with passwordHash for password verification
+   * SECURITY: Returns passwordHash for password verification ONLY
+   * Used by: Password change endpoint to verify current password
+   *
+   * @param userId - User ID (validated as positive integer)
+   * @returns User with minimal fields including passwordHash, or null if not found
+   */
+  async getUserWithPassword(userId: number): Promise<{ id: number; email: string; username: string; passwordHash: string } | null> {
+    try {
+      // Validate inputs
+      this.validateUserId(userId);
+
+      // SECURITY: This method returns passwordHash for password verification
+      // NEVER use this for API responses - use getUserByIdSafe instead
+      const [user] = await this.db
+        .select({
+          id: users.id,
+          email: users.email,
+          username: users.username,
+          passwordHash: users.passwordHash, // SECURITY: For password verification only
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      return user || null;
+    } catch (error) {
+      this.handleError(error, 'getUserWithPassword');
+    }
+  }
+
   // ============================================================================
   // User Registration and Authentication
   // ============================================================================
@@ -619,6 +651,128 @@ export class UserStorage extends BaseStorage {
       await storageCache.invalidateUserCache(userId);
     } catch (error) {
       this.handleError(error, 'updateUserRole');
+    }
+  }
+
+  /**
+   * Update user's password hash (for transparent rehashing on login)
+   * SECURITY: Only updates passwordHash, no token required
+   *
+   * @param userId - User ID
+   * @param newPasswordHash - New bcrypt hash (NEVER expose in logs/responses)
+   */
+  async updateUserPasswordHash(userId: number, newPasswordHash: string): Promise<void> {
+    try {
+      this.validateUserId(userId);
+
+      // SECURITY: Validate password hash format (bcrypt hashes are 60 chars)
+      if (!newPasswordHash || typeof newPasswordHash !== 'string' || newPasswordHash.length < 60) {
+        throw new Error('Invalid password hash format');
+      }
+
+      await this.db
+        .update(users)
+        .set({
+          passwordHash: newPasswordHash, // SECURITY: NEVER expose passwordHash in SELECT queries
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
+
+      // Invalidate user cache after password update
+      await storageCache.invalidateUserCache(userId);
+    } catch (error) {
+      this.handleError(error, 'updateUserPasswordHash');
+    }
+  }
+
+  /**
+   * Invalidate all user sessions except optionally the current one
+   * SECURITY: Used after password change to prevent session hijacking
+   *
+   * This method clears all Redis session keys for a user, forcing re-login.
+   * The current session can be preserved to keep the user logged in after
+   * password change.
+   *
+   * @param userId - User ID whose sessions to invalidate
+   * @param exceptSessionId - Optional session ID to preserve (current session)
+   */
+  async invalidateUserSessions(userId: number, exceptSessionId?: string): Promise<void> {
+    try {
+      this.validateUserId(userId);
+
+      // Get Redis client
+      const { getRedisSessionClient } = await import('../../config/redis');
+      const redisClient = getRedisSessionClient();
+
+      if (!redisClient) {
+        logger.warn('[UserStorage] Cannot invalidate sessions: Redis not available', { userId });
+        return;
+      }
+
+      // Scan for all session keys
+      // Pattern matches connect-redis session keys: "sess:{sessionId}"
+      const pattern = 'sess:*';
+      const keysToDelete: string[] = [];
+
+      // Use SCAN to iterate through keys (more efficient than KEYS for large datasets)
+      let cursor = '0'; // Redis SCAN uses string cursors
+      do {
+        const reply = await redisClient.scan(cursor, {
+          MATCH: pattern,
+          COUNT: 100,
+        });
+
+        cursor = reply.cursor;
+        const keys = reply.keys;
+
+        // Check each session to see if it belongs to this user
+        for (const key of keys) {
+          try {
+            const sessionData = await redisClient.get(key);
+            if (sessionData) {
+              const parsed: unknown = JSON.parse(sessionData);
+              // Type guard for session structure
+              if (
+                parsed &&
+                typeof parsed === 'object' &&
+                'passport' in parsed &&
+                parsed.passport &&
+                typeof parsed.passport === 'object' &&
+                'user' in parsed.passport &&
+                parsed.passport.user &&
+                typeof parsed.passport.user === 'object' &&
+                'id' in parsed.passport.user &&
+                parsed.passport.user.id === userId
+              ) {
+                // Extract session ID from key (remove "sess:" prefix)
+                const sessionId = key.substring(5);
+                // Only delete if it's not the excepted session
+                if (!exceptSessionId || sessionId !== exceptSessionId) {
+                  keysToDelete.push(key);
+                }
+              }
+            }
+          } catch (parseError) {
+            // Skip invalid session data
+            logger.warn('[UserStorage] Failed to parse session data', {
+              key,
+              error: parseError instanceof Error ? parseError.message : String(parseError),
+            });
+          }
+        }
+      } while (cursor !== '0');
+
+      // Delete all matching sessions
+      if (keysToDelete.length > 0) {
+        await redisClient.del(keysToDelete);
+        logger.info('[UserStorage] Invalidated user sessions', {
+          userId,
+          sessionsDeleted: keysToDelete.length,
+          preservedSession: exceptSessionId || 'none',
+        });
+      }
+    } catch (error) {
+      this.handleError(error, 'invalidateUserSessions');
     }
   }
 

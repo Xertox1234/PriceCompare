@@ -168,6 +168,8 @@ export const products = pgTable(
   (table) => ({
     // GIN index for full-text search (matches migration 0002)
     searchIdx: index('idx_products_search').using('gin', table.searchVector),
+    // Index for "recent products" queries (TODO_220)
+    createdAtIdx: index('products_created_at_idx').on(table.createdAt),
   })
 );
 
@@ -208,6 +210,8 @@ export const productOffers = pgTable(
       table.retailerId
     ),
     availabilityIdx: index('product_offers_availability_idx').on(table.availability),
+    // Index for finding stale offers that need re-scraping (TODO_220)
+    lastUpdatedIdx: index('product_offers_last_updated_idx').on(table.lastUpdated),
   })
 );
 

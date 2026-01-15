@@ -1861,6 +1861,7 @@ export class WatchListStorage extends BaseStorage {
    * Move multiple products between watch lists
    * Used for: Bulk organization
    * SECURITY: Verifies target list ownership
+   * TRANSACTION: Ensures atomic verification and update
    */
   async moveProductWatchesBulk(
     userId: number,
@@ -1874,28 +1875,32 @@ export class WatchListStorage extends BaseStorage {
         throw new Error('watchIds array cannot be empty');
       }
 
-      // Verify the target list belongs to the user if specified
-      if (targetListId !== null) {
-        this.validateWatchListId(targetListId);
+      // DATA INTEGRITY: Use transaction to ensure target list verification and update are atomic
+      // If target list is deleted between verification and update, transaction prevents orphaned references
+      return await this.db.transaction(async (tx) => {
+        // Verify the target list belongs to the user if specified
+        if (targetListId !== null) {
+          this.validateWatchListId(targetListId);
 
-        const targetList = await this.db
-          .select()
-          .from(watchLists)
-          .where(and(eq(watchLists.id, targetListId), eq(watchLists.userId, userId)))
-          .limit(1);
+          const targetList = await tx
+            .select()
+            .from(watchLists)
+            .where(and(eq(watchLists.id, targetListId), eq(watchLists.userId, userId)))
+            .limit(1);
 
-        if (targetList.length === 0) {
-          throw new Error('Target watch list not found');
+          if (targetList.length === 0) {
+            throw new Error('Target watch list not found');
+          }
         }
-      }
 
-      const result = await this.db
-        .update(productWatches)
-        .set({ watchListId: targetListId })
-        .where(and(inArray(productWatches.id, watchIds), eq(productWatches.userId, userId)))
-        .returning();
+        const result = await tx
+          .update(productWatches)
+          .set({ watchListId: targetListId })
+          .where(and(inArray(productWatches.id, watchIds), eq(productWatches.userId, userId)))
+          .returning();
 
-      return result.length;
+        return result.length;
+      });
     } catch (error) {
       this.handleError(error, 'moveProductWatchesBulk');
     }

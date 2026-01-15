@@ -435,6 +435,51 @@ describe('Authentication Routes', () => {
       expect(userInDb[0].passwordHash).not.toBe(password);
       expect(userInDb[0].passwordHash).toMatch(/^\$2[aby]\$\d{2}\$/); // bcrypt format
     });
+
+    it('should regenerate session ID after successful registration (session fixation protection)', async () => {
+      const agent = request.agent(app);
+
+      // Get initial session ID by making any request
+      const initialResponse = await agent.get('/api/csrf-token');
+      const initialCookies = initialResponse.headers['set-cookie'];
+      const initialSessionId = extractSessionId(initialCookies);
+
+      // Register a new user
+      const registerResponse = await agent.post('/api/auth/register').send({
+        email: 'newsession@example.com',
+        username: 'newsessionuser',
+        password: 'SecurePass123!',
+      });
+
+      expectSuccessResponse(registerResponse, 201);
+
+      // Extract session ID after registration
+      const registerCookies = registerResponse.headers['set-cookie'];
+      const newSessionId = extractSessionId(registerCookies);
+
+      // Session ID should have changed (session fixation protection)
+      expect(newSessionId).toBeDefined();
+      expect(initialSessionId).toBeDefined();
+      expect(newSessionId).not.toBe(initialSessionId);
+    });
+
+    it('should maintain authentication after registration session regeneration', async () => {
+      const agent = request.agent(app);
+
+      // Register
+      const registerResponse = await agent.post('/api/auth/register').send({
+        email: 'authtest@example.com',
+        username: 'authtestuser',
+        password: 'SecurePass123!',
+      });
+
+      expectSuccessResponse(registerResponse, 201);
+
+      // Verify user is authenticated after registration and session regeneration
+      const userResponse = await agent.get('/api/auth/user');
+      const userData = expectSuccessResponse<{ email: string }>(userResponse, 200);
+      expect(userData.email).toBe('authtest@example.com');
+    });
   });
 
   describe('POST /api/auth/login - User Login', () => {
@@ -591,7 +636,66 @@ describe('Authentication Routes', () => {
 
       expectSuccessResponse(response, 200);
     });
+
+    it('should regenerate session ID after successful login (session fixation protection)', async () => {
+      const agent = request.agent(app);
+
+      // Get initial session ID by making any request
+      const initialResponse = await agent.get('/api/csrf-token');
+      const initialCookies = initialResponse.headers['set-cookie'];
+      const initialSessionId = extractSessionId(initialCookies);
+
+      // Login with valid credentials
+      const loginResponse = await agent.post('/api/auth/login').send({
+        email: 'test@example.com',
+        password: 'SecurePass123!',
+      });
+
+      expectSuccessResponse(loginResponse, 200);
+
+      // Extract session ID after login
+      const loginCookies = loginResponse.headers['set-cookie'];
+      const newSessionId = extractSessionId(loginCookies);
+
+      // Session ID should have changed (session fixation protection)
+      expect(newSessionId).toBeDefined();
+      expect(initialSessionId).toBeDefined();
+      expect(newSessionId).not.toBe(initialSessionId);
+    });
+
+    it('should maintain authentication after session regeneration', async () => {
+      const agent = request.agent(app);
+
+      // Login
+      const loginResponse = await agent.post('/api/auth/login').send({
+        email: 'test@example.com',
+        password: 'SecurePass123!',
+      });
+
+      expectSuccessResponse(loginResponse, 200);
+
+      // Verify user is still authenticated after session regeneration
+      const userResponse = await agent.get('/api/auth/user');
+      const userData = expectSuccessResponse<{ email: string }>(userResponse, 200);
+      expect(userData.email).toBe('test@example.com');
+    });
   });
+
+  // Helper function to extract session ID from cookies
+  function extractSessionId(cookies: string[] | string | undefined): string | null {
+    if (!cookies) return null;
+
+    const cookieArray = Array.isArray(cookies) ? cookies : [cookies];
+    const sessionCookie = cookieArray.find(
+      (c) => c.includes('connect.sid') || c.includes('session')
+    );
+
+    if (!sessionCookie) return null;
+
+    // Extract the value between the cookie name and the first semicolon
+    const match = sessionCookie.match(/(?:connect\.sid|session)=([^;]+)/);
+    return match ? match[1] : null;
+  }
 
   describe('POST /api/auth/logout - User Logout', () => {
     beforeEach(async () => {
@@ -723,6 +827,65 @@ describe('Authentication Routes', () => {
       // Should only have one token (old one deleted)
       expect(tokens2.length).toBe(1);
       expect(tokens2[0].token).not.toBe(firstToken);
+    });
+
+    it('should normalize response times to prevent timing attacks (existing vs non-existing email)', async () => {
+      // SECURITY: This test verifies that response times for existing and non-existing emails
+      // are similar, preventing attackers from enumerating valid emails via timing analysis
+
+      const timingResults = {
+        existing: [] as number[],
+        nonExisting: [] as number[],
+      };
+
+      // Test with existing email (multiple times to get average)
+      for (let i = 0; i < 5; i++) {
+        const startTime = Date.now();
+        await request(app)
+          .post('/api/auth/forgot-password')
+          .send({ email: 'test@example.com' });
+        const duration = Date.now() - startTime;
+        timingResults.existing.push(duration);
+      }
+
+      // Test with non-existing email (multiple times to get average)
+      for (let i = 0; i < 5; i++) {
+        const startTime = Date.now();
+        await request(app)
+          .post('/api/auth/forgot-password')
+          .send({ email: 'nonexistent@example.com' });
+        const duration = Date.now() - startTime;
+        timingResults.nonExisting.push(duration);
+      }
+
+      // Calculate averages
+      const avgExisting = timingResults.existing.reduce((a, b) => a + b, 0) / timingResults.existing.length;
+      const avgNonExisting = timingResults.nonExisting.reduce((a, b) => a + b, 0) / timingResults.nonExisting.length;
+
+      // Both should be in the normalized range (200-600ms)
+      // Allow some overhead for test environment
+      expect(avgNonExisting).toBeGreaterThanOrEqual(150);
+      expect(avgNonExisting).toBeLessThanOrEqual(700);
+
+      // The difference between existing and non-existing should be small
+      // (within 500ms to account for email sending variation and test environment overhead)
+      const timingDifference = Math.abs(avgExisting - avgNonExisting);
+      expect(timingDifference).toBeLessThanOrEqual(500);
+
+      // Verify both responses are identical
+      const existingResponse = await request(app)
+        .post('/api/auth/forgot-password')
+        .send({ email: 'test@example.com' });
+
+      const nonExistingResponse = await request(app)
+        .post('/api/auth/forgot-password')
+        .send({ email: 'nonexistent@example.com' });
+
+      const existingResult = expectSuccessResponse<{ message: string }>(existingResponse, 200);
+      const nonExistingResult = expectSuccessResponse<{ message: string }>(nonExistingResponse, 200);
+
+      // Response messages should be identical
+      expect(existingResult.message).toBe(nonExistingResult.message);
     });
   });
 

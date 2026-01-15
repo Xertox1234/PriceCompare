@@ -1436,8 +1436,11 @@ export function registerApiV1Routes(app: Express): void {
         let dbStatus = 'healthy';
         try {
           await storage.getAllRetailers();
-        } catch {
+        } catch (error) {
           dbStatus = 'unhealthy';
+          logger.error('Database health check failed', {
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
 
         // Check Redis connectivity (if available)
@@ -1449,8 +1452,11 @@ export function registerApiV1Routes(app: Express): void {
             await redis.ping();
             redisStatus = 'healthy';
           }
-        } catch {
+        } catch (error) {
           redisStatus = 'unhealthy';
+          logger.error('Redis health check failed', {
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
 
         sendSuccess(res, {

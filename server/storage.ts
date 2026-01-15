@@ -337,6 +337,9 @@ export interface IStorage {
   unsuspendUser(userId: number, moderatorId: number): Promise<void>;
   setUserActive(userId: number, active: boolean): Promise<void>;
   updateUserRole(userId: number, role: 'user' | 'moderator' | 'admin'): Promise<void>;
+  updateUserPasswordHash(userId: number, newPasswordHash: string): Promise<void>;
+  getUserWithPassword(userId: number): Promise<{ id: number; email: string; username: string; passwordHash: string } | null>;
+  invalidateUserSessions(userId: number, exceptSessionId?: string): Promise<void>;
 
   // Admin Analytics
   getAllUsers(): Promise<AdminUser[]>;
@@ -1816,6 +1819,18 @@ export class MemStorage implements IStorage {
   }
 
   async updateUserRole(_userId: number, _role: 'user' | 'moderator' | 'admin'): Promise<void> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async updateUserPasswordHash(_userId: number, _newPasswordHash: string): Promise<void> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async getUserWithPassword(_userId: number): Promise<{ id: number; email: string; username: string; passwordHash: string } | null> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async invalidateUserSessions(_userId: number, _exceptSessionId?: string): Promise<void> {
     throw new Error('Not supported in memory storage');
   }
 
@@ -3574,6 +3589,18 @@ export class DatabaseStorage implements IStorage {
 
   async updateUserRole(userId: number, role: 'user' | 'moderator' | 'admin'): Promise<void> {
     return this.userStorage.updateUserRole(userId, role);
+  }
+
+  async updateUserPasswordHash(userId: number, newPasswordHash: string): Promise<void> {
+    return this.userStorage.updateUserPasswordHash(userId, newPasswordHash);
+  }
+
+  async getUserWithPassword(userId: number): Promise<{ id: number; email: string; username: string; passwordHash: string } | null> {
+    return this.userStorage.getUserWithPassword(userId);
+  }
+
+  async invalidateUserSessions(userId: number, exceptSessionId?: string): Promise<void> {
+    return this.userStorage.invalidateUserSessions(userId, exceptSessionId);
   }
 
   // Admin Analytics
