@@ -10,11 +10,11 @@
  * - Prefer scoped scans (`include(...)`) to avoid noisy global violations.
  */
 import { test, expect } from './fixtures';
-import { type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { createAdminUser, seedTestProduct } from './helpers/admin-helpers';
 import { seedPriceHistoryData, navigateToPriceHistory } from './helpers/price-analytics-helpers';
 import { registerUser, waitForPageReady } from './helpers';
+import type { Page } from 'playwright-core';
 
 type AxeScanOptions = {
   include?: string;
