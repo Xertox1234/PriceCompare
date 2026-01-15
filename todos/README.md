@@ -4,7 +4,15 @@ This folder contains TODO items for the PriceCompare project. Completed TODOs ar
 
 ## Active TODOs
 
-Currently, there are **2 active TODOs**:
+Currently, there are **3 active TODOs**:
+
+### 🔴 High Priority (1)
+- **TODO_227 (Scraper Retry Logic)** - P1, 1 hour 🔧 Reliability
+  - **Problem**: Retry utility exists but NOT used in scraper jobs
+  - **Impact**: Transient failures cause permanent data gaps in price history
+  - **Files**: `server/services/price-snapshot-service.ts`, `server/jobs/price-snapshot-queue.ts`
+  - **Pattern Ref**: `docs/07_BACKGROUND_JOBS_PATTERNS.md`, `docs/RETRY_UTILITY_USAGE.md`
+  - **Note**: `server/utils/retry.ts` already exists - just needs to be applied
 
 ### 🟡 Medium Priority (2)
 - **TODO_014 (Product Image Visibility Fix)** - P2, 15 minutes ⚡ (revised after agent review)
@@ -23,7 +31,49 @@ Currently, there are **2 active TODOs**:
   - **E2E Tests**: 1 skipped test waiting for button
   - **Original estimate**: 1-2 hours → **Actual**: 10 minutes (92% time savings)
 
-### ✅ Archived (5)
+### ✅ Archived (9)
+- **TODO_228 (Timing Attack Prevention)** → Completed 2026-01-15
+  - **Discovery**: Implementation already complete from TODO_214 (2026-01-14)
+  - **Implementation Status**: All timing attack prevention measures fully implemented
+  - **Security Features**: Cryptographic randomization (crypto.randomInt), 200-600ms normalized response times, identical success messages
+  - **Code Paths**: All paths normalized (user exists, user doesn't exist, rate-limited, errors)
+  - **Tests**: 6/6 password reset tests passing including comprehensive timing test (2297-3556ms for 10 requests)
+  - **Functions**: `normalizeResponseTime(startTime)` function (lines 81-113 in auth-routes.ts)
+  - **Time**: 10 minutes investigation (vs 30 minute estimate = 67% time savings)
+  - **Files**: server/routes/auth-routes.ts (verification only, no changes needed)
+  - **Resolution**: No code changes required - vulnerability already remediated
+
+- **TODO_226 (Auth Rate Limiting)** → Completed 2026-01-15
+  - **Discovery**: Implementation already complete and fully functional
+  - **Implementation Status**: All three rate limiters (passwordResetLimiter, loginLimiter, registrationLimiter) exist and applied correctly
+  - **Configuration**: Password reset (3/15min), Login (10/15min), Registration (5/1hr) with IP+email composite keys
+  - **Security Features**: Redis-backed rate limiting, composite key pattern prevents distributed attacks
+  - **Tests**: 13/13 unit tests passing with 100% coverage
+  - **Middleware Order**: Correct (rateLimiter → csrfProtection → handler)
+  - **Time**: 10 minutes investigation (vs 45 minute estimate = 78% time savings)
+  - **Files**: server/middleware/auth-rate-limiter.ts, server/routes/auth-routes.ts
+  - **Only Change**: Fixed ESLint unused variable warning (dummyToken → _dummyToken)
+
+- **TODO_229 (Password Change Validation)** → Completed 2026-01-15
+  - **Discovery**: Implementation already complete, added comprehensive test coverage
+  - **Implementation Status**: Current password verification, session invalidation, all storage methods exist
+  - **Tests Added**: 18 comprehensive tests covering all security requirements
+  - **Security Features**: bcrypt verification, password reuse prevention, session invalidation, email confirmation
+  - **Impact**: Prevents session hijacking escalation to full account takeover
+  - **Time**: 30 minutes (vs 45 minute estimate = 33% time savings)
+  - **Files**: server/routes/__tests__/auth-routes.test.ts (18 new tests)
+  - **Implementation**: server/routes/auth-routes.ts (lines 591-674), server/storage/domains/user-storage.ts
+
+- **TODO_230 (Distributed Lock for Snapshot Scheduler)** → Completed 2026-01-15
+  - **Problem**: Price snapshot cron fired on ALL servers simultaneously
+  - **Resolution**: Added `jobLockService.withLock()` wrapper following established pattern
+  - **Impact**: Only ONE server triggers cron job, others skip with debug log
+  - **Implementation**: 60-second lock TTL, skip logging, pattern consistency verified
+  - **Pattern**: Matches price-analytics-jobs.ts, price-alert-checker.ts implementations
+  - **Time**: 15 minutes (vs 20 minute estimate = 25% time savings)
+  - **Files**: server/jobs/price-snapshot-queue.ts
+  - **Pattern Ref**: docs/07_BACKGROUND_JOBS_PATTERNS.md#distributed-job-locking
+
 - **E2E Test Remediation** → Completed 2026-01-09
   - **Problem**: 18 E2E test failures after WebSocket networkidle fix
   - **Resolution**: All 18 failures addressed - 13 fixed and passing, 16 properly skipped

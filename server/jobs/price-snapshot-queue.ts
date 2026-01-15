@@ -1,6 +1,7 @@
 import Queue from 'bull';
 import cron from 'node-cron';
 import { priceSnapshotService } from '../services/price-snapshot-service';
+import { jobLockService } from '../services/job-lock-service';
 import { logger } from '../utils/logger';
 
 // Initialize Redis connection for Bull
@@ -67,30 +68,38 @@ export function initializePriceSnapshotScheduler() {
   logger.info(`[PriceSnapshotScheduler] Initializing with schedule: ${cronSchedule}`);
 
   cron.schedule(cronSchedule, async () => {
-    logger.info(
-      `[PriceSnapshotScheduler] Triggering scheduled price snapshot at ${new Date().toISOString()}`
+    // Use distributed lock to prevent duplicate execution across multiple servers
+    const result = await jobLockService.withLock(
+      'price-snapshot:scheduler',
+      async () => {
+        logger.info(
+          `[PriceSnapshotScheduler] Triggering scheduled price snapshot at ${new Date().toISOString()} (lock acquired)`
+        );
+
+        await priceSnapshotQueue.add(
+          {
+            type: 'scheduled',
+            timestamp: new Date().toISOString(),
+          },
+          {
+            attempts: 3,
+            backoff: {
+              type: 'exponential',
+              delay: 2000,
+            },
+            removeOnComplete: true,
+            removeOnFail: false,
+          }
+        );
+
+        return { triggered: true };
+      },
+      60 // 60 second lock (job add is fast)
     );
 
-    try {
-      await priceSnapshotQueue.add(
-        {
-          type: 'scheduled',
-          timestamp: new Date().toISOString(),
-        },
-        {
-          attempts: 3,
-          backoff: {
-            type: 'exponential',
-            delay: 2000,
-          },
-          removeOnComplete: true,
-          removeOnFail: false,
-        }
-      );
-    } catch (error) {
-      logger.error('[PriceSnapshotScheduler] Error adding snapshot job to queue:', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+    if (result === null) {
+      // Another server already triggered this schedule
+      logger.debug('[PriceSnapshotScheduler] Skipped - already triggered by another server');
     }
   });
 

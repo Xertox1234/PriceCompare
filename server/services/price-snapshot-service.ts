@@ -2,6 +2,7 @@ import { storage } from '../storage';
 import { logger } from '../utils/logger';
 import { priceAggregationService } from './price-aggregation-service';
 import { BATCH_PROCESSING } from '../utils/constants';
+import { withRetry, createSmartRetryCondition } from '../utils/retry';
 
 export class PriceSnapshotService {
   /**
@@ -21,23 +22,123 @@ export class PriceSnapshotService {
   async snapshotAllPrices(
     batchSize: number = PriceSnapshotService.DEFAULT_BATCH_SIZE
   ): Promise<number> {
-    try {
-      let offset = 0;
-      let totalCount = 0;
-      const now = new Date();
+    // Wrap entire snapshot operation with retry logic
+    // This handles transient database/network failures
+    return withRetry(
+      async () => {
+        let offset = 0;
+        let totalCount = 0;
+        const now = new Date();
 
-      logger.info(`[PriceSnapshot] Starting batch price snapshot with batch size ${batchSize}`);
+        logger.info(`[PriceSnapshot] Starting batch price snapshot with batch size ${batchSize}`);
 
-      // eslint-disable-next-line no-constant-condition -- Intentional infinite loop with break condition
-      while (true) {
-        // Fetch offers in batches to maintain stable memory usage
-        const batch = await storage.getProductOffersForSnapshot(batchSize, offset);
+        // eslint-disable-next-line no-constant-condition -- Intentional infinite loop with break condition
+        while (true) {
+          // Fetch offers in batches to maintain stable memory usage
+          const batch = await storage.getProductOffersForSnapshot(batchSize, offset);
 
-        if (batch.length === 0) {
-          break;
+          if (batch.length === 0) {
+            break;
+          }
+
+          const snapshots = batch.map((offer) => ({
+            productOfferId: offer.id,
+            productId: offer.productId,
+            retailerId: offer.retailerId,
+            price: offer.price,
+            originalPrice: offer.originalPrice,
+            availability: offer.availability,
+            rating: offer.rating,
+            reviewCount: offer.reviewCount,
+            source: 'snapshot' as const,
+            confidence: '1.00',
+            metadata: null,
+            recordedAt: now,
+          }));
+
+          // Insert price history records (batch insert for performance)
+          // Wrap individual batch insert with retry for transient failures
+          await withRetry(
+            () => storage.insertPriceHistoryBatch(snapshots),
+            {
+              maxAttempts: 3,
+              baseDelayMs: 1000,
+              maxDelayMs: 10000,
+              shouldRetry: createSmartRetryCondition(),
+              onRetry: (error, attempt, delayMs) => {
+                logger.warn(`Batch insert attempt ${attempt} failed, retrying in ${delayMs}ms`, {
+                  batch: offset / batchSize + 1,
+                  batchSize: batch.length,
+                  attempt,
+                  delayMs,
+                  error: error.message,
+                });
+              },
+            }
+          );
+
+          totalCount += batch.length;
+          offset += batchSize;
+
+          logger.info(
+            `[PriceSnapshot] Processed batch: ${batch.length} offers (total: ${totalCount})`
+          );
         }
 
-        const snapshots = batch.map((offer) => ({
+        if (totalCount === 0) {
+          logger.info('[PriceSnapshot] No product offers found to snapshot');
+        } else {
+          logger.info(`[PriceSnapshot] Successfully snapshotted ${totalCount} price records`);
+        }
+
+        return totalCount;
+      },
+      {
+        maxAttempts: 3,
+        baseDelayMs: 2000,
+        maxDelayMs: 30000,
+        shouldRetry: createSmartRetryCondition(),
+        onRetry: (error, attempt, delayMs) => {
+          logger.warn(`Price snapshot attempt ${attempt} failed, retrying in ${delayMs}ms`, {
+            attempt,
+            delayMs,
+            error: error.message,
+          });
+        },
+      }
+    );
+  }
+
+  /**
+   * Snapshot prices for a specific product
+   * Useful when a product is updated individually
+   *
+   * Uses retry logic to handle transient failures during individual product updates
+   */
+  async snapshotProductPrices(productId: number): Promise<number> {
+    return withRetry(
+      async () => {
+        const offers = await storage.getProductOffersByProductId(productId);
+
+        if (offers.length === 0) {
+          logger.info(`[PriceSnapshot] No offers found for product ${productId}`);
+          return 0;
+        }
+
+        // BATCH QUERY: Get previous prices to detect changes (fixes N+1)
+        const offerIds = offers.map((o) => o.id);
+        const allLastSnapshots = await storage.getPriceHistoryForOffers(offerIds);
+
+        // Build map of offerId -> latest price (first entry per offerId due to ordering)
+        const previousPrices = new Map<number, number>();
+        for (const snapshot of allLastSnapshots) {
+          if (!previousPrices.has(snapshot.productOfferId)) {
+            previousPrices.set(snapshot.productOfferId, parseFloat(snapshot.price));
+          }
+        }
+
+        const now = new Date();
+        const snapshots = offers.map((offer) => ({
           productOfferId: offer.id,
           productId: offer.productId,
           retailerId: offer.retailerId,
@@ -55,126 +156,69 @@ export class PriceSnapshotService {
         // Insert price history records (batch insert for performance)
         await storage.insertPriceHistoryBatch(snapshots);
 
-        totalCount += batch.length;
-        offset += batchSize;
-
         logger.info(
-          `[PriceSnapshot] Processed batch: ${batch.length} offers (total: ${totalCount})`
+          `[PriceSnapshot] Snapshotted ${snapshots.length} prices for product ${productId}`
         );
-      }
 
-      if (totalCount === 0) {
-        logger.info('[PriceSnapshot] No product offers found to snapshot');
-      } else {
-        logger.info(`[PriceSnapshot] Successfully snapshotted ${totalCount} price records`);
-      }
+        // Emit price update events for significant changes
+        try {
+          const { getSocketIO } = await import('../websocket');
+          const { emitPriceUpdate } = await import('../websocket/handlers/price-update-handler');
+          const io = getSocketIO();
 
-      return totalCount;
-    } catch (error) {
-      logger.error('[PriceSnapshot] Error snapshotting prices:', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      throw error;
-    }
-  }
+          if (io) {
+            // Batch fetch product and retailer details to avoid N+1 queries
+            const productDetails = await storage.getProductByIdRaw(productId);
 
-  /**
-   * Snapshot prices for a specific product
-   * Useful when a product is updated individually
-   */
-  async snapshotProductPrices(productId: number): Promise<number> {
-    try {
-      const offers = await storage.getProductOffersByProductId(productId);
+            // Batch fetch all retailers for the offers
+            const retailerIds = Array.from(new Set(offers.map((o) => o.retailerId)));
+            const retailerData = await storage.getRetailersByIds(retailerIds);
+            const retailerMap = new Map(retailerData.map((r) => [r.id, r.name]));
 
-      if (offers.length === 0) {
-        logger.info(`[PriceSnapshot] No offers found for product ${productId}`);
-        return 0;
-      }
+            if (productDetails) {
+              for (const offer of offers) {
+                const previousPrice = previousPrices.get(offer.id);
+                const currentPrice = parseFloat(offer.price);
 
-      // BATCH QUERY: Get previous prices to detect changes (fixes N+1)
-      const offerIds = offers.map((o) => o.id);
-      const allLastSnapshots = await storage.getPriceHistoryForOffers(offerIds);
+                // Only emit if price changed and we have a previous price
+                if (previousPrice && previousPrice !== currentPrice) {
+                  const percentageChange = ((currentPrice - previousPrice) / previousPrice) * 100;
 
-      // Build map of offerId -> latest price (first entry per offerId due to ordering)
-      const previousPrices = new Map<number, number>();
-      for (const snapshot of allLastSnapshots) {
-        if (!previousPrices.has(snapshot.productOfferId)) {
-          previousPrices.set(snapshot.productOfferId, parseFloat(snapshot.price));
-        }
-      }
-
-      const now = new Date();
-      const snapshots = offers.map((offer) => ({
-        productOfferId: offer.id,
-        productId: offer.productId,
-        retailerId: offer.retailerId,
-        price: offer.price,
-        originalPrice: offer.originalPrice,
-        availability: offer.availability,
-        rating: offer.rating,
-        reviewCount: offer.reviewCount,
-        source: 'snapshot' as const,
-        confidence: '1.00',
-        metadata: null,
-        recordedAt: now,
-      }));
-
-      // Insert price history records (batch insert for performance)
-      await storage.insertPriceHistoryBatch(snapshots);
-
-      logger.info(
-        `[PriceSnapshot] Snapshotted ${snapshots.length} prices for product ${productId}`
-      );
-
-      // Emit price update events for significant changes
-      try {
-        const { getSocketIO } = await import('../websocket');
-        const { emitPriceUpdate } = await import('../websocket/handlers/price-update-handler');
-        const io = getSocketIO();
-
-        if (io) {
-          // Batch fetch product and retailer details to avoid N+1 queries
-          const productDetails = await storage.getProductByIdRaw(productId);
-
-          // Batch fetch all retailers for the offers
-          const retailerIds = Array.from(new Set(offers.map((o) => o.retailerId)));
-          const retailerData = await storage.getRetailersByIds(retailerIds);
-          const retailerMap = new Map(retailerData.map((r) => [r.id, r.name]));
-
-          if (productDetails) {
-            for (const offer of offers) {
-              const previousPrice = previousPrices.get(offer.id);
-              const currentPrice = parseFloat(offer.price);
-
-              // Only emit if price changed and we have a previous price
-              if (previousPrice && previousPrice !== currentPrice) {
-                const percentageChange = ((currentPrice - previousPrice) / previousPrice) * 100;
-
-                emitPriceUpdate(io, productId, {
-                  productName: productDetails.name,
-                  retailerName: retailerMap.get(offer.retailerId) || 'Retailer',
-                  oldPrice: previousPrice,
-                  newPrice: currentPrice,
-                  percentageChange,
-                });
+                  emitPriceUpdate(io, productId, {
+                    productName: productDetails.name,
+                    retailerName: retailerMap.get(offer.retailerId) || 'Retailer',
+                    oldPrice: previousPrice,
+                    newPrice: currentPrice,
+                    percentageChange,
+                  });
+                }
               }
             }
           }
+        } catch (error) {
+          // Don't fail the operation if WebSocket emit fails
+          logger.error('Failed to emit price update events:', {
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
-      } catch (error) {
-        // Don't fail the operation if WebSocket emit fails
-        logger.error('Failed to emit price update events:', {
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
 
-      return snapshots.length;
-    } catch (error) {
-      logger.error(`[PriceSnapshot] Error snapshotting prices for product ${productId}:`, {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      throw error;
-    }
+        return snapshots.length;
+      },
+      {
+        maxAttempts: 3,
+        baseDelayMs: 2000,
+        maxDelayMs: 30000,
+        shouldRetry: createSmartRetryCondition(),
+        onRetry: (error, attempt, delayMs) => {
+          logger.warn(`Product snapshot attempt ${attempt} failed, retrying in ${delayMs}ms`, {
+            productId,
+            attempt,
+            delayMs,
+            error: error.message,
+          });
+        },
+      }
+    );
   }
 
   /**

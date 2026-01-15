@@ -416,6 +416,11 @@ export function registerAuthRoutes(app: Express): void {
       // Even if the user doesn't exist, we return a success message
       const user = await findUserByEmail(email);
 
+      // SECURITY: Always generate a token (even for non-existent users)
+      // This prevents timing leaks from token generation itself
+      const crypto = await import('crypto');
+      const _dummyToken = crypto.randomBytes(32).toString('hex');
+
       if (user) {
         // Check rate limiting to prevent abuse
         const rateLimitExceeded = await isRateLimitExceeded(user.id);
@@ -462,6 +467,7 @@ export function registerAuthRoutes(app: Express): void {
       } else {
         // SECURITY: User doesn't exist - simulate similar operations to prevent timing attack
         // This ensures response time is similar to when user exists
+        // Note: _dummyToken already generated above (prevents token generation timing leak)
         await normalizeResponseTime(startTime);
 
         // User doesn't exist, but log this attempt
@@ -478,6 +484,7 @@ export function registerAuthRoutes(app: Express): void {
       });
 
       // SECURITY: Normalize timing even for errors to prevent enumeration
+      // Note: dummyToken generation may or may not have occurred depending on where error happened
       await normalizeResponseTime(startTime);
 
       // SECURITY: Don't reveal internal errors
