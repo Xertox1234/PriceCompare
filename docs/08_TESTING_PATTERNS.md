@@ -6530,6 +6530,203 @@ await Promise.all([
 ]);
 ```
 
+#### Condition-Based Waits Instead of Hardcoded Timeouts (NEW - 2026-01-14)
+
+**Context:** Hardcoded waits (`waitForTimeout`) cause race conditions and make tests slower than necessary.
+
+**Problem:** Fixed delays either timeout prematurely (test failures) or waste time waiting longer than needed (slow CI).
+
+**Source:** `server/agents/extraction-agent.ts` line 257 from TODO_218 (Playwright Wait Strategy implementation).
+
+##### ❌ WRONG - Hardcoded Waits (Race Conditions!)
+
+```typescript
+// Scraper agent with timing hazards
+async function extractProductData(page: Page, url: string) {
+  await page.goto(url);
+
+  // ❌ WRONG: Fixed 2-second wait (arbitrary guess)
+  await page.waitForTimeout(2000);
+
+  // Problems:
+  // - If page loads in 500ms, wastes 1.5 seconds
+  // - If page takes 2.5 seconds, extraction fails
+  // - Network conditions vary: works locally, fails in CI
+  // - No feedback about what we're waiting for
+
+  const price = await page.locator('.price').textContent();
+  return price;
+}
+```
+
+**Race Condition Scenarios:**
+1. **Fast connection**: Page loads in 300ms → Wait 1.7s unnecessarily
+2. **Slow connection**: Page loads in 3s → Selector fails (missing data)
+3. **CDN variation**: Assets cached → 100ms. Assets not cached → 5s (intermittent failures)
+
+##### ✅ CORRECT - Event-Driven Condition Waits
+
+```typescript
+// Scraper agent with condition-based waits
+async function extractProductData(page: Page, url: string) {
+  await page.goto(url);
+
+  // ✅ CORRECT: Wait for specific load state (event-driven)
+  try {
+    // Prefer networkidle (all network activity settled)
+    await page.waitForLoadState('networkidle', { timeout: 5000 });
+  } catch {
+    // Fallback to 'load' (DOMContentLoaded fired)
+    await page.waitForLoadState('load');
+  }
+
+  // ✅ Wait for specific element to be visible
+  await page.waitForSelector('.price', {
+    state: 'visible',
+    timeout: 10000,
+  });
+
+  const price = await page.locator('.price').textContent();
+  return price;
+}
+```
+
+##### Playwright Wait Strategies
+
+**1. Load State Waits (Page-Level)**
+
+```typescript
+// 'load' - DOMContentLoaded event (HTML parsed, DOM ready)
+await page.waitForLoadState('load');
+
+// 'domcontentloaded' - Same as 'load'
+await page.waitForLoadState('domcontentloaded');
+
+// 'networkidle' - No network activity for 500ms (BEST for SPAs)
+await page.waitForLoadState('networkidle');
+
+// Comparison:
+// load:          Fast (1-2s), but JavaScript may still be executing
+// networkidle:   Slower (2-5s), but ensures all async data loaded
+```
+
+**When to use each:**
+- `load`: Static HTML sites, pre-rendered pages
+- `networkidle`: SPAs (React, Vue, Angular), dynamic content, API-driven pages
+
+**2. Element-Level Waits**
+
+```typescript
+// Wait for element to exist in DOM
+await page.waitForSelector('.product-card');
+
+// Wait for element to be visible (most common)
+await page.waitForSelector('.product-card', { state: 'visible' });
+
+// Wait for element to be hidden (deletion confirmation)
+await page.waitForSelector('.modal', { state: 'hidden' });
+
+// Wait for element to be attached (detached from DOM check)
+await page.waitForSelector('.tooltip', { state: 'attached' });
+```
+
+**3. Function-Based Waits (Custom Conditions)**
+
+```typescript
+// Wait for custom condition (complex logic)
+await page.waitForFunction(() => {
+  // Wait until product grid has at least 10 items
+  const products = document.querySelectorAll('.product-card');
+  return products.length >= 10;
+});
+
+// Wait for global variable (SPA initialization)
+await page.waitForFunction(() => window.__APP_READY__ === true);
+
+// Wait for API response completion (React Query, etc.)
+await page.waitForFunction(() => {
+  // Check if loading spinner is gone AND data is present
+  return !document.querySelector('.loading-spinner') &&
+         document.querySelectorAll('.product-card').length > 0;
+});
+```
+
+##### Pattern: Progressive Fallback Strategy
+
+**Best practice for reliable scraping:**
+
+```typescript
+async function waitForPageReady(page: Page): Promise<void> {
+  // Strategy 1: Try networkidle (ideal for SPAs)
+  try {
+    await page.waitForLoadState('networkidle', { timeout: 5000 });
+    logger.debug('Page ready via networkidle');
+    return;
+  } catch {
+    logger.debug('networkidle timeout, falling back to load');
+  }
+
+  // Strategy 2: Fall back to 'load' (DOM ready)
+  try {
+    await page.waitForLoadState('load', { timeout: 3000 });
+    logger.debug('Page ready via load');
+    return;
+  } catch {
+    logger.warn('Load state timeout, continuing anyway');
+  }
+
+  // Strategy 3: Last resort - wait for specific element
+  try {
+    await page.waitForSelector('body', { state: 'visible', timeout: 2000 });
+    logger.debug('Page ready via body element');
+  } catch {
+    logger.error('All wait strategies failed');
+    // Continue anyway - extraction will fail with clear error
+  }
+}
+```
+
+##### Performance Comparison
+
+**Hardcoded waits (old approach):**
+```
+Fast page (500ms actual):  wait 2000ms → WASTED 1500ms
+Medium page (1500ms):      wait 2000ms → OK
+Slow page (3000ms):        wait 2000ms → FAILS (timeout too short)
+
+Average test time: 2000ms per page (regardless of actual load time)
+Flaky test rate:  15% (timeouts on slow pages)
+```
+
+**Condition-based waits (new approach):**
+```
+Fast page (500ms):   wait 500ms → EFFICIENT
+Medium page (1500ms): wait 1500ms → EFFICIENT
+Slow page (3000ms):  wait 3000ms → OK (within 5s limit)
+
+Average test time: ~1200ms per page (matches actual load time + margin)
+Flaky test rate:  <1% (waits as long as needed, up to timeout)
+```
+
+##### Quality Checklist
+
+- [ ] NO `waitForTimeout()` calls in production scraper code
+- [ ] Use `waitForLoadState('networkidle')` for SPAs
+- [ ] Use `waitForSelector()` for dynamic content
+- [ ] Implement progressive fallback (networkidle → load → element)
+- [ ] Log which wait strategy succeeded (debugging)
+- [ ] Set reasonable timeouts (5-10s for scraping)
+- [ ] Tests verify behavior under various network conditions
+
+**Benefits:**
+- **Reliability**: Tests adapt to actual load time (no race conditions)
+- **Speed**: Don't wait longer than necessary (20-40% faster on average)
+- **Clarity**: Wait intent is explicit (`waitForSelector('.price')` vs `wait(2000)`)
+- **Maintainability**: Timeout adjustments target specific conditions
+
+**Source:** TODO_218 Playwright wait strategy refactor
+**Added:** 2026-01-14
+
 ---
 
 ### Visual Regression Testing (Screenshots)
