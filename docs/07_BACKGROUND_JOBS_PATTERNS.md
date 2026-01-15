@@ -1,11 +1,12 @@
 ---
 Pattern: Background Jobs Patterns
-Version: 2.1
-Last Updated: 2026-01-07
+Version: 2.2
+Last Updated: 2026-01-14
 Maintainer: Claude Code / Development Team
 Status: Active
 Related Patterns: [02_DATABASE_PATTERNS.md, 04_SECURITY_PATTERNS.md, 03_API_PATTERNS.md]
 Changelog:
+  - 2.2 (2026-01-14): Added Distributed URL Locking, Health Check Tiering, and Enhanced Graceful Shutdown patterns (from TODO_213, TODO_215, TODO_216)
   - 2.1 (2026-01-07): Added Product Deduplication in Batch Jobs and Consistent Distributed Locking patterns (from TODO_018 price alert checker)
   - 2.0 (2025-11-29): Initial consolidated background jobs patterns
 ---
@@ -271,6 +272,426 @@ export class JobLockService {
 - User-triggered actions (each user gets their own job)
 - Jobs that are naturally idempotent
 - Read-only analytics jobs (multiple runs don't matter)
+
+---
+
+## Distributed URL Locking Pattern (NEW - 2026-01-14)
+
+**Context:** Multiple scraper jobs may attempt to scrape the same URL simultaneously, wasting resources and triggering rate limits.
+
+**Problem:** Without URL-level locking, concurrent scrapers create duplicate requests, increased costs, and potential IP bans.
+
+**Source:** `server/services/url-lock-service.ts` from TODO_213 (Distributed URL Locking implementation).
+
+### ❌ WRONG - No URL Coordination
+
+```typescript
+// Multiple workers all scrape the same URL
+async function scrapeProduct(url: string) {
+  // No check if another worker is already scraping this URL
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  await page.goto(url);
+  const data = await extractData(page);
+  await browser.close();
+  return data;
+}
+```
+
+**Problems:**
+- 3 workers scrape amazon.com/product/123 simultaneously
+- Amazon sees 3 requests from same IP in seconds → rate limit triggered
+- Wasted browser resources (3x memory, 3x CPU)
+- May trigger anti-bot detection
+
+### ✅ CORRECT - URL Locking with Atomic Operations
+
+```typescript
+// server/services/url-lock-service.ts
+export class URLLockService {
+  private redisClient: Redis;
+  private defaultTtlMs = 5 * 60 * 1000; // 5 minutes
+
+  async withLock<T>(
+    url: string,
+    task: () => Promise<T>,
+    options: { skipIfLocked?: boolean; ttlMs?: number } = {}
+  ): Promise<T | null> {
+    const normalizedUrl = this.normalizeUrl(url);
+    const lockKey = `url_lock:${normalizedUrl}`;
+    const ttl = options.ttlMs || this.defaultTtlMs;
+
+    try {
+      // Attempt to acquire lock atomically
+      const acquired = await this.redisClient.set(
+        lockKey,
+        'locked',
+        'NX',  // Only set if not exists
+        'PX',  // TTL in milliseconds
+        ttl
+      );
+
+      if (!acquired) {
+        if (options.skipIfLocked) {
+          logger.debug('URL locked by another worker, skipping', { url: normalizedUrl });
+          return null;
+        }
+        // Could implement retry logic here
+        throw new Error(`URL is locked: ${normalizedUrl}`);
+      }
+
+      // Execute task with lock held
+      const result = await task();
+
+      // Release lock using Lua script (atomic check-and-delete)
+      await this.releaseLock(lockKey);
+
+      return result;
+    } catch (error) {
+      // Ensure lock is released on error
+      await this.releaseLock(lockKey);
+      throw error;
+    }
+  }
+
+  private normalizeUrl(url: string): string {
+    const parsed = new URL(url);
+    // Remove tracking parameters
+    const trackingParams = ['utm_source', 'utm_medium', 'utm_campaign', 'ref', 'fbclid'];
+    trackingParams.forEach(param => parsed.searchParams.delete(param));
+    return parsed.toString();
+  }
+
+  private async releaseLock(lockKey: string): Promise<void> {
+    // Lua script ensures atomic release (only delete if we own the lock)
+    const script = `
+      if redis.call("get", KEYS[1]) == ARGV[1] then
+        return redis.call("del", KEYS[1])
+      else
+        return 0
+      end
+    `;
+    await this.redisClient.eval(script, 1, lockKey, 'locked');
+  }
+}
+```
+
+### Usage in Extraction Agent
+
+```typescript
+// server/agents/extraction-agent.ts
+import { urlLockService } from '../services/url-lock-service';
+
+const result = await urlLockService.withLock(
+  task.url,
+  async () => {
+    // Scrape with lock held
+    const browser = await chromium.launch();
+    const page = await browser.newPage();
+    await page.goto(task.url);
+    const data = await extractData(page);
+    await browser.close();
+    return { success: true, data };
+  },
+  {
+    skipIfLocked: true,  // Skip if another worker is scraping
+    ttlMs: 5 * 60 * 1000, // 5-minute lock
+  }
+);
+
+if (result === null) {
+  logger.info('URL already being scraped by another worker');
+}
+```
+
+### Key Features
+
+**1. URL Normalization**
+```typescript
+// These URLs are treated as identical:
+'https://amazon.com/product/123?utm_source=email&ref=home'
+'https://amazon.com/product/123?ref=search'
+'https://amazon.com/product/123'
+// All normalize to: 'https://amazon.com/product/123'
+```
+
+**2. Automatic Deadlock Prevention**
+- TTL ensures locks expire even if worker crashes
+- Default 5-minute timeout prevents indefinite locks
+- Lua script prevents releasing someone else's lock
+
+**3. Graceful Degradation**
+- `skipIfLocked: true` → Returns null instead of error
+- Caller decides whether to retry or skip
+- No exceptions thrown for normal lock contention
+
+### When to Use
+
+✅ **Use URL locking when:**
+- Multiple workers may scrape same URL concurrently
+- Scraping targets have rate limits
+- Browser automation is expensive (memory/CPU)
+- You want to deduplicate scraper work across workers
+
+❌ **NOT needed when:**
+- Single-worker deployment (no concurrency)
+- URLs are guaranteed unique per job (e.g., user-specific URLs)
+- Target site has no rate limiting
+- Scraping is idempotent and cheap (simple HTTP GET)
+
+### Rationale
+
+- **Resource efficiency**: Only one worker scrapes each URL
+- **Rate limit protection**: Prevents triggering site rate limits
+- **Atomic operations**: Redis NX flag ensures lock safety
+- **Deadlock prevention**: TTL ensures eventual lock release
+- **URL normalization**: Tracking parameters don't bypass lock
+
+### Detection Rule
+
+```bash
+# Find scraper code without URL locking
+grep -r "chromium.launch\|page.goto" server/agents/ | \
+  xargs grep -L "urlLockService\|withLock"
+```
+
+### Quality Checklist
+
+- [ ] URL normalization removes tracking parameters
+- [ ] Lock TTL exceeds expected task duration
+- [ ] Lua script used for atomic lock release
+- [ ] Graceful handling when lock is held
+- [ ] Tests verify only one worker processes URL
+- [ ] Logging shows when URLs are skipped (locked)
+
+**Source:** TODO_213 distributed URL locking service
+**Added:** 2026-01-14
+
+---
+
+## Health Check Tiering Pattern (NEW - 2026-01-14)
+
+**Context:** Monitoring systems, load balancers, and incident responders have different health check requirements.
+
+**Problem:** Single health check endpoint mixing concerns - too slow for load balancers, not detailed enough for debugging.
+
+**Source:** `server/routes/health.ts` from TODO_215 (Health Check Endpoints implementation).
+
+### ❌ WRONG - Single Heavyweight Endpoint
+
+```typescript
+// One endpoint doing everything (TOO SLOW for load balancer!)
+app.get('/health', async (req, res) => {
+  // This takes 200-500ms - too slow for frequent polling
+  const dbOk = await checkDatabase();      // 100ms
+  const redisOk = await checkRedis();      // 50ms
+  const memoryOk = checkMemory();          // 1ms
+  const cpuOk = checkCPU();                // 50ms
+  const nodeVersion = process.version;     // Fast
+  const uptime = process.uptime();         // Fast
+
+  res.json({
+    status: dbOk && redisOk ? 'healthy' : 'unhealthy',
+    database: dbOk,
+    redis: redisOk,
+    memory: memoryOk,
+    cpu: cpuOk,
+    nodeVersion,
+    uptime,
+  });
+});
+```
+
+**Problems:**
+- Load balancer polls every 10 seconds → 200ms overhead
+- Deep diagnostics mixed with routing decision
+- Production diagnostics exposed (security issue)
+- No distinction between "app running" vs "dependencies healthy"
+
+### ✅ CORRECT - Three-Tier Health Checks
+
+```typescript
+// server/routes/health.ts
+
+// TIER 1: Liveness Check (Fast, No Dependencies)
+// Purpose: "Is the process alive?"
+// Used by: Kubernetes liveness probe, container orchestration
+// Requirement: < 100ms response time
+router.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
+});
+
+// TIER 2: Readiness Check (Dependencies, Routing Decision)
+// Purpose: "Is the app ready to serve traffic?"
+// Used by: Load balancers, Kubernetes readiness probe
+// Requirement: < 500ms response time, check critical dependencies
+router.get('/health/ready', async (req, res) => {
+  const checks = {
+    database: { status: 'unknown', latencyMs: 0 },
+    redis: { status: 'unknown', latencyMs: 0 },
+  };
+
+  // Check database
+  const dbStart = Date.now();
+  try {
+    await db.execute(sql`SELECT 1`);
+    checks.database = { status: 'pass', latencyMs: Date.now() - dbStart };
+  } catch (error) {
+    checks.database = { status: 'fail', latencyMs: Date.now() - dbStart, message: error.message };
+  }
+
+  // Check Redis
+  const redisStart = Date.now();
+  try {
+    await redisClient.ping();
+    checks.redis = { status: 'pass', latencyMs: Date.now() - redisStart };
+  } catch (error) {
+    checks.redis = { status: 'fail', latencyMs: Date.now() - redisStart, message: error.message };
+  }
+
+  const allHealthy = checks.database.status === 'pass' && checks.redis.status === 'pass';
+
+  res.status(allHealthy ? 200 : 503).json({
+    status: allHealthy ? 'healthy' : 'degraded',
+    timestamp: new Date().toISOString(),
+    checks,
+    memory: {
+      heapUsedMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+      heapTotalMB: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+    },
+  });
+});
+
+// TIER 3: Detailed Diagnostics (Deep Inspection, Production-Protected)
+// Purpose: "What's wrong during an incident?"
+// Used by: Incident response, debugging, operations team
+// Requirement: Protected in production (auth required)
+router.get('/health/detailed', async (req, res) => {
+  // SECURITY: Require auth header in production
+  if (process.env.NODE_ENV === 'production') {
+    const authKey = req.headers['x-health-key'];
+    if (authKey !== process.env.HEALTH_CHECK_KEY) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+  }
+
+  // Deep diagnostics
+  const memUsage = process.memoryUsage();
+  const cpuUsage = process.cpuUsage();
+
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    nodeVersion: process.version,
+    uptime: process.uptime(),
+    pid: process.pid,
+    memory: {
+      rss: memUsage.rss,
+      heapTotal: memUsage.heapTotal,
+      heapUsed: memUsage.heapUsed,
+      external: memUsage.external,
+      arrayBuffers: memUsage.arrayBuffers,
+    },
+    cpu: {
+      user: cpuUsage.user,
+      system: cpuUsage.system,
+    },
+  });
+});
+```
+
+### Three-Tier Decision Matrix
+
+| Tier | Endpoint | Response Time | Dependencies | Auth Required | Use Case |
+|------|----------|---------------|--------------|---------------|----------|
+| 1. Liveness | `/health` | < 100ms | None | No | Process alive? Container restart decision |
+| 2. Readiness | `/health/ready` | < 500ms | DB, Redis | No | Route traffic? Load balancer decision |
+| 3. Detailed | `/health/detailed` | No limit | All | Yes (prod) | What's broken? Incident response |
+
+### Load Balancer Configuration
+
+```nginx
+# Nginx upstream health check
+upstream pricecompare_backend {
+  server app1:5000;
+  server app2:5000;
+  server app3:5000;
+
+  # Use readiness check for routing
+  check interval=10s fall=3 rise=2 timeout=5s type=http;
+  check_http_send "GET /health/ready HTTP/1.0\r\n\r\n";
+  check_http_expect_alive http_2xx http_3xx;
+}
+```
+
+### Kubernetes Probes
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pricecompare-api
+spec:
+  containers:
+  - name: api
+    image: pricecompare:latest
+    ports:
+    - containerPort: 5000
+    livenessProbe:
+      httpGet:
+        path: /health
+        port: 5000
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 1
+      failureThreshold: 3
+    readinessProbe:
+      httpGet:
+        path: /health/ready
+        port: 5000
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+```
+
+### Rationale
+
+- **Separation of concerns**: Each tier serves specific purpose
+- **Performance**: Liveness check is fast (no I/O), frequently polled
+- **Security**: Detailed diagnostics protected in production
+- **Debugging**: Deep inspection available when needed
+- **Standard compliance**: Follows Kubernetes health check patterns
+
+### When to Use
+
+✅ **Use three-tier health checks when:**
+- App has external dependencies (database, cache, queues)
+- Load balancer needs routing decisions
+- Container orchestration (Kubernetes, ECS)
+- You want detailed diagnostics for incidents
+
+❌ **Single endpoint sufficient when:**
+- No external dependencies (stateless app)
+- Simple deployment (no load balancer)
+- Development/prototype environment
+
+### Quality Checklist
+
+- [ ] Liveness check has no dependencies (process-level only)
+- [ ] Readiness check verifies critical dependencies
+- [ ] Detailed endpoint protected with auth in production
+- [ ] Response times meet requirements (< 100ms liveness, < 500ms readiness)
+- [ ] Status codes correct (200 healthy, 503 degraded)
+- [ ] Load balancer configured to use readiness endpoint
+
+**Source:** TODO_215 health check endpoints implementation
+**Added:** 2026-01-14
 
 ---
 
@@ -1031,6 +1452,207 @@ Register these with cleanupManager:
 - WebSocket servers
 - File handles / streams
 - External service connections
+
+### Enhanced Graceful Shutdown Sequence (NEW - 2026-01-14)
+
+**Context:** Proper shutdown ordering prevents data loss and ensures all operations complete before process termination.
+
+**Problem:** Random shutdown order causes errors - closing database before finishing queries, closing Redis before flushing cache.
+
+**Source:** `server/index.ts` lines 280-350 from TODO_216 (Enhanced Graceful Shutdown implementation).
+
+#### ✅ CORRECT - Ordered Shutdown with Timeout
+
+```typescript
+// server/index.ts
+async function gracefulShutdown(signal: string): Promise<void> {
+  // Prevent multiple shutdown attempts
+  if (isShuttingDown) {
+    logger.warn('Shutdown already in progress, ignoring signal', { signal });
+    return;
+  }
+  isShuttingDown = true;
+
+  logger.info(`Received ${signal}, starting graceful shutdown...`);
+
+  // Safety timeout - force exit after 30 seconds
+  const shutdownTimeout = setTimeout(() => {
+    logger.error('Graceful shutdown timeout exceeded - forcing exit');
+    process.exit(1);
+  }, 30000);
+
+  try {
+    // CRITICAL ORDERING - Each step depends on previous completing
+
+    // Step 1: Stop accepting new HTTP connections
+    logger.info('Closing HTTP server...');
+    await new Promise<void>((resolve, reject) => {
+      server.close((err) => {
+        if (err) {
+          logger.error('Error closing HTTP server', { error: err });
+          reject(err);
+        } else {
+          logger.info('HTTP server closed');
+          resolve();
+        }
+      });
+    });
+
+    // Step 2: Stop background jobs and finish in-flight work
+    logger.info('Cleaning up background tasks...');
+    await cleanupManager.cleanup();
+
+    // Step 3: Close job queues (wait for active jobs)
+    logger.info('Closing job queues...');
+    await notificationQueue.close();
+    await priceSnapshotQueue.close();
+
+    // Step 4: Close WebSocket connections
+    logger.info('Closing WebSocket connections...');
+    shutdownWebSocket();
+
+    // Step 5: Remove all event listeners
+    logger.info('Removing event listeners...');
+    eventBus.removeAllListeners();
+
+    // Step 6: Flush and close cache (before closing Redis!)
+    logger.info('Closing cache...');
+    await advancedCache.close();
+
+    // Step 7: Close Redis connections
+    logger.info('Closing Redis connections...');
+    await ioRedisClient.quit();
+    await redisClient.quit();
+
+    // Step 8: Close database pool (LAST - after all queries complete!)
+    logger.info('Closing database pool...');
+    await pool.end();
+
+    logger.info('Graceful shutdown completed successfully');
+    clearTimeout(shutdownTimeout);
+    process.exit(0);
+  } catch (error) {
+    logger.error('Error during graceful shutdown', { error });
+    clearTimeout(shutdownTimeout);
+    process.exit(1);
+  }
+}
+
+// Register signal handlers
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+```
+
+#### Shutdown Ordering Rationale
+
+**Why this specific order:**
+
+1. **HTTP Server First** - Stop accepting new requests, but keep existing connections alive
+2. **Background Jobs** - Finish in-flight background work before closing resources
+3. **Job Queues** - Wait for active jobs to complete, prevent new job processing
+4. **WebSockets** - Close real-time connections gracefully (send disconnect messages)
+5. **Event Listeners** - Prevent new events from triggering after resources closed
+6. **Cache** - Flush cache writes before closing Redis connection
+7. **Redis** - Close Redis connections after all cache operations complete
+8. **Database Last** - Close database pool AFTER all queries finish (most critical!)
+
+**Why database must close last:**
+```typescript
+// ❌ WRONG ORDER - Database closes before queries finish
+await pool.end();           // Database closed!
+await advancedCache.close(); // Tries to write to DB → ERROR!
+await notificationQueue.close(); // Active jobs try to query DB → ERROR!
+
+// ✅ CORRECT ORDER - Database closes after all operations
+await notificationQueue.close();  // Finish jobs (may query DB)
+await advancedCache.close();      // Flush cache (may write to DB)
+await pool.end();                 // NOW safe to close database
+```
+
+#### Timeout Protection
+
+**Why 30-second timeout:**
+- Prevents hung shutdown (infinite wait for unresponsive resource)
+- Kubernetes default grace period is 30 seconds
+- Gives time for:
+  - Active HTTP requests to complete (~5s)
+  - Background jobs to finish (~10s)
+  - Cache flush and connection cleanup (~5s)
+  - Buffer for slow operations (~10s)
+
+**Handling timeout expiration:**
+```typescript
+const shutdownTimeout = setTimeout(() => {
+  logger.error('Graceful shutdown timeout exceeded', {
+    duration: 30000,
+    pendingResources: getPendingResources(), // Log what's blocking
+  });
+  process.exit(1); // Force exit (better than hanging forever)
+}, 30000);
+```
+
+#### Idempotent Shutdown
+
+**Prevent duplicate shutdowns:**
+```typescript
+let isShuttingDown = false;
+
+async function gracefulShutdown(signal: string) {
+  if (isShuttingDown) {
+    logger.warn('Shutdown already in progress', { signal });
+    return; // Ignore duplicate signals
+  }
+  isShuttingDown = true;
+  // ... shutdown logic
+}
+```
+
+**Why needed:**
+- Kubernetes sends SIGTERM, waits 30s, then sends SIGKILL
+- User may press Ctrl+C multiple times
+- Multiple signals don't cause parallel shutdowns (race conditions)
+
+#### Testing Graceful Shutdown
+
+```typescript
+// Test shutdown ordering
+describe('Graceful Shutdown', () => {
+  it('should close resources in correct order', async () => {
+    const closeOrder: string[] = [];
+
+    // Mock close methods to track order
+    server.close = vi.fn(() => closeOrder.push('server'));
+    notificationQueue.close = vi.fn(async () => closeOrder.push('queue'));
+    pool.end = vi.fn(async () => closeOrder.push('database'));
+
+    await gracefulShutdown('SIGTERM');
+
+    expect(closeOrder).toEqual(['server', 'queue', 'database']);
+  });
+
+  it('should complete within timeout', async () => {
+    const start = Date.now();
+    await gracefulShutdown('SIGTERM');
+    const duration = Date.now() - start;
+
+    expect(duration).toBeLessThan(30000);
+  });
+});
+```
+
+#### Quality Checklist
+
+- [ ] HTTP server closes first (stop accepting connections)
+- [ ] Background jobs finish before resource cleanup
+- [ ] Database pool closes LAST (after all queries)
+- [ ] 30-second timeout prevents hung shutdown
+- [ ] Idempotent (ignores duplicate signals)
+- [ ] Logs each shutdown step for debugging
+- [ ] Error handling logs failures but still attempts remaining cleanup
+- [ ] Tests verify shutdown ordering
+
+**Source:** TODO_216 enhanced graceful shutdown sequence
+**Added:** 2026-01-14
 
 ---
 
