@@ -1,7 +1,7 @@
 # TypeScript Patterns & Anti-Patterns
 
-**Version:** 2.8
-**Last Updated:** 2026-01-06
+**Version:** 2.9
+**Last Updated:** 2026-01-15
 **Domain:** TypeScript, Type Safety, Async/Await, Zod Validation
 **Migrated From:**
 - docs/TYPESCRIPT_PATTERNS.md (v1.0)
@@ -9,6 +9,7 @@
 - TODO 2026: Zod validation for CHECK constraints (v2.1)
 
 **Changelog:**
+- 2.9 (2026-01-15): Added Type-Safe Bull Job Data Access pattern (from TODO_227 retry logic)
 - 2.8 (2026-01-06): Added Maintenance Documentation for Synchronized Lists Pattern (from TODO_012 code review)
 - 2.7 (2026-01-04): Added TypeScript Assertion Signatures for Validation Helpers pattern (from TODO 002 code review)
 - 2.6 (2025-12-27): Added Empty Collection Edge Cases pattern (Math.min/max, reduce, semantic null)
@@ -2224,6 +2225,211 @@ if (propSchema.type === 'object' && typeof value === 'object' && value !== null 
 
 *Source: Validation code type guards pattern*
 *Added: [Original date]*
+
+### Type-Safe Bull Job Data Access (NEW - 2026-01-15)
+
+**Context:** Bull queue event handlers receive `job.data` typed as `any`, causing ESLint `no-unsafe-member-access` violations when accessing properties.
+
+**Problem:** Directly accessing properties like `job.data?.type` triggers TypeScript strict mode errors because Bull's generic defaults to `any`.
+
+**Source:** `server/jobs/price-snapshot-queue.ts` lines 70-72, 94-96 from TODO_227 (Retry Logic Implementation).
+
+#### ❌ WRONG - Direct Property Access on `any` Type
+
+```typescript
+import { Queue, Job } from 'bull';
+
+// Bull's Job<T = any> means job.data is 'any' if no type provided
+queue.on('active', (job) => {
+  // ❌ ESLint ERROR: Unsafe member access on 'any' type
+  logger.info('Job started', {
+    type: job.data?.type,  // job.data is 'any', .type is unsafe
+  });
+});
+
+queue.on('completed', (job, result) => {
+  // ❌ ESLint ERROR: Unsafe member access
+  const jobType = job.data?.type;  // TypeScript doesn't know if .type exists
+  logger.info('Job completed', { type: jobType });
+});
+```
+
+**Problems:**
+- `job.data` is typed as `any` by Bull (generic defaults to `any`)
+- ESLint `@typescript-eslint/no-unsafe-member-access` violations
+- No runtime validation - crashes if shape doesn't match
+- TypeScript can't help if property name changes
+
+#### ✅ CORRECT - Type Guard Before Property Access
+
+```typescript
+import { Queue, Job } from 'bull';
+import { logger } from '../utils/logger';
+
+// Type guard pattern for job.data property access
+queue.on('active', (job) => {
+  // CRITICAL: Type guard required before accessing job.data properties
+  const jobType = job?.data && typeof job.data === 'object' && 'type' in job.data
+    ? String(job.data.type)  // Safe: coerce to string
+    : undefined;
+
+  logger.info('Job started', {
+    jobId: job?.id,
+    type: jobType,  // Type-safe: string | undefined
+  });
+});
+
+// Reusable type guard helper
+function extractJobType(job: Job | undefined): string | undefined {
+  if (!job?.data || typeof job.data !== 'object' || !('type' in job.data)) {
+    return undefined;
+  }
+  return String(job.data.type);
+}
+
+// Usage with helper
+queue.on('completed', (job, result: unknown) => {
+  const jobType = extractJobType(job);
+  logger.info('Job completed', {
+    jobId: job?.id,
+    type: jobType,  // Type-safe
+  });
+});
+
+// Failed event - same pattern
+queue.on('failed', (job, err: unknown) => {
+  const jobType = extractJobType(job);
+  const error = err instanceof Error ? err : new Error(String(err));
+
+  logger.error('Job failed', {
+    jobId: job?.id,
+    type: jobType,
+    error: error.message,
+  });
+});
+```
+
+#### Why Bull Types `job.data` as `any`
+
+**Bull's Job type definition:**
+
+```typescript
+// Simplified Bull Job interface
+interface Job<T = any> {  // Generic defaults to 'any'
+  id: string | number;
+  data: T;  // Type is 'any' if no generic provided
+  opts: JobOptions;
+  attemptsMade: number;
+}
+
+// When you don't provide generic type:
+queue.on('completed', (job, result) => {
+  // job is Job<any>
+  // job.data is any
+});
+
+// You COULD provide generic type:
+interface PriceSnapshotData {
+  type: 'scheduled' | 'manual';
+  priority?: number;
+}
+
+queue.on('completed', (job: Job<PriceSnapshotData>, result) => {
+  // job.data is PriceSnapshotData
+  // BUT: Bull doesn't validate runtime data matches type!
+});
+```
+
+**Problem with generic approach:**
+- Type is compile-time only (no runtime validation)
+- Data from Redis might not match declared type
+- Still need runtime validation for safety
+- Verbose to declare types for every event handler
+
+**Recommendation:** Use type guards (runtime validation) instead of relying on compile-time generics.
+
+#### Type Guard Pattern Breakdown
+
+**Step-by-step validation:**
+
+```typescript
+const jobType = job?.data                    // 1. Check job and job.data exist
+  && typeof job.data === 'object'            // 2. Check job.data is object
+  && 'type' in job.data                      // 3. Check 'type' property exists
+    ? String(job.data.type)                  // 4. Safely coerce to string
+    : undefined;                             // 5. Fallback to undefined
+```
+
+**Why this is safe:**
+1. Optional chaining (`job?.data`) handles null/undefined job
+2. `typeof === 'object'` narrows from `any` to object type
+3. `'type' in obj` checks property exists before access
+4. `String(...)` safely coerces any value to string
+5. Graceful fallback prevents crashes
+
+#### Alternative: Explicit Type Narrowing
+
+```typescript
+// Longer but more explicit version
+function getJobType(job: Job | undefined): string | undefined {
+  // Validate job exists
+  if (!job) return undefined;
+
+  // Validate job.data is object
+  if (typeof job.data !== 'object' || job.data === null) {
+    return undefined;
+  }
+
+  // Validate 'type' property exists
+  if (!('type' in job.data)) {
+    return undefined;
+  }
+
+  // Safe to access and coerce
+  return String(job.data.type);
+}
+```
+
+#### When to Use
+
+✅ **Use when:**
+- Accessing `job.data` properties in Bull queue event handlers
+- ESLint strict mode enabled (`no-unsafe-member-access`)
+- Runtime validation required (data from Redis)
+- Generic type not provided for Job
+
+❌ **NOT needed when:**
+- Using Zod schema to validate job.data (Zod narrows types)
+- Job generic type provided AND runtime validation in place
+- Property access is on typed object (not `any`)
+
+#### Rationale
+
+- **Type Safety**: Progressive narrowing prevents runtime crashes
+- **ESLint Compliance**: Satisfies `no-unsafe-member-access` rule
+- **Runtime Validation**: Checks property exists before access (data from Redis)
+- **Graceful Degradation**: Returns undefined instead of crashing
+- **No Dependencies**: Pure TypeScript (no Zod/validation library needed for simple cases)
+
+#### Quality Checklist
+
+- [ ] Type guard checks `typeof job.data === 'object'`
+- [ ] Checks property exists (`'type' in job.data`)
+- [ ] Coerces value to expected type (`String(...)`, `Number(...)`)
+- [ ] Provides fallback value (undefined, null, default)
+- [ ] No direct property access on `job.data` without guard
+- [ ] Reusable helper function if pattern repeated (3+ times)
+
+#### Related Patterns
+
+- **Type-Safe Queue Event Handlers** (`docs/07_BACKGROUND_JOBS_PATTERNS.md` line 1602): Full pattern for queue events
+- **Enhanced Queue Error Classification** (`docs/07_BACKGROUND_JOBS_PATTERNS.md` line 1378): Uses this pattern
+- **Type Guards & Narrowing** (line 2059): General type guard principles
+
+**Source:** TODO_227 retry logic implementation (price-snapshot-queue.ts lines 70-72, 94-96)
+**Added:** 2026-01-15
+
+---
 
 ### TypeScript Assertion Signatures for Validation Helpers (NEW - 2026-01-04)
 

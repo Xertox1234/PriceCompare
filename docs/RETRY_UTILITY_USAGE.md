@@ -333,7 +333,200 @@ await priceSnapshotQueue.add(
 
 ## Best Practices
 
-### 1. Always Use Smart Retry Logic
+### 1. Extract Module-Level Retry Configuration (NEW - 2026-01-15)
+
+**Context:** Retry options are often duplicated inline across multiple `withRetry()` calls within the same module, violating DRY principle.
+
+**Problem:** When retry strategy needs adjustment (e.g., increase max delay), you must update multiple locations, risking inconsistencies.
+
+**Source:** `server/services/price-snapshot-service.ts` from TODO_227 (Retry Logic Implementation).
+
+#### ❌ WRONG - Duplicated Retry Options
+
+```typescript
+// server/services/price-snapshot-service.ts
+
+// Retry options duplicated in 3 places
+async function takeSnapshot(productId: number) {
+  return withRetry(
+    () => scrapeProduct(productId),
+    {
+      maxAttempts: 3,
+      baseDelayMs: 2000,
+      maxDelayMs: 30000,
+      shouldRetry: createSmartRetryCondition(),
+    }
+  );
+}
+
+async function batchSnapshot(productIds: number[]) {
+  return withRetry(
+    () => processBatch(productIds),
+    {
+      maxAttempts: 3,  // Duplicated!
+      baseDelayMs: 2000,  // Duplicated!
+      maxDelayMs: 30000,  // Duplicated!
+      shouldRetry: createSmartRetryCondition(),  // Duplicated!
+    }
+  );
+}
+
+async function insertSnapshots(data: SnapshotData[]) {
+  return withRetry(
+    () => db.insert(snapshots).values(data),
+    {
+      maxAttempts: 3,  // Duplicated again!
+      baseDelayMs: 1000,  // Different! (inconsistency bug)
+      maxDelayMs: 10000,
+      shouldRetry: createSmartRetryCondition(),
+    }
+  );
+}
+```
+
+**Problems:**
+- 3+ copies of similar retry configuration
+- Inconsistent delays (2000ms vs 1000ms - unintentional)
+- Changing strategy requires updating multiple call sites
+- Risk of missing updates, typos
+
+#### ✅ CORRECT - Module-Level Typed Constants
+
+```typescript
+// server/services/price-snapshot-service.ts
+import { type RetryOptions, createSmartRetryCondition } from '../utils/retry';
+
+// SINGLE SOURCE OF TRUTH for scraping retry strategy
+const SNAPSHOT_RETRY_CONFIG: Partial<RetryOptions> = {
+  maxAttempts: 3,
+  baseDelayMs: 2000,
+  maxDelayMs: 30000,
+  shouldRetry: createSmartRetryCondition(),
+};
+
+// Different strategy for database operations
+const BATCH_INSERT_RETRY_CONFIG: Partial<RetryOptions> = {
+  maxAttempts: 3,
+  baseDelayMs: 1000,  // Faster retries for DB (less network variance)
+  maxDelayMs: 10000,
+  shouldRetry: createSmartRetryCondition(),
+};
+
+// Reuse base config
+async function takeSnapshot(productId: number) {
+  return withRetry(
+    () => scrapeProduct(productId),
+    SNAPSHOT_RETRY_CONFIG  // No duplication!
+  );
+}
+
+async function batchSnapshot(productIds: number[]) {
+  return withRetry(
+    () => processBatch(productIds),
+    SNAPSHOT_RETRY_CONFIG  // Guaranteed consistent!
+  );
+}
+
+async function insertSnapshots(data: SnapshotData[]) {
+  return withRetry(
+    () => db.insert(snapshots).values(data),
+    BATCH_INSERT_RETRY_CONFIG  // Explicit different strategy
+  );
+}
+
+// Override for specific case
+async function urgentSnapshot(productId: number) {
+  return withRetry(
+    () => scrapeProduct(productId),
+    {
+      ...SNAPSHOT_RETRY_CONFIG,
+      maxAttempts: 5,  // More retries for urgent jobs
+      onRetry: (error, attempt, delay) => {
+        logger.warn({ productId, attempt, delay }, 'Urgent snapshot retry');
+      },
+    }
+  );
+}
+```
+
+#### Type Safety with `Partial<RetryOptions>`
+
+**Why use `Partial<RetryOptions>`:**
+
+```typescript
+import { type RetryOptions } from '../utils/retry';
+
+// ✅ CORRECT - Typed as Partial<RetryOptions>
+const RETRY_CONFIG: Partial<RetryOptions> = {
+  maxAttempts: 3,
+  baseDelayMs: 2000,
+  // TypeScript verifies property names match RetryOptions
+  // TypeScript verifies property types are correct
+};
+
+// ❌ WRONG - Untyped object (no type safety)
+const RETRY_CONFIG = {
+  maxAttempts: 3,
+  baseDelayMs: 2000,
+  maxAttempts: 5,  // Typo not caught! (duplicate key)
+};
+
+// ❌ WRONG - Typo in property name
+const RETRY_CONFIG: Partial<RetryOptions> = {
+  maxAttempts: 3,
+  baseDelay: 2000,  // ❌ TypeScript ERROR: 'baseDelay' doesn't exist on RetryOptions
+};
+```
+
+#### When to Use Module-Level Constants
+
+✅ **Use when:**
+- 2+ `withRetry()` calls in same module share retry strategy
+- Retry configuration may need adjustment over time
+- Consistency important across retry operations
+- Clear separation between different retry strategies (scraping vs DB)
+
+❌ **NOT needed when:**
+- Only one `withRetry()` call in module
+- Each retry legitimately needs unique configuration
+- Configuration is highly dynamic (computed at runtime)
+- One-off retry usage
+
+#### Naming Convention
+
+**Pattern:** `<OPERATION>_RETRY_CONFIG`
+
+```typescript
+const SNAPSHOT_RETRY_CONFIG: Partial<RetryOptions> = { ... };
+const BATCH_INSERT_RETRY_CONFIG: Partial<RetryOptions> = { ... };
+const API_CALL_RETRY_CONFIG: Partial<RetryOptions> = { ... };
+const DATABASE_RETRY_CONFIG: Partial<RetryOptions> = { ... };
+```
+
+#### Rationale
+
+- **DRY Principle**: Single source of truth for retry strategy
+- **Consistency**: All operations use same retry logic
+- **Type Safety**: `Partial<RetryOptions>` catches typos and type errors
+- **Maintainability**: Update one constant instead of N call sites
+- **Discoverability**: Module-level constants visible at top of file
+- **Intent**: Named constants clarify retry strategy (SNAPSHOT vs INSERT)
+
+#### Quality Checklist
+
+- [ ] Module-level constants defined at top of file (after imports)
+- [ ] Typed as `Partial<RetryOptions>` for type safety
+- [ ] Reused in all `withRetry()` calls with same strategy
+- [ ] Spread operator (`...CONFIG`) used for overrides
+- [ ] Different strategies have different named constants
+- [ ] No duplicated retry options objects in same module
+
+**Source:** TODO_227 retry logic implementation (price-snapshot-service.ts lines 7-20)
+**Added:** 2026-01-15
+
+---
+
+### 2. Always Use Smart Retry Logic
 
 ✅ **Good** - Fail fast on permanent errors:
 ```typescript
@@ -349,7 +542,7 @@ await withRetry(fn, {
 });
 ```
 
-### 2. Log Retry Attempts
+### 3. Log Retry Attempts
 
 ✅ **Good** - Log for monitoring:
 ```typescript
@@ -360,7 +553,7 @@ await withRetry(fn, {
 });
 ```
 
-### 3. Set Appropriate Timeouts
+### 4. Set Appropriate Timeouts
 
 ✅ **Good** - Different delays for different operations:
 ```typescript
@@ -374,7 +567,7 @@ await withRetry(fn, {
 { maxAttempts: 5, baseDelayMs: 5000, maxDelayMs: 30000 }
 ```
 
-### 4. Handle Cleanup in Finally Blocks
+### 5. Handle Cleanup in Finally Blocks
 
 ✅ **Good** - Always cleanup resources:
 ```typescript

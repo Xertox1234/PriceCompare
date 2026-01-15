@@ -3,6 +3,7 @@ import cron from 'node-cron';
 import { priceSnapshotService } from '../services/price-snapshot-service';
 import { jobLockService } from '../services/job-lock-service';
 import { logger } from '../utils/logger';
+import { isRetryableError, isNonRetryableError } from '../utils/retry';
 
 // Initialize Redis connection for Bull
 const redisConfig = process.env.REDIS_URL
@@ -13,11 +14,27 @@ const redisConfig = process.env.REDIS_URL
       password: process.env.REDIS_PASSWORD,
     };
 
-// Create Bull queue for price snapshots
+// Centralized job options configuration (DRY principle)
+const JOB_OPTIONS = {
+  attempts: 3,
+  backoff: {
+    type: 'exponential' as const,
+    delay: 5000, // 5s → 10s → 20s progression
+  },
+  removeOnComplete: 100, // Keep last 100 completed jobs for monitoring
+  removeOnFail: 1000, // Keep last 1000 failed jobs for analysis
+} as const;
+
+// Create Bull queue for price snapshots with default retry configuration
 export const priceSnapshotQueue =
   typeof redisConfig === 'string'
-    ? new Queue('price-snapshots', redisConfig)
-    : new Queue('price-snapshots', { redis: redisConfig });
+    ? new Queue('price-snapshots', redisConfig, {
+        defaultJobOptions: JOB_OPTIONS,
+      })
+    : new Queue('price-snapshots', {
+        redis: redisConfig,
+        defaultJobOptions: JOB_OPTIONS,
+      });
 
 // Process price snapshot jobs with explicit concurrency limit
 // Concurrency of 5 balances throughput with resource usage
@@ -39,14 +56,61 @@ void priceSnapshotQueue.process(5, async (job) => {
 
 // Handle job completion
 priceSnapshotQueue.on('completed', (job, result: unknown) => {
-  const resultInfo = result as { success?: boolean; count?: number } | undefined;
-  logger.info(`[PriceSnapshotQueue] Job ${job.id} completed successfully:`, resultInfo);
+  // Type guard instead of unsafe assertion
+  let itemsProcessed = 0;
+
+  if (typeof result === 'object' && result !== null && 'count' in result) {
+    const data = result as Record<string, unknown>;
+    if (typeof data.count === 'number') {
+      itemsProcessed = data.count;
+    }
+  }
+
+  // Extract type safely with progressive narrowing
+  let jobType: string | undefined;
+  if (job.data && typeof job.data === 'object' && 'type' in job.data) {
+    const data = job.data as Record<string, unknown>;
+    jobType = typeof data.type === 'string' ? data.type : String(data.type);
+  }
+
+  logger.info('[PriceSnapshotQueue] Job completed successfully', {
+    jobId: job.id,
+    jobName: job.name,
+    type: jobType,
+    itemsProcessed,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // Handle job failures
 priceSnapshotQueue.on('failed', (job, err: unknown) => {
   const errorMessage = err instanceof Error ? err.message : String(err);
-  logger.error('PriceSnapshotQueue job failed', { jobId: job?.id, error: errorMessage });
+
+  // Classify error for alerting and debugging
+  const error = err instanceof Error ? err : new Error(String(err));
+  const isRetryableFailure = isRetryableError(error);
+  const isNonRetryableFailure = isNonRetryableError(error);
+  const retriesExhausted = job?.attemptsMade === job?.opts.attempts;
+
+  // Extract type safely with progressive narrowing
+  let jobType: string | undefined;
+  if (job?.data && typeof job.data === 'object' && 'type' in job.data) {
+    const data = job.data as Record<string, unknown>;
+    jobType = typeof data.type === 'string' ? data.type : String(data.type);
+  }
+
+  logger.error('[PriceSnapshotQueue] Job permanently failed', {
+    jobId: job?.id,
+    jobName: job?.name,
+    type: jobType,
+    attempts: job?.attemptsMade,
+    maxAttempts: job?.opts.attempts,
+    error: errorMessage,
+    errorClassification: isNonRetryableFailure
+      ? 'permanent'
+      : (isRetryableFailure ? 'transient_exhausted' : 'unknown'),
+    failureMode: retriesExhausted ? 'retries_exhausted' : 'initial_failure',
+  });
 });
 
 // Handle job stalling
@@ -81,15 +145,7 @@ export function initializePriceSnapshotScheduler() {
             type: 'scheduled',
             timestamp: new Date().toISOString(),
           },
-          {
-            attempts: 3,
-            backoff: {
-              type: 'exponential',
-              delay: 2000,
-            },
-            removeOnComplete: true,
-            removeOnFail: false,
-          }
+          JOB_OPTIONS
         );
 
         return { triggered: true };
@@ -119,8 +175,8 @@ export async function triggerManualSnapshot(): Promise<void> {
       timestamp: new Date().toISOString(),
     },
     {
-      attempts: 1,
-      priority: 1, // High priority
+      ...JOB_OPTIONS,
+      priority: 1, // High priority for manual triggers
     }
   );
 }

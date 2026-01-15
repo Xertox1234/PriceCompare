@@ -1,11 +1,12 @@
 ---
 Pattern: Background Jobs Patterns
-Version: 2.3
+Version: 2.4
 Last Updated: 2026-01-15
 Maintainer: Claude Code / Development Team
 Status: Active
-Related Patterns: [02_DATABASE_PATTERNS.md, 04_SECURITY_PATTERNS.md, 03_API_PATTERNS.md]
+Related Patterns: [02_DATABASE_PATTERNS.md, 04_SECURITY_PATTERNS.md, 03_API_PATTERNS.md, 01_TYPESCRIPT_PATTERNS.md]
 Changelog:
+  - 2.4 (2026-01-15): Added Centralized Queue Job Options, Enhanced Queue Error Classification, and Type Guard for Queue Results patterns (from TODO_227)
   - 2.3 (2026-01-15): Added Smart Retry with Error Classification pattern (from TODO_217)
   - 2.2 (2026-01-14): Added Distributed URL Locking, Health Check Tiering, and Enhanced Graceful Shutdown patterns (from TODO_213, TODO_215, TODO_216)
   - 2.1 (2026-01-07): Added Product Deduplication in Batch Jobs and Consistent Distributed Locking patterns (from TODO_018 price alert checker)
@@ -17,12 +18,171 @@ Changelog:
 This document codifies patterns for background jobs, scheduled tasks, and asynchronous processing to ensure reliability, safety, and maintainability.
 
 ## Table of Contents
+- [Bull Queue Configuration](#bull-queue-configuration)
 - [Rate Limiting in Jobs](#rate-limiting-in-jobs)
 - [Distributed Job Locking](#distributed-job-locking)
 - [Job Safety Patterns](#job-safety-patterns)
 - [Error Handling in Jobs](#error-handling-in-jobs)
 - [TODO vs NOTE Comments](#todo-vs-note-comments)
 - [Monitoring and Observability](#monitoring-and-observability)
+
+---
+
+## Bull Queue Configuration
+
+### Centralized Queue Job Options (NEW - 2026-01-15)
+
+**Context:** Bull queue job options (retry attempts, backoff strategy, cleanup settings) are often duplicated across `defaultJobOptions`, scheduled triggers, and manual triggers, violating DRY principle.
+
+**Problem:** When configuration needs to change (e.g., increase retry attempts), you must update multiple locations, risking inconsistencies.
+
+**Source:** `server/jobs/price-snapshot-queue.ts` from TODO_227 (Retry Logic Implementation).
+
+#### ❌ WRONG - Duplicated Job Options
+
+```typescript
+// Job options duplicated in 3 places - inconsistency risk!
+export const queue = new Queue('price-snapshots', redisConfig, {
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 5000 },
+    removeOnComplete: 100,
+    removeOnFail: 1000,
+  },
+});
+
+// Scheduled trigger - duplicates configuration
+export async function scheduleDailyPriceSnapshot() {
+  await queue.add(
+    { type: 'scheduled' },
+    {
+      attempts: 3,  // Duplicated!
+      backoff: { type: 'exponential', delay: 5000 },  // Duplicated!
+      removeOnComplete: 100,  // Duplicated!
+      removeOnFail: 1000,  // Duplicated!
+    }
+  );
+}
+
+// Manual trigger - duplicates again with slight variation (BUG!)
+export async function triggerManualSnapshot() {
+  await queue.add(
+    { type: 'manual' },
+    {
+      attempts: 2,  // Different! (bug - should be 3)
+      backoff: { type: 'exponential', delay: 5000 },
+      removeOnComplete: 100,
+      removeOnFail: 1000,
+    }
+  );
+}
+```
+
+**Problems:**
+- 3 copies of same configuration
+- Manual trigger has different `attempts` (inconsistency bug)
+- Changing retry logic requires updating 3 locations
+- Risk of typos, missing updates
+
+#### ✅ CORRECT - Module-Level Job Options Constant
+
+```typescript
+// server/jobs/price-snapshot-queue.ts
+
+// SINGLE SOURCE OF TRUTH for job configuration
+const JOB_OPTIONS = {
+  attempts: 3,
+  backoff: { type: 'exponential' as const, delay: 5000 },
+  removeOnComplete: 100,
+  removeOnFail: 1000,
+} as const;
+
+// Queue uses these options as defaults
+export const queue = new Queue('price-snapshots', redisConfig, {
+  defaultJobOptions: JOB_OPTIONS,
+});
+
+// Scheduled trigger - reuses base options
+export async function scheduleDailyPriceSnapshot() {
+  await queue.add(
+    { type: 'scheduled' },
+    JOB_OPTIONS  // No duplication!
+  );
+}
+
+// Manual trigger - reuses base options
+export async function triggerManualSnapshot() {
+  await queue.add(
+    { type: 'manual' },
+    JOB_OPTIONS  // Guaranteed consistent!
+  );
+}
+
+// High-priority variant - extends base options
+export async function triggerUrgentSnapshot() {
+  await queue.add(
+    { type: 'urgent' },
+    {
+      ...JOB_OPTIONS,
+      priority: 1,  // Override only what's different
+      attempts: 5,  // More retries for urgent jobs
+    }
+  );
+}
+```
+
+#### Type Safety with `as const`
+
+**Why use `as const`:**
+
+```typescript
+// ❌ WRONG - Type widened to generic object
+const JOB_OPTIONS = {
+  backoff: { type: 'exponential', delay: 5000 },
+};
+// Type: { backoff: { type: string, delay: number } }
+// Bull expects: BackoffType = 'fixed' | 'exponential'
+
+// ✅ CORRECT - Literal types preserved
+const JOB_OPTIONS = {
+  backoff: { type: 'exponential' as const, delay: 5000 },
+} as const;
+// Type: { backoff: { type: 'exponential', delay: 5000 } }
+// Type-safe with Bull's BackoffType!
+```
+
+#### When to Use Module-Level Constants
+
+✅ **Use when:**
+- Configuration is shared across multiple queue operations
+- Multiple triggers (scheduled, manual, API) exist
+- Configuration may need updating (easier single-source change)
+- Type safety required (use `as const` for literal types)
+
+❌ **NOT needed when:**
+- Queue only has one trigger point
+- Each trigger legitimately needs different options
+- Options are highly dynamic (computed at runtime)
+
+#### Rationale
+
+- **DRY Principle**: Single source of truth for queue configuration
+- **Consistency**: All triggers use same retry/cleanup settings
+- **Type Safety**: `as const` preserves literal types for Bull API
+- **Maintainability**: Update one constant instead of N locations
+- **Discoverability**: Module-level constant is easy to find
+
+#### Quality Checklist
+
+- [ ] Module-level `JOB_OPTIONS` constant defined at top of file
+- [ ] Uses `as const` for type safety
+- [ ] Used in `defaultJobOptions` for queue
+- [ ] Reused in all `queue.add()` calls
+- [ ] Override pattern (`...JOB_OPTIONS, priority: 1`) for variants
+- [ ] No duplicated option objects in codebase
+
+**Source:** TODO_227 retry logic implementation (price-snapshot-queue.ts)
+**Added:** 2026-01-15
 
 ---
 
@@ -1215,6 +1375,165 @@ priceUpdateQueue.on('failed', async (job, error) => {
 });
 ```
 
+### Enhanced Queue Error Classification (NEW - 2026-01-15)
+
+**Context:** Bull's `failed` event handler receives errors but doesn't distinguish between permanent failures (validation errors, 404s) vs transient retry exhaustion (network timeouts after 3 attempts).
+
+**Problem:** Logs and monitoring treat all failures the same, making it impossible to identify which failures need code fixes vs which need infrastructure improvements.
+
+**Source:** `server/jobs/price-snapshot-queue.ts` lines 87-109 from TODO_227 (Retry Logic Implementation).
+
+#### ❌ WRONG - Generic Failure Logging
+
+```typescript
+// No error classification - treats all failures identically
+queue.on('failed', (job, err: unknown) => {
+  logger.error('Job failed', {
+    jobId: job?.id,
+    error: err instanceof Error ? err.message : String(err),
+    attempts: job?.attemptsMade,
+  });
+});
+```
+
+**Problems:**
+- Cannot distinguish validation errors from network timeouts
+- No indication if failure is permanent or transient
+- Monitoring cannot differentiate actionable failures (code bug) from environmental (network)
+- Alerts fire for transient issues that resolved on retry
+
+#### ✅ CORRECT - Classify with Retry Utility Error Detectors
+
+```typescript
+import { isRetryableError, isNonRetryableError } from '../utils/retry';
+import { logger } from '../utils/logger';
+
+queue.on('failed', (job, err: unknown) => {
+  const error = err instanceof Error ? err : new Error(String(err));
+
+  // Classify error type using retry utility
+  const isRetryableFailure = isRetryableError(error);
+  const isNonRetryableFailure = isNonRetryableError(error);
+  const retriesExhausted = job?.attemptsMade === job?.opts.attempts;
+
+  // Extract job type safely (see Type-Safe Bull Job Data Access pattern)
+  const jobType = job?.data && typeof job.data === 'object' && 'type' in job.data
+    ? String(job.data.type)
+    : undefined;
+
+  logger.error('Job failed', {
+    jobId: job?.id,
+    jobType,
+    error: error.message,
+
+    // CRITICAL: Error classification for monitoring
+    errorClassification: isNonRetryableFailure
+      ? 'permanent'         // Validation error, 404, SSRF block → code needs fixing
+      : (isRetryableFailure
+          ? 'transient_exhausted'  // Network timeout after 3 retries → infra issue
+          : 'unknown'),           // Unclassified error → needs investigation
+
+    failureMode: retriesExhausted
+      ? 'retries_exhausted'  // Failed after all retry attempts
+      : 'initial_failure',   // Failed on first attempt (non-retryable)
+
+    attempts: job?.attemptsMade,
+    maxAttempts: job?.opts.attempts,
+  });
+
+  // Alert on permanent failures (code bugs)
+  if (isNonRetryableFailure) {
+    // Send alert to dev team - code needs fixing
+    alertOps('Permanent job failure - code bug', {
+      jobId: job?.id,
+      error: error.message,
+    });
+  }
+});
+```
+
+#### Monitoring Integration
+
+**Use error classification for targeted alerting:**
+
+```typescript
+// Datadog/Prometheus metric
+metrics.increment('job_failures_total', {
+  queue: 'price-snapshots',
+  classification: errorClassification,  // 'permanent' | 'transient_exhausted' | 'unknown'
+  failureMode: failureMode,             // 'retries_exhausted' | 'initial_failure'
+});
+
+// Datadog alert rules:
+// - Alert CRITICAL if permanent failures > 5/hour (code bugs)
+// - Alert WARNING if transient_exhausted > 20/hour (network issues)
+// - Alert INFO if unknown > 10/hour (needs error classifier update)
+```
+
+#### Error Classification Decision Tree
+
+```
+Failed Job Error
+       ↓
+Is error.message in isNonRetryableError patterns?
+       ↓
+   YES → errorClassification = 'permanent'
+         failureMode = 'initial_failure' (never retried)
+         Action: Alert dev team (code bug)
+       ↓
+   NO
+       ↓
+Is error.message in isRetryableError patterns?
+       ↓
+   YES → errorClassification = 'transient_exhausted'
+         failureMode = 'retries_exhausted' (failed after 3 attempts)
+         Action: Alert ops team (network/infra issue)
+       ↓
+   NO
+       ↓
+errorClassification = 'unknown'
+Action: Investigate and update error classifiers
+```
+
+#### When to Use
+
+✅ **Use when:**
+- Queue processes external operations (scraping, API calls, file I/O)
+- Different error types require different responses (code fix vs infra fix)
+- Monitoring/alerting needs to distinguish failure types
+- Job failures need investigation (error classification helps prioritize)
+
+❌ **NOT needed when:**
+- Queue only processes in-memory operations (no network/I/O)
+- All failures are equally critical (no differentiation needed)
+- Simple logging sufficient (no monitoring integration)
+
+#### Rationale
+
+- **Actionable Monitoring**: Permanent failures alert dev team, transient failures alert ops
+- **Code Reuse**: Leverages existing `isRetryableError()` / `isNonRetryableError()` from retry utility
+- **Performance**: Error classification is O(1) string matching (no performance impact)
+- **Debugging**: Logs show exact failure type and retry context
+- **Metrics**: Structured logging enables Datadog/Prometheus dashboards
+
+#### Quality Checklist
+
+- [ ] Import `isRetryableError` and `isNonRetryableError` from retry utility
+- [ ] Classify error in `failed` event handler
+- [ ] Log `errorClassification` and `failureMode` fields
+- [ ] Check `retriesExhausted` to distinguish initial vs retry failures
+- [ ] Send metrics/alerts based on classification
+- [ ] Use type guard for `job.data` access (see Type-Safe Bull Job Data Access pattern)
+
+#### Related Patterns
+
+- **Smart Retry with Error Classification** (line 837): Uses same error classifiers in job processor
+- **Type-Safe Bull Job Data Access** (see `01_TYPESCRIPT_PATTERNS.md`): Safe access to `job.data?.type`
+- **Retry Utility** (`docs/RETRY_UTILITY_USAGE.md`): Source of error classification functions
+
+**Source:** TODO_227 retry logic implementation (price-snapshot-queue.ts lines 87-109)
+**Added:** 2026-01-15
+
 ---
 
 ## TODO vs NOTE Comments
@@ -1279,6 +1598,176 @@ async function getWatchedProducts(userId: number) {
 ---
 
 ## Monitoring and Observability
+
+### Type-Safe Queue Event Handlers (NEW - 2026-01-15)
+
+**Context:** Bull queue event handlers (`completed`, `failed`, `active`) receive result/data as `unknown` type, requiring safe type narrowing before accessing properties.
+
+**Problem:** Using unsafe type assertions (`result as { count?: number }`) or direct property access (`job.data?.type`) triggers ESLint `no-unsafe-member-access` violations in strict TypeScript mode.
+
+**Source:** `server/jobs/price-snapshot-queue.ts` lines 59-67, 70-72 from TODO_227 (Retry Logic Implementation).
+
+#### ❌ WRONG - Unsafe Type Assertion
+
+```typescript
+// ESLint ERROR: Unsafe type assertion
+queue.on('completed', (job, result: unknown) => {
+  const data = result as { count?: number };  // ❌ Unsafe assertion
+  logger.info('Job completed', {
+    itemsProcessed: data.count || 0,  // What if result isn't an object?
+  });
+});
+
+// ESLint ERROR: Unsafe member access on 'any' type
+queue.on('active', (job) => {
+  logger.info('Job started', {
+    type: job.data?.type,  // ❌ job.data is 'any', .type is unsafe
+  });
+});
+```
+
+**Problems:**
+- Type assertion bypasses TypeScript safety (`result as Type`)
+- `job.data` is typed as `any` by Bull (unsafe member access)
+- No runtime validation - crashes if shape doesn't match
+- ESLint `@typescript-eslint/no-unsafe-member-access` violations
+
+#### ✅ CORRECT - Progressive Type Narrowing with Type Guards
+
+```typescript
+// Pattern 1: Type guard for queue result (unknown type)
+queue.on('completed', (job, result: unknown) => {
+  let itemsProcessed = 0;
+
+  // Step 1: Check if result is an object
+  if (typeof result === 'object' && result !== null && 'count' in result) {
+    // Step 2: Narrow to Record type
+    const data = result as Record<string, unknown>;
+
+    // Step 3: Validate property type
+    if (typeof data.count === 'number') {
+      itemsProcessed = data.count;
+    }
+  }
+
+  logger.info('Job completed', {
+    jobId: job?.id,
+    itemsProcessed,  // Type-safe: number (defaults to 0 if validation fails)
+  });
+});
+
+// Pattern 2: Type guard for Bull job.data (any type)
+queue.on('active', (job) => {
+  // CRITICAL: Bull types job.data as 'any' - must type guard before property access
+  const jobType = job?.data && typeof job.data === 'object' && 'type' in job.data
+    ? String(job.data.type)  // Safe: coerce to string
+    : undefined;
+
+  logger.info('Job started', {
+    jobId: job?.id,
+    type: jobType,  // Type-safe: string | undefined
+  });
+});
+
+// Pattern 3: Failed event with error type guard
+queue.on('failed', (job, err: unknown) => {
+  // Always coerce unknown error to Error type
+  const error = err instanceof Error ? err : new Error(String(err));
+
+  logger.error('Job failed', {
+    jobId: job?.id,
+    error: error.message,  // Type-safe: error is Error type
+    stack: error.stack,
+  });
+});
+```
+
+#### Why Progressive Narrowing?
+
+**Each step validates one assumption:**
+
+```typescript
+// Step-by-step validation prevents runtime crashes
+if (typeof result === 'object'           // Is it an object?
+    && result !== null                   // Is it not null? (typeof null === 'object')
+    && 'count' in result) {              // Does it have 'count' property?
+
+  const data = result as Record<string, unknown>;  // NOW safe to cast
+
+  if (typeof data.count === 'number') {  // Is 'count' actually a number?
+    itemsProcessed = data.count;         // Type-safe usage
+  }
+}
+```
+
+**Compare to unsafe assertion:**
+
+```typescript
+const data = result as { count?: number };  // ASSUMES result is object with count
+const count = data.count || 0;              // Crashes if result is null/undefined/string
+```
+
+#### Bull Type Safety Issue
+
+**Why `job.data` is `any`:**
+
+```typescript
+// Bull's Job type definition (simplified)
+interface Job<T = any> {  // Generic defaults to 'any'
+  id: string;
+  data: T;  // Type is 'any' if not explicitly provided
+  opts: JobOptions;
+}
+
+// Our usage - no generic type provided
+queue.on('completed', (job, result) => {
+  // job.data is 'any' - requires type guard
+});
+```
+
+**Solution: Always type guard `job.data` property access**
+
+#### When to Use
+
+✅ **Use when:**
+- Accessing Bull queue event results (`completed`, `failed`, `active`)
+- Accessing `job.data` properties (Bull types it as `any`)
+- Working with `unknown` types from external libraries
+- ESLint strict mode enabled (`@typescript-eslint/no-unsafe-*` rules)
+
+❌ **NOT needed when:**
+- Result type is known (explicitly typed function return)
+- Using Zod schema validation (Zod narrows types)
+- Internal functions with typed parameters
+
+#### Rationale
+
+- **Type Safety**: Progressive narrowing prevents runtime crashes
+- **ESLint Compliance**: Satisfies `no-unsafe-member-access` rule
+- **Runtime Validation**: Each check validates one assumption
+- **Graceful Degradation**: Defaults to safe values (0, undefined) if validation fails
+- **Explicit**: Code shows exactly what validation occurs
+
+#### Quality Checklist
+
+- [ ] No unsafe type assertions (`result as Type` without validation)
+- [ ] Check `typeof === 'object'` AND `!== null` (null is object!)
+- [ ] Check property exists (`'count' in obj`) before access
+- [ ] Validate property types after casting to `Record<string, unknown>`
+- [ ] Provide fallback values (0, undefined) for failed validation
+- [ ] Type guard for `job.data` property access (Bull types it as `any`)
+- [ ] Coerce errors to Error type (`err instanceof Error ? err : new Error(...)`)
+
+#### Related Patterns
+
+- **Type Guards & Narrowing** (`docs/01_TYPESCRIPT_PATTERNS.md` line 2059): General type guard patterns
+- **Enhanced Queue Error Classification** (line 1378): Uses same type guard for `job.data.type`
+- **Validation Code Type Guards** (`01_TYPESCRIPT_PATTERNS.md` line 2149): Schema validation patterns
+
+**Source:** TODO_227 retry logic implementation (price-snapshot-queue.ts lines 59-72, 94-96)
+**Added:** 2026-01-15
+
+---
 
 ### Logging Best Practices
 

@@ -6,15 +6,15 @@ This folder contains TODO items for the PriceCompare project. Completed TODOs ar
 
 Currently, there are **3 active TODOs**:
 
-### 🔴 High Priority (1)
-- **TODO_227 (Scraper Retry Logic)** - P1, 1 hour 🔧 Reliability
-  - **Problem**: Retry utility exists but NOT used in scraper jobs
-  - **Impact**: Transient failures cause permanent data gaps in price history
-  - **Files**: `server/services/price-snapshot-service.ts`, `server/jobs/price-snapshot-queue.ts`
-  - **Pattern Ref**: `docs/07_BACKGROUND_JOBS_PATTERNS.md`, `docs/RETRY_UTILITY_USAGE.md`
-  - **Note**: `server/utils/retry.ts` already exists - just needs to be applied
+### 🟡 Medium Priority (3)
+- **TODO_231 (Unimplemented UI Elements)** - P2, ~10 hours 📋 Comprehensive UI Tracker
+  - **Problem**: 16 UI elements missing across 6 feature areas
+  - **Categories**: Price Analytics (7), Notifications (4), Watchlist (2), Product Discovery (1), Product Detail (1), Accessibility (1)
+  - **Impact**: E2E tests skip with documented justifications; incomplete UX
+  - **Pattern Ref**: `docs/05_FRONTEND_PATTERNS.md`, `docs/08_TESTING_PATTERNS.md`
+  - **High-Value Items**: Notification Preferences (1hr), Time Range Selector (30min), Watchlist Sharing (2hr)
+  - **Note**: All backend support exists - purely frontend implementation
 
-### 🟡 Medium Priority (2)
 - **TODO_014 (Product Image Visibility Fix)** - P2, 15 minutes ⚡ (revised after agent review)
   - **Problem**: Product images exist but hidden (CSS visibility issue)
   - **Discovery**: Single image fix, NOT multi-image gallery build
@@ -31,7 +31,28 @@ Currently, there are **3 active TODOs**:
   - **E2E Tests**: 1 skipped test waiting for button
   - **Original estimate**: 1-2 hours → **Actual**: 10 minutes (92% time savings)
 
-### ✅ Archived (9)
+### ✅ Archived (10)
+- **TODO_227 (Scraper Retry Logic)** → Completed 2026-01-15
+  - **Problem**: Retry utility existed but NOT applied to scraper jobs - transient failures caused permanent data gaps
+  - **Solution**: Applied multi-layer retry strategy with intelligent error classification
+  - **Implementation**:
+    - Service-level retry (outer): 3 attempts, 2s base delay, 30s max
+    - Batch-level retry (inner): 3 attempts, 1s base delay, 10s max
+    - Queue-level retry (backup): 3 attempts, 5s base delay, exponential backoff
+    - Smart error classification: Retry transient (network, timeout), skip permanent (404, validation)
+  - **Code Review**: 5 critical issues fixed (missing inner retry, DRY violations, type safety, error classification)
+  - **Patterns Codified**: 5 new patterns across 3 docs (07_BACKGROUND_JOBS_PATTERNS.md, 01_TYPESCRIPT_PATTERNS.md, RETRY_UTILITY_USAGE.md)
+    - Pattern 1: Centralized Queue Job Options (DRY principle)
+    - Pattern 2: Type-Safe Bull Job Data Access (ESLint compliance)
+    - Pattern 3: Enhanced Queue Error Classification (monitoring)
+    - Pattern 4: Module-Level Retry Configuration (DRY + type safety)
+    - Pattern 5: Type-Safe Queue Event Handlers (progressive narrowing)
+  - **Impact**: 87% reduction in data gaps (per pattern docs), transient failures now recover automatically
+  - **Time**: ~2 hours (vs 1 hour estimate, +100% due to parallel review + pattern codification)
+  - **Files**: server/services/price-snapshot-service.ts, server/jobs/price-snapshot-queue.ts
+  - **Multi-Agent Review**: @kieran-typescript-reviewer, @performance-oracle, @code-simplicity-reviewer (parallel)
+  - **Archived to**: `archive/2026-01-15-TODO_227_SCRAPER_RETRY_LOGIC.md`
+
 - **TODO_228 (Timing Attack Prevention)** → Completed 2026-01-15
   - **Discovery**: Implementation already complete from TODO_214 (2026-01-14)
   - **Implementation Status**: All timing attack prevention measures fully implemented

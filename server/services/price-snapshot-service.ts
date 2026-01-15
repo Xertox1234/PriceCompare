@@ -2,7 +2,22 @@ import { storage } from '../storage';
 import { logger } from '../utils/logger';
 import { priceAggregationService } from './price-aggregation-service';
 import { BATCH_PROCESSING } from '../utils/constants';
-import { withRetry, createSmartRetryCondition } from '../utils/retry';
+import { withRetry, createSmartRetryCondition, type RetryOptions } from '../utils/retry';
+
+// Consolidated retry configuration for all snapshot operations
+const SNAPSHOT_RETRY_CONFIG: Partial<RetryOptions> = {
+  maxAttempts: 3,
+  baseDelayMs: 2000,
+  maxDelayMs: 30000,
+  shouldRetry: createSmartRetryCondition(),
+};
+
+const BATCH_INSERT_RETRY_CONFIG: Partial<RetryOptions> = {
+  maxAttempts: 3,
+  baseDelayMs: 1000,
+  maxDelayMs: 10000,
+  shouldRetry: createSmartRetryCondition(),
+};
 
 export class PriceSnapshotService {
   /**
@@ -58,24 +73,17 @@ export class PriceSnapshotService {
 
           // Insert price history records (batch insert for performance)
           // Wrap individual batch insert with retry for transient failures
-          await withRetry(
-            () => storage.insertPriceHistoryBatch(snapshots),
-            {
-              maxAttempts: 3,
-              baseDelayMs: 1000,
-              maxDelayMs: 10000,
-              shouldRetry: createSmartRetryCondition(),
-              onRetry: (error, attempt, delayMs) => {
-                logger.warn(`Batch insert attempt ${attempt} failed, retrying in ${delayMs}ms`, {
-                  batch: offset / batchSize + 1,
-                  batchSize: batch.length,
-                  attempt,
-                  delayMs,
-                  error: error.message,
-                });
-              },
-            }
-          );
+          await withRetry(() => storage.insertPriceHistoryBatch(snapshots), {
+            ...BATCH_INSERT_RETRY_CONFIG,
+            onRetry: (error, attempt, delayMs) => {
+              logger.warn(`Batch insert retry ${attempt}/${BATCH_INSERT_RETRY_CONFIG.maxAttempts}`, {
+                batch: Math.floor(offset / batchSize) + 1,
+                size: batch.length,
+                delayMs,
+                error: error.message,
+              });
+            },
+          });
 
           totalCount += batch.length;
           offset += batchSize;
@@ -94,13 +102,9 @@ export class PriceSnapshotService {
         return totalCount;
       },
       {
-        maxAttempts: 3,
-        baseDelayMs: 2000,
-        maxDelayMs: 30000,
-        shouldRetry: createSmartRetryCondition(),
+        ...SNAPSHOT_RETRY_CONFIG,
         onRetry: (error, attempt, delayMs) => {
-          logger.warn(`Price snapshot attempt ${attempt} failed, retrying in ${delayMs}ms`, {
-            attempt,
+          logger.warn(`Snapshot retry ${attempt}/${SNAPSHOT_RETRY_CONFIG.maxAttempts}`, {
             delayMs,
             error: error.message,
           });
@@ -154,7 +158,18 @@ export class PriceSnapshotService {
         }));
 
         // Insert price history records (batch insert for performance)
-        await storage.insertPriceHistoryBatch(snapshots);
+        // Wrap with retry for transient database failures
+        await withRetry(() => storage.insertPriceHistoryBatch(snapshots), {
+          ...BATCH_INSERT_RETRY_CONFIG,
+          onRetry: (error, attempt, delayMs) => {
+            logger.warn(`Product snapshot batch insert retry ${attempt}/${BATCH_INSERT_RETRY_CONFIG.maxAttempts}`, {
+              productId,
+              size: snapshots.length,
+              delayMs,
+              error: error.message,
+            });
+          },
+        });
 
         logger.info(
           `[PriceSnapshot] Snapshotted ${snapshots.length} prices for product ${productId}`
@@ -205,14 +220,10 @@ export class PriceSnapshotService {
         return snapshots.length;
       },
       {
-        maxAttempts: 3,
-        baseDelayMs: 2000,
-        maxDelayMs: 30000,
-        shouldRetry: createSmartRetryCondition(),
+        ...SNAPSHOT_RETRY_CONFIG,
         onRetry: (error, attempt, delayMs) => {
-          logger.warn(`Product snapshot attempt ${attempt} failed, retrying in ${delayMs}ms`, {
+          logger.warn(`Product snapshot retry ${attempt}/${SNAPSHOT_RETRY_CONFIG.maxAttempts}`, {
             productId,
-            attempt,
             delayMs,
             error: error.message,
           });
