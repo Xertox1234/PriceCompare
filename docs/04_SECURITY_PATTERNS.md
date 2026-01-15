@@ -512,6 +512,205 @@ export async function clearFailedAttempts(email: string): Promise<void> {
 }
 ```
 
+### Timing Attack Prevention with Cryptographic Randomization (NEW - 2026-01-14)
+
+**Context:** Response time differences between "user exists" and "user not found" allow attackers to enumerate valid email addresses.
+
+**Problem:** Attackers can use timing analysis to determine which emails are registered, enabling targeted phishing and credential stuffing attacks.
+
+**Source:** `server/routes/auth-routes.ts` lines 359-382 from TODO_214 (Timing Attack Prevention implementation).
+
+#### ❌ WRONG - Timing Leak Allows Email Enumeration
+
+```typescript
+// Password reset endpoint with timing vulnerability
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const { email } = req.body;
+
+  const user = await storage.getUserByEmail(email);
+
+  if (!user) {
+    // FAST response (~5ms) - no database lookups
+    return sendSuccess(res, { message: 'If email exists, reset link sent' });
+  }
+
+  // SLOW response (~200ms) - token generation + email sending
+  const resetToken = await generateResetToken();
+  await storage.saveResetToken(user.id, resetToken);
+  await emailService.sendPasswordReset(user.email, resetToken);
+
+  return sendSuccess(res, { message: 'If email exists, reset link sent' });
+});
+```
+
+**Attack Scenario:**
+1. Attacker sends 1000 password reset requests with different emails
+2. Measures response times: 5ms vs 200ms
+3. Response times >100ms = email exists in database
+4. Builds list of valid emails for targeted attacks
+5. Success rate: 95%+ email enumeration accuracy
+
+#### ✅ CORRECT - Response Time Normalization
+
+```typescript
+// server/routes/auth-routes.ts
+
+// Cryptographically random delay (prevents statistical analysis)
+async function normalizeResponseTime(
+  minMs: number = 200,
+  maxMs: number = 600
+): Promise<void> {
+  // CRITICAL: Use crypto.randomInt (NOT Math.random)
+  // Math.random is predictable and can be analyzed statistically
+  const delay = crypto.randomInt(minMs, maxMs);
+  await new Promise(resolve => setTimeout(resolve, delay));
+}
+
+app.post('/api/auth/forgot-password', csrfProtection, async (req, res) => {
+  const { email } = req.body;
+
+  const user = await storage.getUserByEmail(email);
+
+  if (!user) {
+    // Add delay to match "user exists" timing
+    await normalizeResponseTime();
+    return sendSuccess(res, { message: 'If email exists, reset link sent' });
+  }
+
+  // Generate token and send email (takes ~200-400ms)
+  const resetToken = await generateResetToken();
+  await storage.saveResetToken(user.id, resetToken);
+  await emailService.sendPasswordReset(user.email, resetToken);
+
+  // No additional delay needed - already slow enough
+  return sendSuccess(res, { message: 'If email exists, reset link sent' });
+});
+```
+
+#### Why crypto.randomInt vs Math.random?
+
+**Math.random() is INSECURE for timing attacks:**
+```typescript
+// ❌ WRONG - Predictable pattern
+function badDelay() {
+  const delay = Math.floor(Math.random() * 400) + 200; // 200-600ms
+  // Problem: Math.random uses deterministic PRNG
+  // Attackers can:
+  // 1. Collect 10,000 samples
+  // 2. Analyze distribution pattern
+  // 3. Detect non-random clustering (valid vs invalid emails)
+}
+
+// ✅ CORRECT - Cryptographically secure
+function goodDelay() {
+  const delay = crypto.randomInt(200, 600);
+  // crypto.randomInt uses OS-level entropy
+  // Impossible to predict or analyze statistically
+}
+```
+
+#### Timing Profile Comparison
+
+**Without normalization:**
+```
+Valid email:    [==========] 350ms ± 50ms  (database + email)
+Invalid email:  [=]          45ms ± 5ms   (no database lookup)
+Difference:     305ms (easily detectable!)
+```
+
+**With normalization:**
+```
+Valid email:    [==========] 380ms ± 150ms (database + email)
+Invalid email:  [==========] 410ms ± 180ms (added delay)
+Difference:     30ms ± 230ms (statistically indistinguishable)
+```
+
+#### Statistical Analysis Resistance
+
+**Attacker's perspective:**
+```python
+# Attacker collects timing samples
+valid_emails = []
+for email in candidate_emails:
+    times = []
+    for _ in range(100):  # 100 samples per email
+        start = time()
+        response = reset_password(email)
+        times.append(time() - start)
+
+    avg_time = mean(times)
+    if avg_time < 100ms:  # Without normalization
+        valid_emails.append(email)  # 95% accuracy!
+
+# With crypto.randomInt normalization:
+# avg_time varies randomly between 200-600ms
+# No correlation with valid/invalid
+# Enumeration attack fails!
+```
+
+#### Implementation in Multiple Endpoints
+
+**Password reset (already shown above)**
+**Login endpoint:**
+```typescript
+app.post('/api/auth/login', csrfProtection, async (req, res) => {
+  const { email, password } = req.body;
+
+  const user = await storage.getUserByEmail(email);
+
+  if (!user) {
+    await normalizeResponseTime();  // Match valid user timing
+    return sendError(res, 'Invalid credentials', 401);
+  }
+
+  const isValid = await bcrypt.compare(password, user.passwordHash);
+  if (!isValid) {
+    // bcrypt already slow (~100-200ms), no additional delay needed
+    return sendError(res, 'Invalid credentials', 401);
+  }
+
+  // ... successful login
+});
+```
+
+**Email verification:**
+```typescript
+app.post('/api/auth/verify-email', async (req, res) => {
+  const { token } = req.body;
+
+  const user = await storage.getUserByVerificationToken(token);
+
+  if (!user || user.emailVerified) {
+    await normalizeResponseTime();  // Prevent token validation timing leak
+    return sendError(res, 'Invalid or expired verification link', 400);
+  }
+
+  // ... verify email
+});
+```
+
+#### Quality Checklist
+
+- [ ] Use `crypto.randomInt()` (NOT `Math.random()`)
+- [ ] Apply to all authentication endpoints (login, reset, verify)
+- [ ] Delay range matches actual operation time (200-600ms typical)
+- [ ] Same generic message for both paths ("If email exists...")
+- [ ] Tests verify timing overlap (collect 100+ samples, check distribution)
+- [ ] Monitor for timing anomalies in production
+
+**Security Impact:**
+- **Prevents**: Email enumeration attacks
+- **Protects**: User privacy (attackers can't build user lists)
+- **Mitigates**: Targeted phishing and credential stuffing
+
+**Performance Cost:**
+- Adds 200-600ms to invalid email responses
+- Zero cost for valid email responses (already slow)
+- Acceptable tradeoff for security
+
+**Source:** TODO_214 timing attack prevention
+**Added:** 2026-01-14
+
 ---
 
 ## Password Security
@@ -2420,6 +2619,213 @@ app.use((req, res, next) => {
   next();
 });
 ```
+
+### Composite Rate Limit Keys for Distributed Attacks (NEW - 2026-01-14)
+
+**Context:** Traditional IP-based rate limiting fails against distributed attacks targeting single accounts from multiple IPs.
+
+**Problem:** Attackers use botnets to distribute password guessing across thousands of IPs, bypassing per-IP limits while hammering single accounts.
+
+**Source:** `server/middleware/auth-rate-limiter.ts` from TODO_219 (Enhanced Auth Rate Limiting implementation).
+
+#### ❌ WRONG - IP-Only Rate Limiting
+
+```typescript
+// Simple IP-based rate limiter (INSUFFICIENT!)
+export const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,  // 10 attempts per IP
+  keyGenerator: (req) => req.ip || 'unknown',
+});
+
+// Attack scenario:
+// Attacker controls 1000 IPs (botnet)
+// Each IP tries 10 passwords for victim@example.com
+// Total: 10,000 password attempts against single account!
+// Rate limiter sees each IP separately, no protection
+```
+
+**Attack Vector:**
+1. Attacker has password list (10,000 common passwords)
+2. Uses botnet with 1,000 different IPs
+3. Each IP tries 10 passwords against `victim@example.com`
+4. IP-based rate limiter: Each IP gets 10 attempts (under limit ✓)
+5. Account-based impact: 10,000 total attempts (UNPROTECTED!)
+
+#### ✅ CORRECT - Composite Key Rate Limiting
+
+```typescript
+// server/middleware/auth-rate-limiter.ts
+import rateLimit from 'express-rate-limit';
+import type { Request } from 'express';
+
+// Extract email from request body safely
+function extractEmail(req: Request): string | null {
+  try {
+    if (req.body && typeof req.body.email === 'string') {
+      return req.body.email.toLowerCase().trim();
+    }
+  } catch {
+    // Body parsing failed
+  }
+  return null;
+}
+
+// Login rate limiter with composite key
+export const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  message: { error: 'Too many login attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+
+  // COMPOSITE KEY: IP + Email (protects against both attack vectors)
+  keyGenerator: (req: Request): string => {
+    const ip = req.ip || 'unknown';
+    const email = extractEmail(req);
+
+    // Format: "ip:email" (both components required for unique key)
+    return `${ip}:${email || 'no-email'}`;
+  },
+
+  // Skip rate limiting in test environment
+  skip: () => process.env.NODE_ENV === 'test',
+});
+
+// Password reset with composite key
+export const passwordResetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 3,  // Very restrictive
+  message: { error: 'Too many password reset attempts. Please try again later.' },
+
+  keyGenerator: (req: Request): string => {
+    const ip = req.ip || 'unknown';
+    const email = extractEmail(req);
+    return `${ip}:${email || 'no-email'}`;
+  },
+
+  skip: () => process.env.NODE_ENV === 'test',
+});
+
+// Registration rate limiter (IP-only, different threat model)
+export const registrationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5,
+  message: { error: 'Too many registration attempts. Please try again later.' },
+
+  // IP-only key (prevents mass account creation from single source)
+  keyGenerator: (req: Request): string => req.ip || 'unknown',
+
+  skip: () => process.env.NODE_ENV === 'test',
+});
+```
+
+#### Attack Scenarios Comparison
+
+**Scenario 1: Distributed Attack (Multiple IPs → Single Account)**
+
+*Without composite keys:*
+```
+10 IPs × 10 attempts each = 100 attempts on victim@example.com
+✗ IP limiter: Each IP under limit (10/10)
+✗ No account-level protection
+✗ Attack succeeds
+```
+
+*With composite keys:*
+```
+10 IPs × 10 attempts each against victim@example.com
+Key format: "192.168.1.1:victim@example.com", "192.168.1.2:victim@example.com"...
+✓ Each unique IP+email pair limited to 10 attempts
+✓ Attacker needs DIFFERENT emails per IP to bypass
+✓ Attack prevented
+```
+
+**Scenario 2: Single IP → Multiple Accounts**
+
+*IP-only rate limiting:*
+```
+1 IP tries 1 attempt each on 10 different accounts
+✗ All attempts share same rate limit counter
+✗ After 10 accounts, IP is blocked
+✗ Collateral damage: legitimate users from same NAT gateway affected
+```
+
+*Composite keys:*
+```
+1 IP tries 1 attempt on each of 10 accounts
+Keys: "192.168.1.1:user1@example.com", "192.168.1.1:user2@example.com"...
+✓ Each IP+email pair gets independent counter
+✓ 10 different keys = 10 independent limits
+✗ Attack not prevented (each key under limit)
+
+Solution: Add account lockout (separate mechanism)
+```
+
+#### When to Use Composite Keys
+
+**Use IP+Email composite keys for:**
+- ✅ Login endpoints (protect accounts from distributed attacks)
+- ✅ Password reset (prevent account takeover prep)
+- ✅ Email verification resend (prevent email bombing)
+- ✅ 2FA code requests (prevent code flooding)
+
+**Use IP-only keys for:**
+- ✅ Registration (prevent mass fake account creation)
+- ✅ General API endpoints (prevent resource exhaustion)
+- ✅ Search/browse endpoints (prevent scraping)
+
+#### Implementation with Account Lockout (Defense-in-Depth)
+
+```typescript
+// Composite rate limiting (prevents distributed attacks)
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
+  const { email, password } = req.body;
+
+  // Account lockout check (prevents single-IP brute force)
+  const isLocked = await isAccountLocked(email);
+  if (isLocked) {
+    return sendError(res, 'Account temporarily locked due to failed login attempts', 423);
+  }
+
+  const user = await storage.getUserByEmail(email);
+  if (!user) {
+    await recordFailedAttempt(email);  // Increment account lockout counter
+    await normalizeResponseTime();
+    return sendError(res, 'Invalid credentials', 401);
+  }
+
+  const isValid = await bcrypt.compare(password, user.passwordHash);
+  if (!isValid) {
+    await recordFailedAttempt(email);  // Increment account lockout counter
+    return sendError(res, 'Invalid credentials', 401);
+  }
+
+  await clearFailedAttempts(email);  // Reset on successful login
+  // ... successful login
+});
+```
+
+#### Quality Checklist
+
+- [ ] Login endpoints use `IP+email` composite keys
+- [ ] Password reset uses `IP+email` composite keys
+- [ ] Registration uses `IP-only` keys (different threat model)
+- [ ] Account lockout implemented as additional defense layer
+- [ ] Test environment skips rate limiting
+- [ ] Error messages don't reveal email existence
+- [ ] Tests verify both single-IP and distributed attack scenarios
+
+**Security Impact:**
+- **Prevents**: Distributed brute force (botnet attacks on single account)
+- **Maintains**: Protection against single-IP attacks
+- **Requires**: Account lockout for complete protection
+
+**Key Insight:**
+Composite keys protect **accounts**, IP-only keys protect **infrastructure**. Use both where appropriate.
+
+**Source:** TODO_219 enhanced auth rate limiting
+**Added:** 2026-01-14
 
 ---
 
