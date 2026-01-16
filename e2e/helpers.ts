@@ -596,3 +596,45 @@ export function generateTestEmail(prefix = 'test'): string {
 export function generateTestUsername(prefix = 'user'): string {
   return `${prefix}_${nextDeterministicSuffix('user')}`;
 }
+
+/**
+ * Fetch CSRF token from the API
+ * Used for direct API requests in E2E tests that bypass the React app's token management
+ *
+ * @param page - Playwright page object
+ * @returns CSRF token string
+ * @throws Error if token fetch fails or returns invalid format
+ *
+ * @example
+ * ```typescript
+ * const csrfToken = await getCsrfToken(page);
+ * await page.request.post('/api/watchlists', {
+ *   data: { name: 'Test List' },
+ *   headers: { 'X-CSRF-Token': csrfToken },
+ * });
+ * ```
+ */
+export async function getCsrfToken(page: Page): Promise<string> {
+  const response = await page.request.get('/api/csrf-token');
+
+  // Validate HTTP response status
+  if (!response.ok()) {
+    throw new Error(
+      `Failed to fetch CSRF token: ${response.status()} ${response.statusText()}. ` +
+      `Body: ${await response.text()}`
+    );
+  }
+
+  // Parse response
+  const envelope = await response.json() as { success: boolean; data: { csrfToken: string } };
+
+  // Runtime validation
+  if (!envelope.success || !envelope.data?.csrfToken) {
+    throw new Error(
+      `Invalid CSRF token response format. Expected { success: true, data: { csrfToken: string } }, ` +
+      `got: ${JSON.stringify(envelope)}`
+    );
+  }
+
+  return envelope.data.csrfToken;
+}

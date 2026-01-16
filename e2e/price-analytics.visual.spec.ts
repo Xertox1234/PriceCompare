@@ -128,7 +128,7 @@ test.describe('Price Analytics - Visual Regression', () => {
     const chart = page.locator('[data-testid="price-chart"], [class*="recharts-wrapper"]').first();
 
     if ((await chart.count()) === 0) {
-      test.skip();
+      test.skip(true, 'Price chart not rendered - data not available for chart-only visual baseline');
       return;
     }
 
@@ -150,7 +150,7 @@ test.describe('Price Analytics - Visual Regression', () => {
     const chart = page.locator('[data-testid="price-chart"], [class*="recharts-wrapper"]').first();
 
     if ((await chart.count()) === 0) {
-      test.skip();
+      test.skip(true, 'Price chart not rendered - cannot capture alert modal baseline without chart interaction');
       return;
     }
 
@@ -175,7 +175,7 @@ test.describe('Price Analytics - Visual Regression', () => {
     const widget = page.locator('text=/price\\s+volatility/i').first().locator('..');
 
     if ((await widget.count()) === 0) {
-      test.skip();
+      test.skip(true, 'Volatility widget not rendered - feature not implemented or no data available');
       return;
     }
 
@@ -193,7 +193,7 @@ test.describe('Price Analytics - Visual Regression', () => {
     const facts = page.locator('text=/historical.*facts/i').first().locator('..');
 
     if ((await facts.count()) === 0) {
-      test.skip();
+      test.skip(true, 'Historical facts section not rendered - feature not implemented or no data available');
       return;
     }
 
@@ -211,7 +211,7 @@ test.describe('Price Analytics - Visual Regression', () => {
     const comparison = page.locator('text=/cross-retailer\\s+comparison/i').first().locator('..');
 
     if ((await comparison.count()) === 0) {
-      test.skip();
+      test.skip(true, 'Cross-retailer comparison not rendered - feature not implemented or no multi-retailer data');
       return;
     }
 

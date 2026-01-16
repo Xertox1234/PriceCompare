@@ -283,7 +283,7 @@ test.describe('Price History & Analytics', () => {
 
       if ((await chart.count()) === 0) {
         // No chart - no data loaded, skip test
-        test.skip();
+        test.skip(true, 'Price history chart not available - volatility widget requires price data');
         return;
       }
 
@@ -333,7 +333,7 @@ test.describe('Price History & Analytics', () => {
 
       if ((await chart.count()) === 0) {
         // No chart - no data loaded, skip test
-        test.skip();
+        test.skip(true, 'Price history chart not available - price change indicator requires price data');
         return;
       }
 
@@ -380,7 +380,7 @@ test.describe('Price History & Analytics', () => {
 
       if ((await chart.count()) === 0) {
         // No chart - no data loaded, skip test
-        test.skip();
+        test.skip(true, 'Price history chart not available - retailer comparison requires price data');
         return;
       }
 
@@ -436,7 +436,7 @@ test.describe('Price History & Analytics', () => {
 
       if ((await chart.count()) === 0) {
         // No chart - no data loaded, skip test
-        test.skip();
+        test.skip(true, 'Price history chart not available - best deal badge requires price data');
         return;
       }
 

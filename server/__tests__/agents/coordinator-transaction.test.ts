@@ -25,13 +25,15 @@ import type { InsertProduct, InsertTrendingProduct } from '@shared/schema';
 describe('Coordinator Agent - Transaction Atomicity', () => {
   // Clean up test data before each test
   beforeEach(async () => {
-    // Delete test products and trending products
+    // NOTE: db.delete() with WHERE clause is intentional here - testing specific category cleanup
+    // for transaction test isolation without affecting other test data
     await db.delete(products).where(eq(products.category, 'TransactionTest'));
     await db.delete(trendingProducts).where(eq(trendingProducts.category, 'TransactionTest'));
   });
 
   // Close database connection after all tests
   afterAll(async () => {
+    // NOTE: db.delete() with WHERE clause is intentional here - final cleanup of test category
     await db.delete(products).where(eq(products.category, 'TransactionTest'));
     await db.delete(trendingProducts).where(eq(trendingProducts.category, 'TransactionTest'));
   });

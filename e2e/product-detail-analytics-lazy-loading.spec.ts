@@ -509,7 +509,7 @@ test.describe('Product Detail - Analytics Lazy Loading', () => {
       });
 
       if ((await analyticsButton.count()) === 0) {
-        test.skip();
+        test.skip(true, 'Price analytics button not implemented - chart render test requires expandable analytics section');
         return;
       }
 
@@ -562,7 +562,7 @@ test.describe('Product Detail - Analytics Lazy Loading', () => {
       });
 
       if ((await analyticsButton.count()) === 0) {
-        test.skip();
+        test.skip(true, 'Price analytics button not implemented - chunk load failure test requires lazy-loaded analytics section');
         return;
       }
 
@@ -618,7 +618,7 @@ test.describe('Product Detail - Analytics Lazy Loading', () => {
       });
 
       if ((await analyticsButton.count()) === 0) {
-        test.skip();
+        test.skip(true, 'Price analytics button not implemented - API error handling test requires lazy-loaded analytics section');
         return;
       }
 

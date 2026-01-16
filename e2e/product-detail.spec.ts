@@ -100,7 +100,7 @@ test.describe('Product Detail - Page Loading', () => {
     // Either show an error OR load with some content (graceful handling)
     // Skip test if neither condition is met (UI not implemented)
     if (!hasError && !hasLoadingOrDefault) {
-      test.skip();
+      test.skip(true, 'Invalid product ID handling not implemented - no error message or graceful fallback displayed');
       return;
     }
 
@@ -267,7 +267,7 @@ test.describe('Product Detail - Watchlist Integration', () => {
     // Skip test if API failed (may be database constraint issue)
     if (addResponse.status() !== 200) {
       console.log(`[SKIP] Add watchlist API failed with status ${addResponse.status()}`);
-      test.skip();
+      test.skip(true, `Add to watchlist API failed with status ${addResponse.status()} - database constraint or API error`);
       return;
     }
 
@@ -319,7 +319,7 @@ test.describe('Product Detail - Price Analytics Integration', () => {
 
     // If no comparison section, skip test
     if ((await comparisonSection.count()) === 0) {
-      test.skip();
+      test.skip(true, 'Retailer comparison section not rendered - feature not implemented or no offers available');
       return;
     }
 
@@ -373,7 +373,7 @@ test.describe('Product Detail - Price Analytics Integration', () => {
         await expect(chart).toBeVisible({ timeout: 5000 });
       } else {
         // No price history feature found, skip test
-        test.skip();
+        test.skip(true, 'Price history feature not found - no chart section, tab, or button available');
       }
     }
   });
@@ -398,7 +398,7 @@ test.describe('Product Detail - Related Products', () => {
 
     // If no related products section, skip test
     if ((await relatedSection.count()) === 0) {
-      test.skip();
+      test.skip(true, 'Related products section not rendered - feature not implemented or no related products found');
       return;
     }
 
@@ -443,7 +443,7 @@ test.describe('Product Detail - Price Alert Integration', () => {
 
     // If no price alert button found, skip test
     if ((await priceAlertButton.count()) === 0) {
-      test.skip();
+      test.skip(true, 'Price alert button not found - feature not implemented or not visible on product detail page');
       return;
     }
 

@@ -1,8 +1,9 @@
 # Testing Patterns
 
-**Version:** 3.7
+**Version:** 3.8
 **Last Updated:** 2026-01-16
 **Changelog:**
+- 3.8 (2026-01-16): Added E2E CSRF Token Patterns - getCsrfToken() helper for direct API calls, defensive API response validation, page reload after API modifications (from accessibility E2E test fix)
 - 3.7 (2026-01-16): Added Dual-Flow E2E Helper Functions Pattern - Optional parameter branching for helpers that support multiple user flows (simple vs. advanced mode), DRY navigation logic, JSDoc documentation pattern (from TODO_233 E2E Watchlist Selector Fix)
 - 3.6 (2026-01-14): Added WebSocket Testing Patterns - Socket.IO Race Condition Prevention, Concurrent Event Waiting, Event Bus Cleanup, setImmediate Room Join Pattern, Test Mode Rate Limit Bypass (from TODO_207 WebSocket integration test fixes)
 - 3.5 (2026-01-08): Added E2E Race Condition Prevention Patterns - Attach-Before-Trigger, API-First Verification, Comprehensive State Verification (from auth E2E flakiness fixes)
@@ -5338,6 +5339,165 @@ Before writing/modifying E2E tests with modals or dynamic content:
 - Tab navigation timing strategies
 - React hooks compliance in tested components
 - Reusable pattern templates
+
+---
+
+### E2E CSRF Token Patterns (NEW - Phase 1.2)
+
+**Context:** E2E tests that make direct API calls (bypassing the React app's UI) must handle CSRF tokens manually. The React app automatically manages CSRF tokens via `App.tsx` on startup, but direct `page.request.post()` calls do not have this automatic token management.
+
+**Problem:** Direct API calls in E2E tests fail with 403 Forbidden when CSRF protection is enabled (all POST/PUT/PATCH/DELETE endpoints).
+
+**Reference Implementation:** `e2e/helpers.ts` (`getCsrfToken()`) and `e2e/accessibility.spec.ts` (usage example)
+
+---
+
+#### Pattern: getCsrfToken() Helper for Direct API Calls
+
+**When to use:**
+- E2E tests that make direct API requests via `page.request.post()` or similar
+- Tests that bypass UI interactions for speed (e.g., creating test data via API)
+- Tests that need to verify API behavior directly (not through UI)
+
+**✅ Preferred Approach:**
+
+```typescript
+// e2e/helpers.ts
+import { type Page } from '@playwright/test';
+
+/**
+ * Fetch CSRF token from the API
+ * Used for direct API requests in E2E tests that bypass the React app's token management
+ *
+ * @param page - Playwright page object
+ * @returns CSRF token string
+ * @throws Error if token fetch fails or returns invalid format
+ *
+ * @example
+ * ```typescript
+ * const csrfToken = await getCsrfToken(page);
+ * await page.request.post('/api/watchlists', {
+ *   data: { name: 'Test List' },
+ *   headers: { 'X-CSRF-Token': csrfToken },
+ * });
+ * ```
+ */
+export async function getCsrfToken(page: Page): Promise<string> {
+  const response = await page.request.get('/api/csrf-token');
+
+  // Validate HTTP response status BEFORE parsing JSON
+  if (!response.ok()) {
+    throw new Error(
+      `Failed to fetch CSRF token: ${response.status()} ${response.statusText()}. ` +
+      `Body: ${await response.text()}`
+    );
+  }
+
+  // Parse response
+  const envelope = await response.json() as { success: boolean; data: { csrfToken: string } };
+
+  // Runtime validation - verify response structure matches expected schema
+  if (!envelope.success || !envelope.data?.csrfToken) {
+    throw new Error(
+      `Invalid CSRF token response format. Expected { success: true, data: { csrfToken: string } }, ` +
+      `got: ${JSON.stringify(envelope)}`
+    );
+  }
+
+  return envelope.data.csrfToken;
+}
+```
+
+**Usage in E2E tests:**
+
+```typescript
+// e2e/accessibility.spec.ts
+test('should create watchlist via API and verify UI update', async ({ page }) => {
+  // 1. Register user (establishes session)
+  await registerUser(page, 'testuser', 'test@example.com', 'TestPass123!');
+
+  // 2. Navigate to product page
+  await page.goto(`/product/${product.id}`);
+  await waitForPageReady(page);
+
+  // 3. Get CSRF token for direct API call
+  const csrfToken = await getCsrfToken(page);
+
+  // 4. Create watchlist via direct API call (bypasses UI for speed)
+  // Note: page.request shares cookies with page context (session preserved)
+  const createResponse = await page.request.post('/api/watchlists', {
+    data: { name: 'Test List', description: 'API created list' },
+    headers: {
+      'X-CSRF-Token': csrfToken,  // CRITICAL: Include CSRF token
+      'Content-Type': 'application/json',
+    },
+  });
+
+  // 5. Verify API response
+  if (!createResponse.ok()) {
+    throw new Error(`Failed to create watchlist: ${createResponse.status()} ${await createResponse.text()}`);
+  }
+
+  // 6. CRITICAL: Reload page after direct API modification to sync UI state
+  // React Query cache doesn't know about the API change made outside the app
+  await page.reload();
+  await waitForPageReady(page);
+
+  // 7. Now verify UI reflects the API change
+  await page.getByRole('button', { name: /add to specific watchlist/i }).click();
+  await expect(page.getByRole('option', { name: /test list/i })).toBeVisible();
+});
+```
+
+**❌ Anti-Pattern (Avoid):**
+
+```typescript
+// ❌ WRONG - Direct API call without CSRF token
+const createResponse = await page.request.post('/api/watchlists', {
+  data: { name: 'Test List' },
+  // Missing: 'X-CSRF-Token' header
+});
+// Result: 403 Forbidden (CSRF protection blocks the request)
+
+// ❌ WRONG - No HTTP status validation before JSON parsing
+const response = await page.request.get('/api/csrf-token');
+const data = await response.json();  // Might fail if response is 500 error HTML
+const token = data.data.csrfToken;
+
+// ❌ WRONG - No runtime validation of response structure
+const envelope = await response.json() as { success: boolean; data: { csrfToken: string } };
+return envelope.data.csrfToken;  // Runtime error if response format doesn't match
+
+// ❌ WRONG - No page reload after direct API modification
+await page.request.post('/api/watchlists', { ... });
+// Immediately check UI without reload
+await expect(page.getByText(/test list/i)).toBeVisible();  // FAILS - React Query cache stale
+```
+
+**Rationale:**
+
+**1. Defensive API Response Validation:**
+- Check HTTP status BEFORE parsing JSON (avoid parsing error HTML as JSON)
+- Validate response structure at runtime (type assertions don't validate at runtime)
+- Provide detailed error messages with actual response for debugging
+
+**2. Page Reload After Direct API Modifications:**
+- React Query cache doesn't auto-update when API changes happen outside the app
+- Direct API calls bypass React Query mutations (no cache invalidation)
+- Reloading the page re-fetches data and syncs UI state with backend
+
+**3. Session Cookie Sharing:**
+- `page.request` shares cookies with `page` context automatically
+- Auth state from `registerUser()` persists for API calls
+- No need to manually extract/pass session cookies
+
+**Related Patterns:**
+- See [CSRF Middleware Testing](#csrf-middleware-testing-new) for unit test patterns
+- See `docs/04_SECURITY_PATTERNS.md` for CSRF protection architecture
+- See `docs/learnings/e2e-testing/LEARNINGS_PHASE_1_2_WATCHLIST_E2E_CSRF_FIX.md` for detailed migration notes
+
+**Source:** Accessibility E2E test fix (direct API call needed CSRF token)
+**Added:** 2026-01-16
 
 ---
 

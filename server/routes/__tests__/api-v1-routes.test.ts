@@ -4,7 +4,7 @@ import express, { type Express } from 'express';
 import { db } from '../../db';
 import { users, watchLists, products, priceAlerts, productOffers, retailers } from '@shared/schema';
 import { registerApiV1Routes } from '../api-v1-routes';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { hashEmail } from '../../utils/encryption';
 import { PASSWORD } from '../../utils/constants';
@@ -107,13 +107,13 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
     app.use(express.json());
     registerApiV1Routes(app);
 
-    // Clean database
-    await db.delete(priceAlerts);
-    await db.delete(watchLists);
-    await db.delete(productOffers);
-    await db.delete(products);
-    await db.delete(retailers);
-    await db.delete(users);
+    // Clean database using TRUNCATE CASCADE for fast, complete cleanup
+    await db.execute(sql`TRUNCATE TABLE price_alerts RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE watch_lists RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE product_offers RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE retailers RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
 
     // Create test user
     const hashedPassword = await bcrypt.hash('password123', PASSWORD.BCRYPT_ROUNDS);
@@ -132,6 +132,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
 
     // Delete auto-created default watchlist (created by trigger_create_default_watch_list)
     // This ensures tests start with a clean slate and test explicit watchlist creation
+    // NOTE: db.delete() is intentional here - testing trigger-created data cleanup
     await db.delete(watchLists).where(eq(watchLists.userId, user.id));
 
     // Create Basic Auth header
@@ -193,13 +194,13 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
   });
 
   afterEach(async () => {
-    // Clean up
-    await db.delete(priceAlerts);
-    await db.delete(watchLists);
-    await db.delete(productOffers);
-    await db.delete(products);
-    await db.delete(retailers);
-    await db.delete(users);
+    // Clean up using TRUNCATE CASCADE
+    await db.execute(sql`TRUNCATE TABLE price_alerts RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE watch_lists RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE product_offers RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE retailers RESTART IDENTITY CASCADE`);
+    await db.execute(sql`TRUNCATE TABLE users RESTART IDENTITY CASCADE`);
   });
 
   describe('Authentication', () => {
@@ -235,6 +236,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
 
     it('should return empty array for user with no watchlists', async () => {
       // Delete test watchlist
+      // NOTE: db.delete() is intentional here - testing empty state behavior
       await db.delete(watchLists).where(eq(watchLists.id, testWatchList.id));
 
       const res = await request(app).get('/api/v1/watchlists').set('Authorization', authHeader);
@@ -300,6 +302,7 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
     });
 
     it('should return empty array for user with no alerts', async () => {
+      // NOTE: db.delete() is intentional here - testing empty state behavior
       await db.delete(priceAlerts).where(eq(priceAlerts.id, testAlert.id));
 
       const res = await request(app).get('/api/v1/price-alerts').set('Authorization', authHeader);

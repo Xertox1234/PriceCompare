@@ -152,26 +152,54 @@ The test should verify:
 
 ---
 
-## RESOLUTION (YYYY-MM-DD)
+## RESOLUTION (2026-01-16)
 
-**Decision**: [Option A or Option B]
+**Decision**: Option A - Add CSRF Token to API Requests
 
 ### Summary
 
-[To be filled upon completion]
+Successfully fixed the failing accessibility E2E test by implementing proper CSRF token handling for direct API requests. Created a reusable `getCsrfToken()` helper function in `e2e/helpers.ts` that fetches the CSRF token from `/api/csrf-token` and updated the failing test to include the `X-CSRF-Token` header in its POST request.
 
 ### Changes Made
 
-[To be filled upon completion]
+1. **Added `getCsrfToken()` helper** in `e2e/helpers.ts`:
+   - Fetches CSRF token from `/api/csrf-token` endpoint
+   - Properly handles API response envelope (`envelope.data.csrfToken`)
+   - Includes comprehensive JSDoc with usage example
+   - Type-safe implementation
+
+2. **Updated failing test** in `e2e/accessibility.spec.ts` (line 138):
+   - Imports `getCsrfToken` helper
+   - Fetches CSRF token before making API request
+   - Includes `X-CSRF-Token` header in POST request to `/api/watchlists`
+   - Added error handling to verify watchlist creation succeeds
+   - Reloads page after creating watchlist to ensure UI has fresh data
 
 ### Verification Results
 
 ```bash
-# To be filled upon completion
+# All accessibility tests pass
+$ npm run test:e2e -- --grep "should have no WCAG"
+✓ 7 passed (18.9s)
+  - Including the previously failing "toast notifications" test ✅
+
+# TypeScript compilation passes
+$ npm run check
+✓ No errors
+
+# ESLint passes (no new warnings introduced)
+$ npm run lint
+✓ 0 errors, 16 warnings (pre-existing)
 ```
+
+### Technical Details
+
+- **CSRF Token Flow**: API endpoint returns `{ success: true, data: { csrfToken: "..." } }` via `sendSuccess()` wrapper
+- **Reusability**: The `getCsrfToken()` helper can be used in other E2E tests that make direct API requests
+- **Pattern Consistency**: Implementation follows existing pattern in `e2e/admin.spec.ts`
 
 ---
 
-**Completed by**: [TBD]
-**Completion Date**: [TBD]
-**Actual Time**: [TBD] (vs estimated 30 minutes)
+**Completed by**: Claude Code (Orchestrator + test-engineer specialist)
+**Completion Date**: 2026-01-16
+**Actual Time**: ~20 minutes (vs estimated 30 minutes)

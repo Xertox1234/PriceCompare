@@ -446,7 +446,8 @@ describe('HTTP Basic Auth - Integration Tests', () => {
       // Create a test user with a weak hash (4 rounds - bcrypt minimum)
       const bcrypt = await import('bcrypt');
       const weakPassword = 'TestPassword123!';
-      const weakHash = await bcrypt.hash(weakPassword, 4); // Only 4 rounds (weak, less than 12)
+      // SECURITY TEST: Intentionally weak hash (4 rounds) to test weak password detection/upgrade
+      const weakHash = await bcrypt.hash(weakPassword, 4);
 
       // Create user normally first
       const weakUser = await storage.registerUser({

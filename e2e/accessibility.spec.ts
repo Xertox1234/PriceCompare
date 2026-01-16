@@ -13,7 +13,7 @@ import { test, expect } from './fixtures';
 import AxeBuilder from '@axe-core/playwright';
 import { createAdminUser, seedTestProduct } from './helpers/admin-helpers';
 import { seedPriceHistoryData, navigateToPriceHistory } from './helpers/price-analytics-helpers';
-import { registerUser, waitForPageReady } from './helpers';
+import { registerUser, waitForPageReady, getCsrfToken } from './helpers';
 import type { Page } from 'playwright-core';
 
 type AxeScanOptions = {
@@ -153,12 +153,32 @@ test.describe('Accessibility (A11y)', () => {
       });
 
       // Create a watchlist first via API (auth-required user already registered)
-      await page.request.post('/api/watchlists', {
+      // Note: page.request shares cookies with the page context (session is preserved)
+      const csrfToken = await getCsrfToken(page);
+      const createResponse = await page.request.post('/api/watchlists', {
         data: { name: 'Toast Test List', description: 'For testing toast accessibility' },
+        headers: {
+          'X-CSRF-Token': csrfToken,
+          'Content-Type': 'application/json',
+        },
       });
 
-      // Trigger a deterministic toast: add product to watchlist (shows success toast)
-      await page.getByRole('button', { name: /add to watchlist/i }).click();
+      // Verify watchlist was created successfully
+      if (!createResponse.ok()) {
+        throw new Error(`Failed to create watchlist: ${createResponse.status()} ${await createResponse.text()}`);
+      }
+
+      // Reload page to ensure UI has fresh watchlist data
+      await page.reload();
+      await waitForPageReady(page);
+      await page.getByRole('heading', { level: 1, name: product.name }).waitFor({
+        state: 'visible',
+        timeout: 15000,
+      });
+
+      // Trigger a deterministic toast by clicking the dropdown button (shows dialog to select watchlist)
+      // Note: "Add to Watchlist" button adds to default list, "Add to specific watchlist" button opens dialog
+      await page.getByRole('button', { name: /add to specific watchlist/i }).click();
       await page.getByRole('dialog', { name: /add to watchlist/i }).waitFor({
         state: 'visible',
         timeout: 5000,
