@@ -13,7 +13,6 @@ import {
   Check,
   Loader2,
   ExternalLink,
-  ListPlus,
   Bell,
 } from 'lucide-react';
 import { TemplateHeader, TemplateFooter, ProductSection } from '@/components/template';
@@ -48,6 +47,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { ChevronDown, BarChart3 } from 'lucide-react';
 import { usePriceHistory, usePriceStats } from '@/hooks/use-price-history';
+import { WatchlistToggleButton } from '@/components/watchlist/WatchlistToggleButton';
 import { BestDealBadge } from '@/components/price-analytics/best-deal-badge';
 import { PriceTrendIndicator } from '@/components/price-analytics/price-trend-indicator';
 import { PriceAlertModal } from '@/components/price-analytics/price-alert-modal';
@@ -451,16 +451,13 @@ function ProductDetailContent() {
               </div>
 
               {/* Add to Watchlist Button */}
-              {user && (
-                <Button
-                  variant="outline"
-                  onClick={() => setWatchlistDialogOpen(true)}
-                  className="w-full py-6 text-base"
-                >
-                  <ListPlus className="mr-2 h-5 w-5" />
-                  Add to Watchlist
-                </Button>
-              )}
+              <WatchlistToggleButton
+                productId={product.id}
+                variant="outline"
+                size="lg"
+                showText={true}
+                className="w-full py-6 text-base"
+              />
 
               {/* Set Price Alert Button */}
               {user && (

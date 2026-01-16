@@ -63,6 +63,7 @@ export function useNotificationStats() {
     queryFn: () => apiRequest<NotificationStats>('/api/notifications/stats'),
     enabled: !!user, // Only fetch if user is authenticated
     refetchInterval: 30000, // Refresh every 30 seconds
+    refetchIntervalInBackground: false, // Pause polling when tab is inactive
   });
 }
 
@@ -99,6 +100,50 @@ export function useMarkAllAsRead() {
   return useMutation({
     mutationFn: async () => {
       return apiRequest('/api/notifications/read-all', { method: 'POST' });
+    },
+    onMutate: async () => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['/api/notifications'] });
+      await queryClient.cancelQueries({ queryKey: ['/api/notifications/stats'] });
+
+      // Snapshot previous values
+      const previousNotifications = queryClient.getQueryData(['/api/notifications']);
+      const previousStats = queryClient.getQueryData(['/api/notifications/stats']);
+
+      // Optimistically update all notifications to read
+      queryClient.setQueriesData(
+        { queryKey: ['/api/notifications'] },
+        (old: { data: Notification[]; count: number } | undefined) => {
+          if (!old) return old;
+          return {
+            ...old,
+            data: old.data.map((n) => ({ ...n, isRead: true })),
+          };
+        }
+      );
+
+      // Optimistically update stats
+      queryClient.setQueryData(
+        ['/api/notifications/stats'],
+        (old: NotificationStats | undefined) => {
+          if (!old) return old;
+          return {
+            ...old,
+            unread: 0,
+          };
+        }
+      );
+
+      return { previousNotifications, previousStats };
+    },
+    onError: (_error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousNotifications) {
+        queryClient.setQueryData(['/api/notifications'], context.previousNotifications);
+      }
+      if (context?.previousStats) {
+        queryClient.setQueryData(['/api/notifications/stats'], context.previousStats);
+      }
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['/api/notifications'] });

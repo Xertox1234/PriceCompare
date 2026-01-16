@@ -342,6 +342,37 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/pricecompare_test
 
 **CRITICAL**: Redis **MANDATORY** in production. App will **EXIT ON STARTUP** without `REDIS_URL`.
 
+### Session Index Architecture
+
+**User-Keyed Session Index** - O(M) session invalidation instead of O(N):
+
+- **Pattern**: Redis SET per user (`user_sessions:{userId}`)
+- **Purpose**: Fast session invalidation for password changes and security operations
+- **Performance**: 10,000x speedup at scale (50s → <5ms for 100K sessions)
+- **Implementation**: `server/utils/session-index.ts`
+
+**Index Structure**:
+```typescript
+// Key format
+user_sessions:{userId} → SET of session IDs
+
+// Example
+user_sessions:123 → ['abc123', 'def456', 'ghi789']
+```
+
+**Session Lifecycle**:
+- **Login/Register**: `addSessionToUserIndex(userId, sessionId)` - Add session to index
+- **Logout**: `removeSessionFromUserIndex(userId, sessionId)` - Remove from index
+- **Password Change**: `invalidateUserSessions(userId, exceptSessionId)` - Invalidate all sessions except current
+- **Cleanup**: `cleanupStaleSessionsFromIndex(userId)` - Remove expired sessions from index
+
+**Why This Matters**:
+- Without index: Password change scans ALL sessions (O(N) total sessions = 50s for 100K sessions)
+- With index: Password change queries user's sessions only (O(M) user sessions = <5ms)
+- Enables scaling from 500 to 100K+ concurrent users
+
+**See**: `docs/learnings/performance/LEARNINGS_SESSION_INDEX_OPTIMIZATION.md` for complete analysis.
+
 ### Database Layer Pattern
 
 **All database access flows through `server/storage.ts`**. Never query `db` directly from routes/services.

@@ -109,6 +109,7 @@ export function usePriceHistory(
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 15 * 60 * 1000, // 15 minutes (3x staleTime)
     refetchInterval: 10 * 60 * 1000, // Refetch every 10 minutes
+    refetchIntervalInBackground: false, // Pause polling when tab is inactive
   });
 }
 
@@ -271,5 +272,6 @@ export function useRecentPriceDrops(thresholdPercent = 10, hours = 24) {
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 15 * 60 * 1000, // 15 minutes (3x staleTime)
     refetchInterval: 15 * 60 * 1000, // Refetch every 15 minutes
+    refetchIntervalInBackground: false, // Pause polling when tab is inactive
   });
 }

@@ -135,8 +135,7 @@ test.describe('Accessibility (A11y)', () => {
       ).toEqual([]);
     });
 
-    test.skip('should have no WCAG A/AA violations in toast notifications on Product Detail', async ({ page }) => {
-      // TODO: Watchlist UI implementation issue - combobox option not found
+    test('should have no WCAG A/AA violations in toast notifications on Product Detail', async ({ page }) => {
       const { product } = await seedTestProduct({
         name: 'A11y Toast Product',
         description: 'Seeded product for toast a11y checks',

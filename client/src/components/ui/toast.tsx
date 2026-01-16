@@ -42,9 +42,16 @@ const Toast = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Root>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root> & VariantProps<typeof toastVariants>
 >(({ className, variant, ...props }, ref) => {
+  // WCAG Compliance: Map variant to Radix Toast type for proper ARIA announcements
+  // - "foreground" → aria-live="assertive" (immediate announcement for critical toasts)
+  // - "background" → aria-live="polite" (announce at next opportunity for info toasts)
+  // See: https://github.com/radix-ui/primitives/issues/3634
+  const toastType = variant === 'destructive' ? 'foreground' : 'background';
+
   return (
     <ToastPrimitives.Root
       ref={ref}
+      type={toastType}
       className={cn(toastVariants({ variant }), className)}
       {...props}
     />

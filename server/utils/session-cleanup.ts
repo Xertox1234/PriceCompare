@@ -11,23 +11,20 @@ import { createLogger } from './logger';
 const log = createLogger('SessionCleanup');
 
 /**
- * Clear all active sessions for a user by scanning Redis keys
+ * Clear all active sessions for a user using the session index
  *
  * SECURITY: Called after password reset to force re-login across all devices.
  * This prevents stolen session cookie attacks where an attacker maintains access
  * even after the victim changes their password.
  *
- * IMPLEMENTATION: Express-session with connect-redis stores sessions as:
- * - Key pattern: sess:SESSION_ID
- * - Value: JSON with session data including user ID
- *
- * We scan all session keys and delete those belonging to the target user.
+ * PERFORMANCE: Uses user-keyed session index for O(M) complexity instead of O(N)
+ * where M = user's sessions (typically 2-5) and N = total sessions (potentially 100K+)
  *
  * @param userId - The user ID whose sessions should be cleared
  * @returns Number of sessions cleared
  */
 export async function clearUserSessions(userId: number): Promise<number> {
-  // Input validation (prevent invalid user ID from being used in Redis SCAN)
+  // Input validation (prevent invalid user ID from being used in Redis operations)
   if (!userId || userId <= 0 || !Number.isInteger(userId)) {
     throw new Error(`Invalid userId: ${userId}. Must be positive integer.`);
   }
@@ -42,57 +39,34 @@ export async function clearUserSessions(userId: number): Promise<number> {
   }
 
   try {
-    let sessionsClearedCount = 0;
-    let cursor = '0'; // Redis SCAN uses string cursors
+    // PERFORMANCE: Use user-keyed session index for fast lookups
+    const { getUserSessionIds, cleanupStaleSessionsFromIndex, removeSessionFromUserIndex } = await import(
+      './session-index'
+    );
 
-    // SCAN all session keys (pattern: sess:*)
-    // Using SCAN instead of KEYS to avoid blocking Redis in production
-    do {
-      const result = await redisClient.scan(cursor, {
-        MATCH: 'sess:*',
-        COUNT: 100, // Process 100 keys at a time
-      });
+    // Cleanup stale sessions from index before using it
+    await cleanupStaleSessionsFromIndex(userId);
 
-      cursor = result.cursor;
-      const keys = result.keys;
+    // Get user's session IDs from index (O(M) lookup)
+    const sessionIds = await getUserSessionIds(userId);
 
-      // Check each session to see if it belongs to this user
-      for (const key of keys) {
-        try {
-          const sessionData = await redisClient.get(key);
-          if (!sessionData) continue;
-
-          // Parse session JSON to check user ID
-          // Session data structure: { passport: { user: userId }, ... }
-          interface SessionData {
-            passport?: {
-              user?: number;
-            };
-          }
-          // Type assertion: express-session stores JSON strings, parsed to SessionData interface
-          const session = JSON.parse(sessionData) as SessionData;
-          const sessionUserId = session?.passport?.user;
-
-          if (sessionUserId === userId) {
-            await redisClient.del(key);
-            sessionsClearedCount++;
-            log.debug('[SessionCleanup] Deleted session', { userId, sessionKey: key });
-          }
-        } catch (parseError) {
-          // If we can't parse the session, skip it (might be corrupted or different format)
-          log.warn('[SessionCleanup] Failed to parse session data', {
-            key,
-            error: parseError instanceof Error ? parseError.message : String(parseError),
-          });
-        }
-      }
-    } while (cursor !== '0');
-
-    if (sessionsClearedCount > 0) {
-      log.info('[SessionCleanup] Cleared user sessions', { userId, count: sessionsClearedCount });
+    if (sessionIds.length === 0) {
+      log.debug('[SessionCleanup] No sessions to clear', { userId });
+      return 0;
     }
 
-    return sessionsClearedCount;
+    // Delete sessions from Redis
+    const keysToDelete = sessionIds.map(sid => `sess:${sid}`);
+    await redisClient.del(keysToDelete);
+
+    // Remove deleted sessions from index
+    for (const sessionId of sessionIds) {
+      await removeSessionFromUserIndex(userId, sessionId);
+    }
+
+    log.info('[SessionCleanup] Cleared user sessions', { userId, count: sessionIds.length });
+
+    return sessionIds.length;
   } catch (error) {
     log.error('[SessionCleanup] Failed to clear user sessions', {
       userId,

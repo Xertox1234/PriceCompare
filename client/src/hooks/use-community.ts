@@ -265,6 +265,7 @@ export function useWatchCount(productId: number) {
       return apiRequest<WatchCountResponse>(`/api/community/watch-count/${productId}`);
     },
     refetchInterval: 30000, // Refresh every 30 seconds
+    refetchIntervalInBackground: false, // Pause polling when tab is inactive
   });
 }
 
@@ -392,6 +393,7 @@ export function useMostWatchedProducts(limit = 10) {
       return apiRequest<MostWatchedProductsResponse>(`/api/community/most-watched?limit=${limit}`);
     },
     refetchInterval: 60000, // Refresh every minute
+    refetchIntervalInBackground: false, // Pause polling when tab is inactive
   });
 }
 
@@ -419,6 +421,7 @@ export function useUserReputation() {
     queryFn: async () => apiRequest<UserReputationResponse>('/api/community/reputation'),
     enabled: !!user, // Only fetch if user is authenticated
     refetchInterval: 60000, // Refresh every minute
+    refetchIntervalInBackground: false, // Pause polling when tab is inactive
   });
 }
 
@@ -446,6 +449,7 @@ export function useLeaderboard(limit = 10) {
     queryFn: async () =>
       apiRequest<LeaderboardResponse>(`/api/community/leaderboard?limit=${limit}`),
     refetchInterval: 120000, // Refresh every 2 minutes
+    refetchIntervalInBackground: false, // Pause polling when tab is inactive
   });
 }
 
@@ -506,6 +510,7 @@ export function useRecentDeals(limit = 10) {
     queryFn: async () =>
       apiRequest<RecentDealsResponse>(`/api/community/recent-deals?limit=${limit}`),
     refetchInterval: 60000, // Refresh every minute
+    refetchIntervalInBackground: false, // Pause polling when tab is inactive
   });
 }
 

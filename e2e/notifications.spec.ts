@@ -309,25 +309,20 @@ test.describe('Notifications - Real-Time System', () => {
         .waitFor({ state: 'visible', timeout: 10000 });
 
       // Look for "Mark all as read" button (may be in a menu or directly visible)
-      // Try common patterns
       const markAllButton = page.getByRole('button', { name: /mark all as read/i });
 
-      // Check if button exists
+      // Verify button exists
       const buttonExists = await markAllButton.count();
-      if (buttonExists > 0) {
-        await markAllButton.first().click();
+      expect(buttonExists).toBeGreaterThan(0);
 
-        // Wait for operation to complete (look for success indication)
-        // Note: Adjust selector based on actual UI feedback (toast, badge update, etc.)
-        await waitForPageReady(page);
+      await markAllButton.first().click();
 
-        // Verify success (may show toast or update badge count)
-        // Badge count should decrease to 0
-        // Note: This test may need adjustment based on actual UI implementation
-      } else {
-        // Skip test if UI not implemented
-        test.skip();
-      }
+      // Wait for operation to complete (look for success indication)
+      await waitForPageReady(page);
+
+      // Verify success (badge count should decrease or toast should appear)
+      // Implementation-specific verification - at minimum, button should have been clickable
+      expect(buttonExists).toBeGreaterThan(0);
     });
   });
 
@@ -368,31 +363,25 @@ test.describe('Notifications - Real-Time System', () => {
 
       await waitForNotificationsPageReady(page);
 
-      // Look for filter controls (may be dropdown or tabs)
-      // Check if Smart Alerts tab exists (for smart notifications)
+      // Look for filter controls (tabs exist for smart vs general notifications)
       const smartTab = page.getByRole('tab', { name: /smart/i });
       const generalTab = page.getByRole('tab', { name: /general/i });
 
-      if ((await smartTab.count()) > 0) {
-        // Click smart alerts tab
-        await smartTab.click();
+      // Verify tab filtering exists
+      const hasSmartTab = (await smartTab.count()) > 0;
+      expect(hasSmartTab).toBe(true);
 
-        // Wait for tab to be active
-        await expect(smartTab).toHaveAttribute('aria-selected', 'true');
+      // Click smart alerts tab
+      await smartTab.click();
 
-        // Verify filter is working (implementation-specific)
-        // This is a basic check that the tab system works
-        await expect(smartTab).toHaveAttribute('aria-selected', 'true');
+      // Wait for tab to be active
+      await expect(smartTab).toHaveAttribute('aria-selected', 'true');
 
-        // Switch to general tab
-        await generalTab.click();
+      // Switch to general tab
+      await generalTab.click();
 
-        // Wait for tab to be active
-        await expect(generalTab).toHaveAttribute('aria-selected', 'true');
-      } else {
-        // Skip if filtering UI not implemented
-        test.skip();
-      }
+      // Wait for tab to be active
+      await expect(generalTab).toHaveAttribute('aria-selected', 'true');
     });
 
     test('should show only selected notification type', async ({ page }) => {
@@ -486,12 +475,10 @@ test.describe('Notifications - Real-Time System', () => {
 
       // Verify key preference controls exist
       const priceDropToggle = page.getByLabel(/price drop/i);
-      if ((await priceDropToggle.count()) > 0) {
-        await expect(priceDropToggle.first()).toBeVisible();
-      } else {
-        // Preferences UI may not be on this page
-        test.skip();
-      }
+      const hasPreferences = (await priceDropToggle.count()) > 0;
+      expect(hasPreferences).toBe(true);
+
+      await expect(priceDropToggle.first()).toBeVisible();
     });
 
     test('should toggle notification type preferences', async ({ page }) => {
@@ -507,23 +494,22 @@ test.describe('Notifications - Real-Time System', () => {
       // Look for price drop notification toggle
       const priceDropToggle = page.getByLabel(/enable price drop notifications/i);
 
-      if ((await priceDropToggle.count()) > 0) {
-        // Get initial state
-        const isChecked = await priceDropToggle.first().isChecked();
+      // Verify toggle exists
+      const hasToggle = (await priceDropToggle.count()) > 0;
+      expect(hasToggle).toBe(true);
 
-        // Toggle the switch
-        await priceDropToggle.first().click();
+      // Get initial state
+      const isChecked = await priceDropToggle.first().isChecked();
 
-        // Wait for state change to propagate
-        await waitForPageReady(page);
+      // Toggle the switch
+      await priceDropToggle.first().click();
 
-        // Verify state changed
-        const newState = await priceDropToggle.first().isChecked();
-        expect(newState).toBe(!isChecked);
-      } else {
-        // Skip if preferences UI not on this route
-        test.skip();
-      }
+      // Wait for state change to propagate
+      await waitForPageReady(page);
+
+      // Verify state changed
+      const newState = await priceDropToggle.first().isChecked();
+      expect(newState).toBe(!isChecked);
     });
 
     test('should save notification preferences', async ({ page }) => {
@@ -540,24 +526,24 @@ test.describe('Notifications - Real-Time System', () => {
       const emailToggle = page.getByLabel(/email notification/i);
       const saveButton = page.getByRole('button', { name: /save/i });
 
-      if ((await emailToggle.count()) > 0 && (await saveButton.count()) > 0) {
-        // Change a preference
-        await emailToggle.first().click();
+      // Verify preference controls exist
+      const hasEmailToggle = (await emailToggle.count()) > 0;
+      const hasSaveButton = (await saveButton.count()) > 0;
+      expect(hasEmailToggle && hasSaveButton).toBe(true);
 
-        // Click save button
-        await saveButton.first().click();
+      // Change a preference
+      await emailToggle.first().click();
 
-        // Wait for save operation to complete
-        await waitForPageReady(page);
+      // Click save button
+      await saveButton.first().click();
 
-        // Look for success toast
-        const successToast = page.getByText(/preference.*updated|saved/i);
-        if ((await successToast.count()) > 0) {
-          await expect(successToast.first()).toBeVisible({ timeout: 5000 });
-        }
-      } else {
-        // Skip if UI not available
-        test.skip();
+      // Wait for save operation to complete
+      await waitForPageReady(page);
+
+      // Look for success toast
+      const successToast = page.getByText(/preference.*updated|saved/i);
+      if ((await successToast.count()) > 0) {
+        await expect(successToast.first()).toBeVisible({ timeout: 5000 });
       }
     });
 
@@ -574,28 +560,28 @@ test.describe('Notifications - Real-Time System', () => {
       // Look for max daily notifications input
       const maxDailyInput = page.getByLabel(/maximum.*per day|max.*daily/i);
 
-      if ((await maxDailyInput.count()) > 0) {
-        // Update the value
-        await maxDailyInput.first().clear();
-        await maxDailyInput.first().fill('20');
+      // Verify frequency setting exists
+      const hasMaxDailyInput = (await maxDailyInput.count()) > 0;
+      expect(hasMaxDailyInput).toBe(true);
 
-        // Look for save button
-        const saveButton = page.getByRole('button', { name: /save/i });
-        if ((await saveButton.count()) > 0) {
-          await saveButton.first().click();
+      // Update the value
+      await maxDailyInput.first().clear();
+      await maxDailyInput.first().fill('20');
 
-          // Wait for save operation
-          await waitForPageReady(page);
+      // Look for save button
+      const saveButton = page.getByRole('button', { name: /save/i });
+      const hasSaveButton = (await saveButton.count()) > 0;
+      expect(hasSaveButton).toBe(true);
 
-          // Verify save succeeded (look for toast)
-          const successToast = page.getByText(/preference.*updated|saved/i);
-          if ((await successToast.count()) > 0) {
-            await expect(successToast.first()).toBeVisible({ timeout: 5000 });
-          }
-        }
-      } else {
-        // Skip if UI not implemented
-        test.skip();
+      await saveButton.first().click();
+
+      // Wait for save operation
+      await waitForPageReady(page);
+
+      // Verify save succeeded (look for toast)
+      const successToast = page.getByText(/preference.*updated|saved/i);
+      if ((await successToast.count()) > 0) {
+        await expect(successToast.first()).toBeVisible({ timeout: 5000 });
       }
     });
   });

@@ -239,6 +239,11 @@ export function registerAuthRoutes(app: Express): void {
               return;
             }
 
+            // Add session to user's session index for fast invalidation
+            void import('../utils/session-index').then(({ addSessionToUserIndex }) => {
+              void addSessionToUserIndex(userData.id, req.sessionID);
+            });
+
             sendSuccess(
               res,
               {
@@ -346,6 +351,11 @@ export function registerAuthRoutes(app: Express): void {
               return;
             }
 
+            // Add session to user's session index for fast invalidation
+            void import('../utils/session-index').then(({ addSessionToUserIndex }) => {
+              void addSessionToUserIndex(userData.id, req.sessionID);
+            });
+
             // SECURITY: Log successful login with session regeneration
             logSecurityEvent(SecurityEventType.LOGIN_SUCCESS, req, {
               userId: userData.id,
@@ -376,8 +386,9 @@ export function registerAuthRoutes(app: Express): void {
 
   // User logout
   app.post('/api/auth/logout', csrfProtection, (req, res): void => {
-    // Capture user before logout (may or may not be authenticated)
+    // Capture user and session ID before logout (session will be destroyed)
     const user = isAuthenticated(req) ? req.user : undefined;
+    const sessionId = req.sessionID;
 
     req.logout((err): void => {
       if (err) {
@@ -387,6 +398,13 @@ export function registerAuthRoutes(app: Express): void {
         });
         sendErrorFromException(res, err, 'Logout');
         return;
+      }
+
+      // Remove session from user's session index
+      if (user) {
+        void import('../utils/session-index').then(({ removeSessionFromUserIndex }) => {
+          void removeSessionFromUserIndex(user.id, sessionId);
+        });
       }
 
       // SECURITY: Log successful logout

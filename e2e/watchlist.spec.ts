@@ -48,6 +48,7 @@ import {
   generateTestUsername,
   generateTestEmail,
   waitForPageReady,
+  TIMEOUTS,
 } from './helpers';
 import { seedTestProduct, seedMultipleProducts } from './helpers/admin-helpers';
 import { ensureUserHasWatchlist, bulkAddProductsToWatchlist } from './helpers/watchlist-helpers';
@@ -314,7 +315,7 @@ test.describe('Watchlist - Product Organization', () => {
     });
 
     test.skip('should bulk add products to watchlist', async ({ page }) => {
-      // TODO: Bulk add feature not implemented - product checkboxes not found in UI
+      // Feature deferred (YAGNI - not core functionality, bulk operations better served by individual add)
       await registerUser(page, generateTestUsername(), generateTestEmail(), 'UserPass123!');
 
       // Create destination list
@@ -431,7 +432,7 @@ test.describe('Watchlist - Product Organization', () => {
 
   test.describe('Watchlist Sharing', () => {
     test.skip('should share watchlist with another user (edit permission)', async ({ page }) => {
-      // TODO: Watchlist sharing feature not implemented
+      // Feature deferred (YAGNI - sharing adds complexity, public links cover most use cases)
       const ownerUsername = generateTestUsername('owner');
       const ownerEmail = generateTestEmail('owner');
       const ownerPassword = 'OwnerPass123!';
@@ -555,34 +556,54 @@ async function createWatchlist(page: Page, name: string) {
 
 /**
  * Add a product to a watchlist via UI
+ *
+ * Uses WatchlistToggleButton component which:
+ * - Has data-testid="add-to-watchlist"
+ * - Uses aria-label for state: "Add to watchlist" | "Remove from watchlist"
+ * - Direct API call (no modal/dialog)
+ * - Shows toast notification on success
+ * - Has loading state (disabled during mutation)
+ *
+ * Note: watchlistName parameter is no longer used (component uses default watchlist)
+ * but kept for backward compatibility with existing tests.
  */
-async function addProductToWatchlist(page: Page, productId: number, watchlistName: string) {
-  // Route is /product/:id (singular), not /products/:id
+async function addProductToWatchlist(page: Page, productId: number, _watchlistName?: string) {
+  // CRITICAL: Route is /product/:id (singular), NOT /products/:id
   await page.goto(`/product/${productId}`);
   await waitForPageReady(page);
 
-  await page.getByRole('button', { name: /add to watchlist/i }).click();
-
-  // Wait for modal/dropdown
-  await page.waitForSelector('[role="dialog"], [role="menu"]', {
+  // Find watchlist button by test ID
+  const watchlistButton = page.locator('[data-testid="add-to-watchlist"]');
+  await watchlistButton.waitFor({
     state: 'visible',
-    timeout: 5000,
+    timeout: TIMEOUTS.BUTTON_VISIBLE,
   });
 
-  // Radix UI Select - click to open, then select option
-  await page.getByLabel(/select watchlist/i).click();
+  // Wait for button to not be loading (disabled state)
+  await expect(watchlistButton).not.toBeDisabled({
+    timeout: TIMEOUTS.USER_STATE_CHANGE,
+  });
 
-  // Wait for options to be visible before clicking
-  const helperOption = page.getByRole('option', { name: watchlistName });
-  await helperOption.waitFor({ state: 'visible', timeout: 5000 });
-  await helperOption.click();
+  // IDEMPOTENCY: Check current state via aria-label
+  const currentLabel = await watchlistButton.getAttribute('aria-label');
+  if (currentLabel === 'Remove from watchlist') {
+    // Already in watchlist - no-op for idempotency
+    return;
+  }
 
-  await page.getByRole('button', { name: /^add$/i }).click();
+  // Click to add to watchlist
+  await watchlistButton.click();
 
-  // Wait for success notification (use .first() to handle duplicate aria-live regions)
-  // Toast message is "Added to {watchlistName}", so match "Added to" pattern
-  await page
-    .getByText(/added to/i)
-    .first()
-    .waitFor({ state: 'visible', timeout: 5000 });
+  // Wait for optimistic update (aria-label changes)
+  // NOTE: Using aria-label because data-in-watchlist attribute does NOT exist
+  await expect(watchlistButton).toHaveAttribute(
+    'aria-label',
+    'Remove from watchlist',
+    { timeout: TIMEOUTS.USER_STATE_CHANGE }
+  );
+
+  // Verify toast notification (use .first() to handle duplicate aria-live regions)
+  await expect(page.getByText(/added to watchlist/i).first()).toBeVisible({
+    timeout: TIMEOUTS.DIALOG_VISIBLE,
+  });
 }

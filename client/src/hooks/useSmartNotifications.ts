@@ -58,6 +58,7 @@ export function useSmartNotifications(filters?: SmartNotificationFilters) {
     queryKey: ['/api/notifications/smart', filters],
     queryFn: () => apiRequest<SmartNotificationsPayload>(`/api/notifications/smart?${params}`),
     refetchInterval: 30000, // Poll every 30 seconds
+    refetchIntervalInBackground: false, // Pause polling when tab is inactive
     staleTime: 10000, // Consider data stale after 10 seconds
     gcTime: 30000, // Keep in cache for 30 seconds (3x staleTime)
   });

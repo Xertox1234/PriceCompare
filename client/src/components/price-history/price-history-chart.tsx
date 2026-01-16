@@ -127,14 +127,38 @@ export function PriceHistoryChart({ data, className, showStats = true }: PriceHi
     );
   }, [filteredData]);
 
-  // Calculate price trend
+  // Calculate price trend based on filtered data
   const priceTrend = useMemo(() => {
-    if (!data.priceChange24h) return 'stable';
-    return data.priceChange24h < 0 ? 'down' : data.priceChange24h > 0 ? 'up' : 'stable';
-  }, [data.priceChange24h]);
+    if (filteredData.length < 2) return 'stable';
+
+    // Compare current price to oldest price in filtered range
+    const oldestPrice = filteredData[0].price;
+    const newestPrice = filteredData[filteredData.length - 1].price;
+    const priceDiff = newestPrice - oldestPrice;
+
+    // Consider a change less than 1% as stable
+    const threshold = oldestPrice * 0.01;
+
+    if (priceDiff < -threshold) return 'down';
+    if (priceDiff > threshold) return 'up';
+    return 'stable';
+  }, [filteredData]);
+
+  // Calculate price change percentage for filtered range
+  const priceChangePercentage = useMemo(() => {
+    if (filteredData.length < 2) return 0;
+
+    const oldestPrice = filteredData[0].price;
+    const newestPrice = filteredData[filteredData.length - 1].price;
+
+    return ((newestPrice - oldestPrice) / oldestPrice) * 100;
+  }, [filteredData]);
 
   const trendIcon = priceTrend === 'down' ? TrendingDown : priceTrend === 'up' ? TrendingUp : Minus;
   const TrendIcon = trendIcon;
+
+  // Get trend label for display
+  const trendLabel = priceTrend === 'down' ? 'falling' : priceTrend === 'up' ? 'rising' : 'stable';
 
   // Chart colors
   const colors = [
@@ -167,24 +191,45 @@ export function PriceHistoryChart({ data, className, showStats = true }: PriceHi
         <div className="mb-6 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Price History</h3>
-            <Badge
-              variant={
-                priceTrend === 'down'
-                  ? 'default'
-                  : priceTrend === 'up'
-                    ? 'destructive'
-                    : 'secondary'
-              }
-            >
-              <TrendIcon className="mr-1 h-3 w-3" />
-              {data.priceChangePercent24h !== undefined
-                ? `${data.priceChangePercent24h > 0 ? '+' : ''}${data.priceChangePercent24h.toFixed(1)}% (24h)`
-                : 'No change'}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge
+                variant={
+                  priceTrend === 'down'
+                    ? 'default'
+                    : priceTrend === 'up'
+                      ? 'destructive'
+                      : 'secondary'
+                }
+                data-testid="price-change-percentage"
+              >
+                <TrendIcon className="mr-1 h-3 w-3" />
+                {priceChangePercentage !== 0
+                  ? `${priceChangePercentage > 0 ? '+' : ''}${priceChangePercentage.toFixed(1)}%`
+                  : 'No change'}
+              </Badge>
+            </div>
+          </div>
+
+          {/* Price Trend Indicator */}
+          <div
+            className={cn(
+              'flex items-center gap-2 text-sm',
+              priceTrend === 'down' && 'text-success',
+              priceTrend === 'up' && 'text-destructive',
+              priceTrend === 'stable' && 'text-muted-foreground'
+            )}
+            data-testid="price-trend-indicator"
+          >
+            <TrendIcon className="h-4 w-4" />
+            <span className="font-medium">
+              Price is {trendLabel}
+              {priceTrend !== 'stable' &&
+                ` (${priceChangePercentage > 0 ? '+' : ''}${priceChangePercentage.toFixed(1)}% over ${timeRange === '7d' ? '7 days' : timeRange === '30d' ? '30 days' : timeRange === '90d' ? '90 days' : timeRange === '1y' ? '1 year' : 'all time'})`}
+            </span>
           </div>
 
           {/* Price Stats Grid */}
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4" data-testid="price-stats">
             <div className="space-y-1">
               <p className="text-muted-foreground text-sm">Current</p>
               <p className="text-2xl font-bold">${data.currentPrice.toFixed(2)}</p>
@@ -226,7 +271,7 @@ export function PriceHistoryChart({ data, className, showStats = true }: PriceHi
       )}
 
       {/* Time Range Selector */}
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap gap-2" data-testid="time-range-selector">
         {(['7d', '30d', '90d', '1y', 'all'] as TimeRange[]).map((range) => (
           <Button
             key={range}
@@ -273,7 +318,7 @@ export function PriceHistoryChart({ data, className, showStats = true }: PriceHi
       )}
 
       {/* Chart */}
-      <div className="mt-4" style={{ width: '100%', height: 400 }}>
+      <div className="mt-4" style={{ width: '100%', height: 400 }} data-testid="price-chart">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />

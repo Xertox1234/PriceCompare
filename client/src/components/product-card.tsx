@@ -6,6 +6,7 @@ import { Star, ShoppingCart, ExternalLink, TrendingUp } from 'lucide-react';
 import { ProductWithOffers } from '@shared/schema';
 import { cn, getProductImageUrl, handleImageError } from '@/lib/utils';
 import { ProductDetailDialog } from './product-detail-dialog';
+import { WatchlistToggleButton } from '@/components/watchlist/WatchlistToggleButton';
 
 interface ProductCardProps {
   product: ProductWithOffers;
@@ -216,15 +217,24 @@ export const ProductCard = memo(
                 View Deal
               </Button>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full border-blue-200 text-blue-600 hover:border-blue-300 hover:bg-blue-50"
-              onClick={() => setDetailDialogOpen(true)}
-            >
-              <TrendingUp className="mr-2 h-4 w-4" />
-              View Price History
-            </Button>
+            <div className="flex space-x-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 border-blue-200 text-blue-600 hover:border-blue-300 hover:bg-blue-50"
+                onClick={() => setDetailDialogOpen(true)}
+              >
+                <TrendingUp className="mr-2 h-4 w-4" />
+                Price History
+              </Button>
+              <WatchlistToggleButton
+                productId={product.id}
+                variant="outline"
+                size="sm"
+                showText={false}
+                className="flex-1"
+              />
+            </div>
           </div>
 
           {/* Retailer info */}

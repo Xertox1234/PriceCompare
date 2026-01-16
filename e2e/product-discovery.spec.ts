@@ -294,32 +294,24 @@ test.describe('Product Discovery & Price Tracking', () => {
     // Feature is tested in e2e/watchlist.spec.ts (Feature 4.3)
     // Verified: "should remove product from watchlist" test passes with database helpers
 
-    test.skip('should require authentication to add to watchlist', async ({ page }) => {
-      // TODO: Watchlist button not found on product page - need to investigate UI implementation
-      // Selector mismatch or feature may not be fully implemented on product detail page
+    test('should require authentication to add to watchlist', async ({ page }) => {
       // Go to product page without logging in
       await page.goto('/shop');
       await waitForPageReady(page);
       await page.locator('.expandable-card').first().click();
 
-      // Try to add to watchlist (use specific text to avoid matching product category buttons like "Smart Watch")
-      const watchlistButton = page
-        .getByRole('button', { name: /^add to watchlist$/i })
-        .or(page.getByRole('button', { name: /^watch this product$/i }))
-        .or(page.locator('[data-testid="add-to-watchlist"]'))
-        .first();
-      await watchlistButton.click();
+      // Try to add to watchlist (use data-testid for precise matching)
+      const watchlistButton = page.locator('[data-testid="add-to-watchlist"]');
 
-      // Should redirect to login or show login prompt
-      await page
-        .locator('text=/log in|sign in/i')
-        .or(page.locator('input[type="email"], input[type="text"]'))
-        .first()
-        .waitFor({ state: 'visible', timeout: 5000 });
-      const currentUrl = page.url();
-      const hasLoginModal = await page.locator('text=/log in|sign in/i').isVisible();
+      // Verify button exists
+      const hasWatchlistButton = (await watchlistButton.count()) > 0;
+      expect(hasWatchlistButton).toBe(true);
 
-      expect(currentUrl.includes('/login') || hasLoginModal).toBe(true);
+      await watchlistButton.first().click();
+
+      // Should show login prompt (modal-based auth)
+      const loginHeading = page.getByRole('heading', { name: /log in|sign in/i });
+      await expect(loginHeading).toBeVisible({ timeout: 5000 });
     });
   });
 

@@ -186,16 +186,8 @@ test.describe('Price History & Analytics', () => {
       const hasMinLabel = (await minPriceLabel.count()) > 0;
       const hasMaxLabel = (await maxPriceLabel.count()) > 0;
 
-      // Flexible assertion - implementation may show in different locations
-      if (!hasMinLabel && !hasMaxLabel) {
-        // May be shown in price stats grid instead of chart
-        const priceStats = page.locator('[data-testid="price-stats"], .price-statistics');
-
-        if ((await priceStats.count()) === 0) {
-          test.skip(); // Price labels not implemented in any form
-          return;
-        }
-      }
+      // Verify at least one price label exists
+      expect(hasMinLabel || hasMaxLabel).toBe(true);
 
       // If labels exist, verify they show valid prices
       if (hasMinLabel) {
@@ -218,15 +210,14 @@ test.describe('Price History & Analytics', () => {
       // Navigate to price history
       await navigateToPriceHistory(page, testProductId);
 
-      // Check if time range selector exists
+      // Time range selector is implemented - verify it exists
       // Button text is "7 Days", "30 Days", "90 Days" (not just "7d", etc.)
       const timeRangeButton = page.getByRole('button', { name: /7\s*days|30\s*days|90\s*days/i });
       const timeRangeSelect = page.getByLabel(/time.*range|period|range/i);
 
-      if ((await timeRangeButton.count()) === 0 && (await timeRangeSelect.count()) === 0) {
-        test.skip(); // Time range selector not implemented
-        return;
-      }
+      // Verify at least one type of time range selector exists
+      const hasTimeRangeSelector = (await timeRangeButton.count()) > 0 || (await timeRangeSelect.count()) > 0;
+      expect(hasTimeRangeSelector).toBe(true);
 
       // Get initial data points (default 30d)
       const initialDataPoints = await getPriceDataPoints(page);
@@ -274,23 +265,16 @@ test.describe('Price History & Analytics', () => {
         '[data-testid="volatility-score"], [data-testid="price-volatility"]'
       );
 
-      if ((await volatilityWidget.count()) === 0) {
-        // Try text-based selector
-        const volatilityText = page.locator('text=/volatility.*score|price.*volatility/i');
-
-        if ((await volatilityText.count()) === 0) {
-          test.skip(); // Volatility feature not implemented
-          return;
-        }
-      }
+      // Verify volatility widget exists
+      const hasVolatilityWidget = (await volatilityWidget.count()) > 0;
+      expect(hasVolatilityWidget).toBe(true);
 
       // Get volatility score
       const volatility = await getVolatilityScore(page);
 
-      if (!volatility) {
-        test.skip();
-        return;
-      }
+      // Verify volatility data was successfully extracted
+      expect(volatility).toBeTruthy();
+      if (!volatility) throw new Error('Volatility data not found');
 
       // Verify score is valid (0-100)
       expect(volatility.score).toBeGreaterThanOrEqual(0);
@@ -309,18 +293,15 @@ test.describe('Price History & Analytics', () => {
       // Look for price change indicator
       const changeIndicator = page.locator('text=/[+-]?[0-9]+\\.?[0-9]*%/i');
 
-      if ((await changeIndicator.count()) === 0) {
-        test.skip(); // Price change indicator not implemented
-        return;
-      }
+      // Verify price change indicator exists
+      const hasChangeIndicator = (await changeIndicator.count()) > 0;
+      expect(hasChangeIndicator).toBe(true);
 
       // Get price change percentage
       const changePercent = await getPriceChangePercentage(page);
 
-      if (changePercent === null) {
-        test.skip();
-        return;
-      }
+      // Verify price change was successfully extracted
+      expect(changePercent).not.toBeNull();
 
       // Verify percentage is a valid number
       expect(typeof changePercent).toBe('number');
@@ -332,8 +313,7 @@ test.describe('Price History & Analytics', () => {
   });
 
   test.describe('Cross-Retailer Comparison', () => {
-    test.skip('should compare current prices across multiple retailers', async ({ page }) => {
-      // TODO: Cross-retailer comparison UI not found - feature may not be fully implemented
+    test('should compare current prices across multiple retailers', async ({ page }) => {
       // Navigate to price history
       await navigateToPriceHistory(page, testProductId);
 
@@ -342,15 +322,9 @@ test.describe('Price History & Analytics', () => {
         '[data-testid="retailer-comparison"], [data-testid="retailer-prices"]'
       );
 
-      if ((await retailerComparison.count()) === 0) {
-        // Try finding retailer cards directly
-        const retailerCards = page.locator('[data-testid="retailer-price"], [class*="retailer"]');
-
-        if ((await retailerCards.count()) === 0) {
-          test.skip(); // Retailer comparison not implemented
-          return;
-        }
-      }
+      // Verify retailer comparison section exists
+      const hasRetailerComparison = (await retailerComparison.count()) > 0;
+      expect(hasRetailerComparison).toBe(true);
 
       // Scroll to retailer comparison table if needed
       await retailerComparison.scrollIntoViewIfNeeded();
@@ -380,10 +354,8 @@ test.describe('Price History & Analytics', () => {
       // Get all retailer prices
       const retailerPrices = await getRetailerPrices(page);
 
-      if (retailerPrices.length === 0) {
-        test.skip(); // Retailer comparison not implemented
-        return;
-      }
+      // Verify at least one retailer is displayed
+      expect(retailerPrices.length).toBeGreaterThan(0);
 
       // Find the cheapest price
       const cheapestPrice = Math.min(...retailerPrices.map((r) => r.price));
@@ -394,18 +366,15 @@ test.describe('Price History & Analytics', () => {
       // At least one retailer should have best deal badge
       const hasBestDealBadge = cheapestRetailers.some((r) => r.isBestDeal);
 
+      // Verify best deal badge exists (either via retailer data OR standalone badge element)
       if (!hasBestDealBadge) {
-        // Badge may not be implemented
+        // Check for standalone best deal badge
         const bestDealBadge = await getBestDealBadge(page);
-
-        if (!bestDealBadge) {
-          test.skip(); // Best deal badge not implemented
-          return;
-        }
+        expect(bestDealBadge).toBeTruthy();
+      } else {
+        // Verify at least one retailer is marked as best deal
+        expect(cheapestRetailers.some((r) => r.isBestDeal)).toBe(true);
       }
-
-      // Verify at least one retailer is marked as best deal
-      expect(cheapestRetailers.some((r) => r.isBestDeal)).toBe(true);
     });
   });
 
@@ -511,23 +480,16 @@ test.describe('Price History & Analytics', () => {
         '[data-testid="price-trend"], [data-testid="trend-indicator"]'
       );
 
-      if ((await trendIndicator.count()) === 0) {
-        // Try text-based selector
-        const trendText = page.locator('text=/price.*is.*(rising|falling|stable)/i');
-
-        if ((await trendText.count()) === 0) {
-          test.skip(); // Trend indicator not implemented
-          return;
-        }
-      }
+      // Verify trend indicator exists (either via testid or text)
+      const hasTrendIndicator = (await trendIndicator.count()) > 0;
+      const hasTrendText = (await page.locator('text=/price.*is.*(rising|falling|stable)/i').count()) > 0;
+      expect(hasTrendIndicator || hasTrendText).toBe(true);
 
       // Get price trend
       const trend = await getPriceTrend(page);
 
-      if (!trend) {
-        test.skip();
-        return;
-      }
+      // Verify trend was successfully extracted
+      expect(trend).toBeTruthy();
 
       // Verify trend is one of expected values
       expect(['rising', 'falling', 'stable']).toContain(trend);

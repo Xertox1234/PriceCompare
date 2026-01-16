@@ -697,6 +697,8 @@ export class UserStorage extends BaseStorage {
    * @param exceptSessionId - Optional session ID to preserve (current session)
    */
   async invalidateUserSessions(userId: number, exceptSessionId?: string): Promise<void> {
+    const startTime = Date.now();
+
     try {
       this.validateUserId(userId);
 
@@ -709,66 +711,61 @@ export class UserStorage extends BaseStorage {
         return;
       }
 
-      // Scan for all session keys
-      // Pattern matches connect-redis session keys: "sess:{sessionId}"
-      const pattern = 'sess:*';
-      const keysToDelete: string[] = [];
+      // PERFORMANCE: Use user-keyed session index for O(M) complexity instead of O(N)
+      // where M = user's sessions (typically 2-5) and N = total sessions (potentially 100K+)
+      const {
+        getUserSessionIds,
+        cleanupStaleSessionsFromIndex,
+        removeSessionFromUserIndex,
+      } = await import('../../utils/session-index');
 
-      // Use SCAN to iterate through keys (more efficient than KEYS for large datasets)
-      let cursor = '0'; // Redis SCAN uses string cursors
-      do {
-        const reply = await redisClient.scan(cursor, {
-          MATCH: pattern,
-          COUNT: 100,
-        });
+      // Cleanup stale sessions from index before using it
+      await cleanupStaleSessionsFromIndex(userId);
 
-        cursor = reply.cursor;
-        const keys = reply.keys;
+      // Get user's session IDs from index (O(M) lookup)
+      const sessionIds = await getUserSessionIds(userId);
 
-        // Check each session to see if it belongs to this user
-        for (const key of keys) {
-          try {
-            const sessionData = await redisClient.get(key);
-            if (sessionData) {
-              const parsed: unknown = JSON.parse(sessionData);
-              // Type guard for session structure
-              if (
-                parsed &&
-                typeof parsed === 'object' &&
-                'passport' in parsed &&
-                parsed.passport &&
-                typeof parsed.passport === 'object' &&
-                'user' in parsed.passport &&
-                parsed.passport.user &&
-                typeof parsed.passport.user === 'object' &&
-                'id' in parsed.passport.user &&
-                parsed.passport.user.id === userId
-              ) {
-                // Extract session ID from key (remove "sess:" prefix)
-                const sessionId = key.substring(5);
-                // Only delete if it's not the excepted session
-                if (!exceptSessionId || sessionId !== exceptSessionId) {
-                  keysToDelete.push(key);
-                }
-              }
-            }
-          } catch (parseError) {
-            // Skip invalid session data
-            logger.warn('[UserStorage] Failed to parse session data', {
-              key,
-              error: parseError instanceof Error ? parseError.message : String(parseError),
-            });
-          }
-        }
-      } while (cursor !== '0');
+      if (sessionIds.length === 0) {
+        logger.debug('[UserStorage] No sessions to invalidate', { userId });
+        return;
+      }
 
-      // Delete all matching sessions
+      // Filter out the excepted session and build Redis keys
+      const sessionIdsToDelete = sessionIds.filter(sid => sid !== exceptSessionId);
+      const keysToDelete = sessionIdsToDelete.map(sid => `sess:${sid}`);
+
+      // Delete sessions from Redis
       if (keysToDelete.length > 0) {
         await redisClient.del(keysToDelete);
+
+        // Remove deleted sessions from index
+        for (const sessionId of sessionIdsToDelete) {
+          await removeSessionFromUserIndex(userId, sessionId);
+        }
+
+        const duration = Date.now() - startTime;
+
         logger.info('[UserStorage] Invalidated user sessions', {
           userId,
           sessionsDeleted: keysToDelete.length,
           preservedSession: exceptSessionId || 'none',
+          totalUserSessions: sessionIds.length,
+          durationMs: duration,
+        });
+
+        // MONITORING: Alert if session invalidation is slow (should be <100ms with index)
+        if (duration > 1000) {
+          logger.warn('[UserStorage] Slow session invalidation detected', {
+            userId,
+            durationMs: duration,
+            sessionCount: keysToDelete.length,
+            message: 'Session invalidation took >1s. This may indicate index issues or high session count.',
+          });
+        }
+      } else {
+        logger.debug('[UserStorage] All sessions preserved (matched exception)', {
+          userId,
+          preservedSession: exceptSessionId,
         });
       }
     } catch (error) {

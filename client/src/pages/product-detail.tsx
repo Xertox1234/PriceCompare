@@ -3,7 +3,6 @@ import { useState } from 'react';
 import { useParams, Link } from 'wouter';
 import {
   Star,
-  Heart,
   BarChart2,
   Share2,
   Truck,
@@ -27,6 +26,7 @@ import { ShopProvider } from '@/context/shop-context';
 import { useShop } from '@/hooks/use-shop';
 import { cn } from '@/lib/utils';
 import { bestSellerProducts, dealOfTheDayProducts } from '@/data/template-data';
+import { WatchlistToggleButton } from '@/components/watchlist/WatchlistToggleButton';
 
 // Mock product data with more details
 const mockProductDetails = {
@@ -137,8 +137,7 @@ function ProductDetailContent() {
     'description'
   );
 
-  const { toggleWishlist, isInWishlist, addSimpleToCart, isInCart, toggleCompare, openCart } =
-    useShop();
+  const { addSimpleToCart, isInCart, toggleCompare, openCart } = useShop();
 
   const discountPercent = product.oldPrice
     ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
@@ -402,18 +401,12 @@ function ProductDetailContent() {
 
               {/* Action Buttons */}
               <div className="flex gap-3">
-                <button
-                  onClick={() => toggleWishlist(product.id)}
-                  className={cn(
-                    'flex items-center gap-2 rounded-lg border px-4 py-2 text-sm transition-all',
-                    isInWishlist(product.id)
-                      ? 'border-destructive text-destructive bg-destructive/10'
-                      : 'border-border hover:border-muted-foreground text-foreground'
-                  )}
-                >
-                  <Heart className={cn('h-4 w-4', isInWishlist(product.id) && 'fill-current')} />
-                  {isInWishlist(product.id) ? 'In Wishlist' : 'Add to Wishlist'}
-                </button>
+                <WatchlistToggleButton
+                  productId={product.id}
+                  variant="outline"
+                  size="default"
+                  showText={true}
+                />
                 <button
                   onClick={() => toggleCompare(product.id)}
                   className="border-border hover:border-muted-foreground text-foreground flex items-center gap-2 rounded-lg border px-4 py-2 text-sm transition-all"
@@ -608,7 +601,6 @@ function ProductDetailContent() {
               <ProductCard
                 key={product.id}
                 product={product}
-                onWatchlist={() => toggleWishlist(product.id)}
                 onCompare={() => toggleCompare(product.id)}
               />
             ))}

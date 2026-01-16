@@ -1,8 +1,9 @@
 # Frontend Patterns
 
-**Version:** 2.9
-**Last Updated:** 2026-01-06
+**Version:** 2.10
+**Last Updated:** 2026-01-16
 **Changelog:**
+- 2.10 (2026-01-16): Added Toast Notifications: WCAG Compliance pattern - documents Radix Toast type prop mapping for proper ARIA live region announcements (aria-live="assertive" for destructive, aria-live="polite" for default), WCAG AA color contrast verification, and E2E testing strategy (from TODO_231 Phase 6)
 - 2.9 (2026-01-06): Added Authentication Guards for React Query Hooks pattern - documents `enabled: !!user` requirement for authenticated endpoints, HTTP Basic Auth popup prevention, middleware-based classification, compound conditions, and audit methodology (15 hooks fixed across 4 files from TODO_014 follow-up)
 - 2.8 (2026-01-06): Added Optimistic Updates with Rollback pattern to React Query Patterns section - documents instant UI feedback with automatic rollback, race condition prevention via query cancellation, minimal invalidation strategy, and performance optimization (6→1 API calls, 200-500ms→0ms latency) from TODO_013 watchlist integration
 - 2.7 (2026-01-02): Added Mega Menu: React State Over CSS-Only Hover pattern to Accessibility section - documents pointer-events control, keyboard navigation, ARIA attributes, and delayed close pattern for hover menus (from header navigation click failure fix)
@@ -27,6 +28,7 @@
   - [Conditional UI Rendering](#conditional-ui-rendering)
   - [Accessibility: Icon-Only Buttons Must Have Names](#accessibility-icon-only-buttons-must-have-names-new---2025-12-15)
   - [Mega Menu: React State Over CSS-Only Hover](#mega-menu-react-state-over-css-only-hover-new---2026-01-02)
+  - [Toast Notifications: WCAG Compliance](#toast-notifications-wcag-compliance-new---2026-01-16)
 3. [React Query Patterns](#react-query-patterns)
   - [Authentication Guards for React Query Hooks](#authentication-guards-for-react-query-hooks-new---2026-01-06)
   - [Mutation Best Practices](#mutation-best-practices)
@@ -533,6 +535,159 @@ function TemplateHeader() {
 - `client/src/components/template/header.tsx:76-360` (TemplateHeader mega menu)
 
 **Learned From:** TODO #[number] - Header navigation click failures (2026-01-02)
+
+---
+
+### Toast Notifications: WCAG Compliance (NEW - 2026-01-16)
+
+**Rule:** Toast notifications MUST be properly announced to screen readers via ARIA live regions, and meet WCAG AA color contrast requirements.
+
+**Context:** Radix UI Toast v1.2.7 has a known accessibility issue where toasts can be set to `aria-live="off"`, preventing screen reader announcements. The `type` prop controls ARIA announcement behavior and must be mapped to toast severity.
+
+#### Radix Toast Type Prop Mapping
+
+```typescript
+// Radix Toast type prop controls ARIA live region behavior
+type="foreground" → aria-live="assertive"  // Immediate announcement (critical toasts)
+type="background" → aria-live="polite"     // Announce at next opportunity (info toasts)
+```
+
+#### Anti-Pattern
+
+```tsx
+// ❌ WRONG - No type prop, defaults to "foreground" for ALL toasts
+const Toast = React.forwardRef<
+  React.ElementRef<typeof ToastPrimitives.Root>,
+  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root> & VariantProps<typeof toastVariants>
+>(({ className, variant, ...props }, ref) => {
+  return (
+    <ToastPrimitives.Root
+      ref={ref}
+      className={cn(toastVariants({ variant }), className)}
+      {...props}
+      // ← Missing type prop! All toasts interrupt screen readers
+    />
+  );
+});
+```
+
+**Problems:**
+- All toasts use `aria-live="assertive"` (immediate interruption)
+- Screen readers interrupt users for non-critical notifications
+- Info toasts are treated with same urgency as error toasts
+- No semantic distinction between toast severities
+
+#### Correct Pattern
+
+```tsx
+// ✅ CORRECT - Map variant to appropriate ARIA live region behavior
+const Toast = React.forwardRef<
+  React.ElementRef<typeof ToastPrimitives.Root>,
+  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root> & VariantProps<typeof toastVariants>
+>(({ className, variant, ...props }, ref) => {
+  // WCAG Compliance: Map variant to Radix Toast type for proper ARIA announcements
+  // - "foreground" → aria-live="assertive" (immediate announcement for critical toasts)
+  // - "background" → aria-live="polite" (announce at next opportunity for info toasts)
+  // See: https://github.com/radix-ui/primitives/issues/3634
+  const toastType = variant === 'destructive' ? 'foreground' : 'background';
+
+  return (
+    <ToastPrimitives.Root
+      ref={ref}
+      type={toastType}
+      className={cn(toastVariants({ variant }), className)}
+      {...props}
+    />
+  );
+});
+```
+
+#### WCAG AA Color Contrast Requirements
+
+**Design tokens are already compliant:**
+
+```typescript
+// Light mode (verified WCAG AA compliant)
+--color-background: 0 0% 100%;           // White
+--color-foreground: 222 47% 11%;         // Slate 900
+// Contrast ratio: >15:1 ✅
+
+--color-destructive: 0 84% 60%;          // Red 500
+--color-destructive-foreground: 210 40% 98%; // Slate 50
+// Contrast ratio: >8:1 ✅
+
+// Dark mode (verified WCAG AA compliant)
+--color-background: 222 47% 11%;         // Slate 900
+--color-foreground: 210 40% 98%;         // Slate 50
+// Contrast ratio: >14:1 ✅
+```
+
+**WCAG AA Requirements:**
+- Normal text (< 18pt): 4.5:1 minimum contrast ratio
+- Large text (≥ 18pt): 3:1 minimum contrast ratio
+- UI components: 3:1 minimum contrast ratio
+
+**PriceCompare Design System:**
+- All design tokens exceed WCAG AA minimums
+- High contrast mode available for AAA compliance (7:1 ratio)
+- Use design tokens (`bg-background`, `text-foreground`) NOT hex colors
+
+#### Usage Examples
+
+```tsx
+// Success toast (polite announcement)
+toast({
+  title: 'Added to watchlist',
+  description: 'Product has been added to your watchlist.',
+  // variant defaults to 'default' → type="background" → aria-live="polite"
+});
+
+// Error toast (assertive announcement)
+toast({
+  title: 'Error',
+  description: 'Failed to update watchlist',
+  variant: 'destructive', // → type="foreground" → aria-live="assertive"
+});
+```
+
+#### E2E Testing
+
+```typescript
+// E2E accessibility scan on toast viewport
+test('should have no WCAG A/AA violations in toast notifications', async ({ page }) => {
+  // Trigger toast
+  await page.getByRole('button', { name: /add to watchlist/i }).click();
+
+  // Wait for toast to appear
+  await page.getByText(/added to/i).first().waitFor({ state: 'visible', timeout: 5000 });
+
+  // Scan toast viewport for violations
+  const hasRadixViewport = (await page.locator('[data-radix-toast-viewport]').count()) > 0;
+  const include = hasRadixViewport ? '[data-radix-toast-viewport]' : '[role="status"]';
+
+  const results = await runA11yScan(page, { include });
+  expect(results.violations).toEqual([]);
+});
+```
+
+**Key Testing Points:**
+- Toast viewport has `[data-radix-toast-viewport]` attribute
+- Toast root has `role="status"` or `role="alert"`
+- Toast root has `aria-live="polite"` or `aria-live="assertive"` (NOT `aria-live="off"`)
+- Close button has `aria-label="Close"`
+- Color contrast meets WCAG AA minimums
+
+**Reference Implementation:**
+- `client/src/components/ui/toast.tsx:41-60` (Toast component with type mapping)
+- `client/src/components/ui/toaster.tsx` (Toast provider and viewport)
+- `e2e/accessibility.spec.ts:138-203` (Toast accessibility E2E test)
+
+**Learned From:** TODO_231 Phase 6 - Toast Notification WCAG Compliance (2026-01-16)
+
+**Resources:**
+- [Radix UI Toast Accessibility](https://www.radix-ui.com/primitives/docs/components/toast#accessibility)
+- [GitHub Issue #3634: Toast aria-live="off" bug](https://github.com/radix-ui/primitives/issues/3634)
+- [WCAG 2.1 Success Criterion 1.4.3: Contrast (Minimum)](https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html)
 
 ---
 

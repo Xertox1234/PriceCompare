@@ -132,7 +132,7 @@ export function PriceTrendIndicator({
   const Icon = config.icon;
 
   return (
-    <div className={cn('flex items-center gap-2', className)} data-testid="price-trend">
+    <div className={cn('flex items-center gap-2', className)} data-testid="price-trend-indicator">
       <Badge variant={config.variant} className="gap-1.5">
         <Icon className={cn('h-3 w-3', config.iconColor)} />
         <span>{config.label}</span>

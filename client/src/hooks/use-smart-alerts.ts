@@ -134,6 +134,7 @@ export function usePredictiveAlerts() {
     },
     enabled: !!user, // Only fetch if user is authenticated
     refetchInterval: 300000, // Refresh every 5 minutes
+    refetchIntervalInBackground: false, // Pause polling when tab is inactive
   });
 }
 

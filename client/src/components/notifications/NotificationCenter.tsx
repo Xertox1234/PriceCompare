@@ -240,8 +240,9 @@ export function NotificationCenter() {
                     toast({ title: 'Error', description: error.message, variant: 'destructive' }),
                 })
               }
+              disabled={markAllAsRead.isPending || unreadGeneralCount === 0}
             >
-              Mark all as read
+              {markAllAsRead.isPending ? 'Marking as read...' : 'Mark all as read'}
             </Button>
           </div>
 

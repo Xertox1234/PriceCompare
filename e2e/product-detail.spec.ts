@@ -263,7 +263,7 @@ test.describe('Product Detail - Watchlist Integration', () => {
     });
   });
 
-  test.skip('should remove product from watchlist', async ({ page }) => {
+  test('should remove product from watchlist', async ({ page }) => {
     // Register and login user
     await registerUser(page, generateTestUsername(), generateTestEmail(), 'UserPass123!');
 
@@ -286,10 +286,9 @@ test.describe('Product Detail - Watchlist Integration', () => {
     // Add product to watchlist first
     const addButton = page.getByRole('button', { name: /add to (watchlist|watch list)/i }).first();
 
-    if ((await addButton.count()) === 0) {
-      test.skip();
-      return;
-    }
+    // Verify add button exists
+    const hasAddButton = (await addButton.count()) > 0;
+    expect(hasAddButton).toBe(true);
 
     await addButton.click();
     await page.waitForSelector('[role="dialog"], [role="menu"]', {
@@ -303,19 +302,21 @@ test.describe('Product Detail - Watchlist Integration', () => {
     await page.locator('[role="menuitem"], [role="option"]').first().click({ force: true });
     await page.waitForTimeout(1000); // Wait for addition to complete
 
-    // Now look for remove button
+    // Now look for remove button (button should toggle after add)
     const removeButton = page.getByRole('button', {
       name: /remove from (watchlist|watch list)/i,
     });
 
-    if ((await removeButton.count()) > 0) {
-      await removeButton.first().click();
+    // Verify remove button appears after add
+    const hasRemoveButton = (await removeButton.count()) > 0;
+    expect(hasRemoveButton).toBe(true);
 
-      // Verify success toast
-      await expect(page.getByText(/removed from (watchlist|watch list)/i).first()).toBeVisible({
-        timeout: 5000,
-      });
-    }
+    await removeButton.first().click();
+
+    // Verify success toast
+    await expect(page.getByText(/removed from (watchlist|watch list)/i).first()).toBeVisible({
+      timeout: 5000,
+    });
   });
 });
 
