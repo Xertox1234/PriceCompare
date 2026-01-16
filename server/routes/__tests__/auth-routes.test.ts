@@ -162,18 +162,6 @@ describe('Authentication Routes', () => {
         password: 'SecurePass123!',
       });
 
-      // Debug: log error if test fails
-      if (response.status !== 201) {
-        console.log('\n=== REGISTRATION FAILURE DEBUG ===');
-        console.log('Status:', response.status);
-        console.log('Response body:', JSON.stringify(response.body, null, 2));
-        console.log('Response text:', response.text);
-        if (response.error) {
-          console.log('Error object:', response.error);
-        }
-        console.log('=================================\n');
-      }
-
       const result = expectSuccessResponse<{ user: { email: string; username: string } }>(
         response,
         201

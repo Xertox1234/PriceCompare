@@ -102,7 +102,7 @@ test.describe('Home Page Lazy Loading', () => {
     const searchButton = page.locator('[aria-label*="Search"]').first();
     const isSearchButtonAvailable = await searchButton.isVisible({ timeout: 2000 }).catch(() => false);
     if (!isSearchButtonAvailable) {
-      test.skip();
+      test.skip(true, 'Search button not available in UI');
     }
 
     // Open search modal
@@ -133,7 +133,9 @@ test.describe('Home Page Lazy Loading', () => {
 
     // Scroll to trigger lazy loading
     await page.evaluate(() => window.scrollTo(0, 1000));
-    await page.waitForTimeout(1000); // Allow all lazy components to load
+    // NOTE: No reliable selector for "all lazy components loaded" - using timeout
+    // This tests layout stability during lazy loading, not specific component visibility
+    await page.waitForTimeout(1000);
 
     // Get height after lazy loading
     const afterHeight = await page.evaluate(() => document.body.scrollHeight);
@@ -190,11 +192,13 @@ test.describe('Home Page Lazy Loading', () => {
 
     // Scroll to trigger lazy loading
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    // NOTE: Waiting for dynamic chunks to load - no reliable selector available
+    // This test verifies chunk loading occurred, not specific UI element visibility
     await page.waitForTimeout(1000);
 
     // Skip test if no chunks loaded (dev server doesn't create /assets/*.js files)
     if (loadedChunks.length === 0) {
-      test.skip();
+      test.skip(true, 'No chunks loaded - dev server does not create /assets/*.js files');
     }
 
     // Should have loaded multiple JavaScript chunks

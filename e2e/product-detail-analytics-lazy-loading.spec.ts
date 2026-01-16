@@ -112,7 +112,7 @@ test.describe('Product Detail - Analytics Lazy Loading', () => {
 
       // If button doesn't exist, skip test (feature not implemented)
       if ((await analyticsButton.count()) === 0) {
-        test.skip();
+        test.skip(true, 'Price analytics button not implemented');
         return;
       }
 
@@ -205,7 +205,7 @@ test.describe('Product Detail - Analytics Lazy Loading', () => {
       });
 
       if ((await analyticsButton.count()) === 0) {
-        test.skip();
+        test.skip(true, 'Price analytics button not implemented');
         return;
       }
 
@@ -260,7 +260,7 @@ test.describe('Product Detail - Analytics Lazy Loading', () => {
       });
 
       if ((await analyticsButton.count()) === 0) {
-        test.skip();
+        test.skip(true, 'Price analytics button not implemented');
         return;
       }
 
@@ -291,7 +291,7 @@ test.describe('Product Detail - Analytics Lazy Loading', () => {
       });
 
       if ((await analyticsButton.count()) === 0) {
-        test.skip();
+        test.skip(true, 'Price analytics button not implemented');
         return;
       }
 
@@ -333,7 +333,7 @@ test.describe('Product Detail - Analytics Lazy Loading', () => {
       });
 
       if ((await analyticsButton.count()) === 0) {
-        test.skip();
+        test.skip(true, 'Price analytics button not implemented');
         return;
       }
 
@@ -391,7 +391,7 @@ test.describe('Product Detail - Analytics Lazy Loading', () => {
       });
 
       if ((await analyticsButton.count()) === 0) {
-        test.skip();
+        test.skip(true, 'Price analytics button not implemented');
         return;
       }
 
@@ -469,7 +469,7 @@ test.describe('Product Detail - Analytics Lazy Loading', () => {
       });
 
       if ((await analyticsButton.count()) === 0) {
-        test.skip();
+        test.skip(true, 'Price analytics button not implemented');
         return;
       }
 

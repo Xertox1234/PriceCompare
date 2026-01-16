@@ -6730,6 +6730,618 @@ Flaky test rate:  <1% (waits as long as needed, up to timeout)
 
 ---
 
+### Descriptive Skip Messages for CI Debugging (NEW - 2026-01-16)
+
+**Context:** When conditionally skipping E2E tests based on runtime conditions (missing data, unavailable features, environment constraints).
+
+**Problem:** Silent test skips with no explanation make debugging CI failures and understanding test behavior extremely difficult. When a test is skipped, developers need to know WHY it was skipped to determine if the skip is expected or indicates a problem.
+
+**Priority:** P0 - Critical for test maintainability and CI debugging
+
+#### ✅ CORRECT - Descriptive Skip Message
+
+```typescript
+// E2E test with conditional skip based on data availability
+test('should display price history chart', async ({ page }) => {
+  await page.goto(`/products/${productId}/price-history`);
+
+  const chart = page.locator('[data-testid="price-history-chart"]');
+
+  // ✅ CORRECT - Descriptive message explains WHY skip occurred
+  if ((await chart.count()) === 0) {
+    test.skip(true, 'Price history chart not available - data not seeded');
+    return;
+  }
+
+  // Test continues if chart is present
+  await expect(chart).toBeVisible();
+  await chart.waitFor({ state: 'visible', timeout: 5000 });
+});
+
+// Output when skipped:
+// ⏭  should display price history chart
+//    └─ Price history chart not available - data not seeded
+```
+
+#### ❌ ANTI-PATTERN - Silent Skip
+
+```typescript
+// ❌ WRONG - No explanation for skip
+if ((await chart.count()) === 0) {
+  test.skip();  // WHY did this skip?
+  return;
+}
+
+// ❌ WRONG - Vague message that doesn't help debugging
+if ((await chart.count()) === 0) {
+  test.skip(true, 'Skipping test');  // Skipping why? Missing what?
+  return;
+}
+
+// CI Output:
+// ⏭  should display price history chart
+// Developer reaction: "Why did this skip? Is it a problem? Expected behavior?"
+```
+
+**Rationale:**
+
+- **CI Debugging**: When tests skip in CI but pass locally, descriptive messages immediately reveal environment differences
+- **Data Issues**: Missing test data is a common skip reason - message should state what data is missing
+- **Feature Flags**: If skipping due to disabled features, message should reference the flag name
+- **Traceability**: Skip messages appear in test reports - they're documentation of test behavior
+- **Onboarding**: New developers can understand test behavior without reading implementation
+
+**Skip Message Guidelines:**
+
+1. **State the condition**: What is missing/unavailable?
+2. **Include context**: Where is the missing data/feature expected?
+3. **Be specific**: "chart not available" is better than "element missing"
+4. **Include hints**: If data should be seeded, say "data not seeded"
+
+**Good Skip Message Examples:**
+
+```typescript
+// Data-dependent tests
+test.skip(true, 'Price history chart not available - data not seeded');
+test.skip(true, 'No retailers found - requires database seed data');
+test.skip(true, 'User watchlist empty - test requires at least 1 watchlist item');
+
+// Feature flag dependent
+test.skip(true, 'AI recommendations disabled - FEATURE_AI_ENABLED=false');
+test.skip(true, 'Email service unavailable - SMTP_HOST not configured');
+
+// Environment dependent
+test.skip(true, 'Redis unavailable - required for session tests');
+test.skip(true, 'External API mock not configured - staging environment only');
+
+// Browser/platform dependent
+test.skip(true, 'Webkit clipboard API not supported - Chrome/Firefox only');
+test.skip(true, 'Screenshot comparison unstable on CI - local development only');
+```
+
+**Related Patterns:**
+- See "Test-Driven E2E Development with Skipped Tests" for intentional skip patterns
+- See "E2E Test Documentation Patterns" for commenting skipped test suites
+
+> **Source**: TODO_234 resolution (2026-01-16) - E2E Price Analytics Widget Visibility
+> **Added**: 2026-01-16
+
+---
+
+### Network Wait Strategy for Polling Pages (NEW - 2026-01-16)
+
+**Context:** When testing pages that use polling, WebSockets, or continuous background network requests (real-time dashboards, live price feeds, chat interfaces).
+
+**Problem:** Using `waitUntil: 'networkidle'` on pages with polling/WebSocket causes timeouts because the page NEVER becomes idle - background requests continue indefinitely.
+
+**Priority:** P0 - Critical for E2E reliability on modern real-time applications
+
+#### ❌ ANTI-PATTERN - networkidle on Polling Pages
+
+```typescript
+// ❌ WRONG - Will TIMEOUT on pages with polling
+test('should display live price updates', async ({ page }) => {
+  // Page polls /api/prices every 30 seconds
+  await page.goto('/products/123/price-history', {
+    waitUntil: 'networkidle',  // ❌ Waits for 500ms of no network activity
+    timeout: 15000
+  });
+  // ERROR: Timeout after 15s - network never idle due to polling!
+
+  const chart = page.locator('[data-testid="price-chart"]');
+  await expect(chart).toBeVisible();
+});
+
+// Why this fails:
+// 1. Page loads at t=0s
+// 2. Initial data fetch completes at t=2s
+// 3. Polling starts every 30s (t=2s, t=32s, t=62s...)
+// 4. Playwright waits for 500ms of silence
+// 5. At t=15s, timeout occurs before 500ms silence window
+```
+
+#### ✅ CORRECT - domcontentloaded for Polling Pages
+
+```typescript
+// ✅ CORRECT - Use domcontentloaded, not networkidle
+test('should display live price updates', async ({ page }) => {
+  await page.goto('/products/123/price-history', {
+    waitUntil: 'domcontentloaded',  // ✅ Wait for DOM ready, ignore network
+    timeout: 15000
+  });
+
+  // DOM is ready, React has hydrated
+  const chart = page.locator('[data-testid="price-chart"]');
+
+  // Wait for specific element to be visible (confirms data loaded)
+  await chart.waitFor({ state: 'visible', timeout: 5000 });
+
+  await expect(chart).toBeVisible();
+});
+
+// Why this works:
+// 1. Page loads at t=0s
+// 2. DOMContentLoaded fires at t=1s (DOM parsed)
+// 3. goto() completes immediately (doesn't wait for polling)
+// 4. Explicit wait for chart ensures data is loaded
+// 5. Test continues while polling happens in background
+```
+
+#### When to Use Each Wait Strategy
+
+| Wait Strategy | Use Case | Network Behavior | Typical Timeout |
+|---------------|----------|------------------|-----------------|
+| **`domcontentloaded`** | **Pages with polling/WebSocket/continuous requests** | Ignores ongoing network activity | 15s (full page load) |
+| **`networkidle`** | Static pages with no background requests | Waits for 500ms of network silence | 5-10s |
+| **`load`** | Pages needing all resources (images, scripts) | Waits for `window.onload` event | 10-15s |
+| **`commit`** | Server-sent navigation only (rare) | Response committed | 5s |
+
+**Real-World Examples:**
+
+```typescript
+// ✅ domcontentloaded - Price dashboard with live polling
+await page.goto('/dashboard', {
+  waitUntil: 'domcontentloaded',  // Polling every 10s
+  timeout: 15000
+});
+
+// ✅ domcontentloaded - Chat interface with WebSocket
+await page.goto('/chat', {
+  waitUntil: 'domcontentloaded',  // WebSocket maintains connection
+  timeout: 15000
+});
+
+// ✅ networkidle - Static product listing (no polling)
+await page.goto('/products', {
+  waitUntil: 'networkidle',  // All data fetched once
+  timeout: 10000
+});
+
+// ✅ load - Marketing page with heavy images/videos
+await page.goto('/landing', {
+  waitUntil: 'load',  // Need all assets for screenshot tests
+  timeout: 15000
+});
+```
+
+**Detection Pattern - How to Identify Polling Pages:**
+
+```bash
+# Find pages with polling (setInterval, setTimeout in useEffect)
+grep -r "setInterval\|setTimeout" client/src/pages/ --include="*.tsx"
+
+# Find React Query polling configurations
+grep -r "refetchInterval" client/src/ --include="*.tsx"
+
+# Find WebSocket connections
+grep -r "new WebSocket\|useWebSocket" client/src/ --include="*.tsx"
+```
+
+**Timeout Guidelines:**
+
+```typescript
+// ✅ CORRECT - Self-documenting timeout values
+
+// 15000ms: Full page load including lazy-loaded components
+await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+
+// 5000ms: Allows for chart rendering + React hydration on slower CI
+await chart.waitFor({ state: 'visible', timeout: 5000 });
+
+// 3000ms: Quick visibility check for static elements
+await button.waitFor({ state: 'visible', timeout: 3000 });
+```
+
+**Rationale:**
+- **Reliability**: Tests don't timeout on pages with legitimate background activity
+- **Performance**: Don't wait for unnecessary network silence (faster tests)
+- **Intent**: `domcontentloaded` signals "I care about DOM, not network"
+- **Real-world alignment**: Modern SPAs constantly poll for updates - tests must accommodate this
+
+**Related Patterns:**
+- See "Condition-Based Waits Instead of Hardcoded Timeouts" for element-level wait strategies
+- See "Playwright Wait Strategies" section for complete wait state reference
+
+> **Source**: TODO_234 resolution (2026-01-16) - E2E Price Analytics Widget Visibility
+> **Added**: 2026-01-16
+
+---
+
+### Helper Extraction for Common Wait Patterns (NEW - 2026-01-16)
+
+**Context:** When the same wait logic appears in multiple E2E tests with identical timeout values and consistent boolean decision logic.
+
+**Problem:** Duplicated wait logic makes tests harder to maintain - timeout changes require updates in multiple files, and patterns aren't reusable across the test suite.
+
+**Priority:** P1 - Recommended for test maintainability (extract after 3+ uses)
+
+#### When to Extract Wait Helpers
+
+**Extract when ALL conditions met:**
+1. Pattern appears **3+ times** across test files
+2. Timeout value is **consistent** (same across all uses)
+3. Return value is a **boolean decision** (visible/not visible, success/failure)
+4. Logic is **self-contained** (no test-specific context needed)
+
+**DON'T extract when:**
+- Used only 1-2 times (YAGNI principle)
+- Timeout varies by use case (different timeouts = different intents)
+- Returns complex data (locators, elements) - keep in test for clarity
+- Depends on test-specific setup/teardown
+
+#### ✅ PREFERRED - Extracted Helper
+
+```typescript
+// e2e/helpers/wait-helpers.ts
+
+import { type Locator } from '@playwright/test';
+
+/**
+ * Wait for element to become visible with configurable timeout
+ * @returns true if element visible, false if timeout
+ */
+export async function waitForElementVisible(
+  locator: Locator,
+  options?: { timeout?: number }
+): Promise<boolean> {
+  try {
+    await locator.first().waitFor({
+      state: 'visible',
+      timeout: options?.timeout ?? 3000  // Default: 3s for static elements
+    });
+    return true;
+  } catch {
+    return false;  // Not visible within timeout
+  }
+}
+
+/**
+ * Wait for element to be hidden with configurable timeout
+ * @returns true if element hidden, false if still visible
+ */
+export async function waitForElementHidden(
+  locator: Locator,
+  options?: { timeout?: number }
+): Promise<boolean> {
+  try {
+    await locator.first().waitFor({
+      state: 'hidden',
+      timeout: options?.timeout ?? 2000  // Default: 2s for hiding animations
+    });
+    return true;
+  } catch {
+    return false;  // Still visible after timeout
+  }
+}
+
+// Usage in tests
+import { waitForElementVisible, waitForElementHidden } from './helpers/wait-helpers';
+
+test('should toggle price history widget', async ({ page }) => {
+  await page.goto(`/products/${productId}`);
+
+  const widget = page.locator('[data-testid="price-history-widget"]');
+  const toggleButton = page.getByRole('button', { name: /toggle chart/i });
+
+  // ✅ CLEAN - Clear intent, reusable logic
+  const isVisible = await waitForElementVisible(widget);
+  if (!isVisible) {
+    test.skip(true, 'Price history widget not available - data not seeded');
+    return;
+  }
+
+  await toggleButton.click();
+  const isHidden = await waitForElementHidden(widget);
+  expect(isHidden).toBe(true);
+
+  await toggleButton.click();
+  const isVisibleAgain = await waitForElementVisible(widget);
+  expect(isVisibleAgain).toBe(true);
+});
+```
+
+#### ❌ ANTI-PATTERN - Repeated Inline Wait Logic
+
+```typescript
+// ❌ WRONG - Same pattern duplicated across 5+ test files
+test('test 1', async ({ page }) => {
+  const widget = page.locator('[data-testid="widget"]');
+
+  // Inline wait logic #1
+  let isVisible = false;
+  try {
+    await widget.first().waitFor({ state: 'visible', timeout: 3000 });
+    isVisible = true;
+  } catch {
+    isVisible = false;
+  }
+
+  if (!isVisible) {
+    test.skip(true, 'Widget not available');
+    return;
+  }
+});
+
+test('test 2', async ({ page }) => {
+  const chart = page.locator('[data-testid="chart"]');
+
+  // Inline wait logic #2 (DUPLICATE - same timeout, same pattern)
+  let chartVisible = false;
+  try {
+    await chart.first().waitFor({ state: 'visible', timeout: 3000 });
+    chartVisible = true;
+  } catch {
+    chartVisible = false;
+  }
+
+  if (!chartVisible) {
+    test.skip(true, 'Chart not available');
+    return;
+  }
+});
+
+// Problems:
+// 1. Duplicated in 5+ files (maintenance nightmare)
+// 2. Timeout change requires updating 5+ files
+// 3. No centralized documentation of timeout rationale
+// 4. Easy to introduce inconsistencies (3000 vs 2000 vs 5000)
+```
+
+#### Helper Extraction Checklist
+
+Before extracting a wait helper, verify:
+
+- [ ] **Usage count**: Pattern appears 3+ times (or 2+ if complex logic)
+- [ ] **Timeout consistency**: Same timeout across all uses (or use optional param)
+- [ ] **Return type**: Returns simple boolean or primitive (not complex objects)
+- [ ] **Documentation**: Helper has JSDoc explaining timeout default and return value
+- [ ] **Location**: Placed in `e2e/helpers/` for discoverability
+- [ ] **Naming**: Function name clearly describes what it waits for
+
+**Advanced Helper Pattern - Configurable Defaults:**
+
+```typescript
+// e2e/helpers/wait-helpers.ts
+
+/**
+ * Wait for chart to render with data
+ * @param timeout Chart rendering timeout (default: 5000ms for CI compatibility)
+ * @returns true if chart rendered with data, false otherwise
+ */
+export async function waitForChartWithData(
+  page: Page,
+  chartSelector: string,
+  options?: { timeout?: number }
+): Promise<boolean> {
+  const timeout = options?.timeout ?? 5000;  // Allow override for slow environments
+
+  try {
+    const chart = page.locator(chartSelector);
+
+    // Wait for chart container
+    await chart.waitFor({ state: 'visible', timeout });
+
+    // Wait for chart to have data (SVG path elements indicate rendered data)
+    await chart.locator('path, rect, circle').first().waitFor({
+      state: 'visible',
+      timeout: timeout / 2  // Half timeout for data check
+    });
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Usage
+const hasChart = await waitForChartWithData(page, '[data-testid="price-chart"]');
+if (!hasChart) {
+  test.skip(true, 'Price chart not rendered - no data available');
+  return;
+}
+```
+
+**Rationale:**
+
+- **DRY Principle**: Extract repeated patterns (3+ uses justify extraction)
+- **Maintainability**: Timeout changes in one place, not N places
+- **Documentation**: Helper function documents WHY timeout is what it is
+- **Consistency**: All tests use same timeout for same operation (reduces flakiness)
+- **Readability**: `waitForElementVisible(widget)` is clearer than 6 lines of try/catch
+
+**Related Patterns:**
+- See "Playwright Fixtures (Modern Setup/Teardown)" for test-level helpers
+- See "E2E Test Organization" for helper file structure
+
+> **Source**: TODO_234 resolution (2026-01-16) - E2E Price Analytics Widget Visibility
+> **Added**: 2026-01-16
+
+---
+
+### Timeout Documentation with Inline Comments (NEW - 2026-01-16)
+
+**Context:** When E2E tests use specific timeout values that are critical for test reliability but aren't immediately obvious from context.
+
+**Problem:** Magic number timeouts (5000, 15000, 3000) appear throughout tests with no explanation of WHY that specific value was chosen. When tests fail due to timeouts, developers don't know if the timeout is too short or if there's a real problem.
+
+**Priority:** P1 - Recommended for self-documenting tests
+
+#### ✅ CORRECT - Self-Documenting Timeout Values
+
+```typescript
+test('should load price analytics page', async ({ page }) => {
+  // 15000ms: Full page load including lazy-loaded chart components
+  // Rationale: Chart library (Recharts) + data fetching on slower CI = ~8-12s
+  await page.goto(`/products/${productId}/price-history`, {
+    waitUntil: 'domcontentloaded',
+    timeout: 15000
+  });
+
+  const chart = page.locator('[data-testid="price-history-chart"]');
+
+  // 5000ms: Allows for chart rendering + React hydration on slower CI
+  // Rationale: Chart SVG rendering takes 2-3s locally, up to 5s on CI
+  await chart.waitFor({ state: 'visible', timeout: 5000 });
+
+  const toggleButton = page.getByRole('button', { name: /toggle/i });
+
+  // 3000ms: Quick visibility check for static UI elements (button render)
+  // Rationale: React hydration completes in <1s, 3s provides 3x margin
+  await toggleButton.waitFor({ state: 'visible', timeout: 3000 });
+
+  await expect(chart).toBeVisible();
+});
+```
+
+#### ❌ ANTI-PATTERN - Magic Number Timeouts
+
+```typescript
+// ❌ WRONG - No context for timeout values
+test('should load price analytics page', async ({ page }) => {
+  await page.goto(url, { timeout: 15000 });  // Why 15s? Too long? Too short?
+
+  const chart = page.locator('[data-testid="chart"]');
+  await chart.waitFor({ state: 'visible', timeout: 5000 });  // Why 5s?
+
+  const button = page.getByRole('button');
+  await button.waitFor({ state: 'visible', timeout: 3000 });  // Why 3s?
+});
+
+// When timeout fails in CI:
+// ❌ Developer: "Is 5s too short? Should I increase to 10s? Or is there a bug?"
+// ❌ No way to know without running test locally and measuring actual timing
+```
+
+#### Timeout Documentation Guidelines
+
+**What to document:**
+1. **Absolute value**: Why this specific millisecond value?
+2. **Context**: What operation is being waited for?
+3. **Rationale**: Why is this duration necessary (CI, animations, data fetching)?
+4. **Environment factor**: If timeout varies by environment (local vs CI)
+
+**Documentation Template:**
+
+```typescript
+// [DURATION]: [WHAT is being waited for]
+// Rationale: [WHY this duration] (measured: [LOCAL_TIME], CI: [CI_TIME])
+await operation({ timeout: DURATION });
+```
+
+**Real-World Examples:**
+
+```typescript
+// CATEGORY 1: Page Load Timeouts
+
+// 15000ms: Full SPA page load including code splitting and lazy-loaded components
+// Rationale: Vite code-split bundles + React Router lazy load = 8-12s on CI
+await page.goto('/dashboard', { timeout: 15000 });
+
+// 20000ms: External API-dependent page load (scraping + data aggregation)
+// Rationale: Playwright scraping (5s) + data processing (3s) + render (2s) = ~10s, 2x margin
+await page.goto('/products/123/offers', { timeout: 20000 });
+
+// CATEGORY 2: Element Visibility Timeouts
+
+// 5000ms: Chart rendering with data fetching and SVG generation
+// Rationale: Recharts library renders 1000+ data points = 2-3s locally, up to 5s on CI
+await chart.waitFor({ state: 'visible', timeout: 5000 });
+
+// 3000ms: Static button visibility (React hydration + CSS animation)
+// Rationale: Hydration <500ms + fade-in animation 300ms = ~1s, 3x margin for CI variability
+await button.waitFor({ state: 'visible', timeout: 3000 });
+
+// 10000ms: API response-dependent modal (external service call)
+// Rationale: External API SLA = 5s max response time, modal render adds 1s
+await modal.waitFor({ state: 'visible', timeout: 10000 });
+
+// CATEGORY 3: State Change Timeouts
+
+// 2000ms: Element hide animation (CSS transition duration)
+// Rationale: fade-out transition-duration: 500ms, 4x margin for reflows
+await element.waitFor({ state: 'hidden', timeout: 2000 });
+
+// 8000ms: Background job completion (price scraping job)
+// Rationale: Bull queue processing + Playwright scraping = 5-7s average
+await page.waitForSelector('[data-job-status="completed"]', { timeout: 8000 });
+```
+
+#### When NOT to Document Timeouts
+
+**Skip documentation for:**
+- **Default timeouts** (Playwright's built-in defaults are well-known)
+- **Obvious operations** (clicking a button doesn't need timeout explanation)
+- **Helper functions** (document in helper, not at call site)
+
+```typescript
+// ✅ NO COMMENT NEEDED - Default Playwright timeout (30s)
+await page.getByRole('button', { name: 'Submit' }).click();
+
+// ✅ NO COMMENT NEEDED - Helper function has documentation
+await waitForElementVisible(widget);  // Documented in helper
+
+// ✅ COMMENT NEEDED - Non-obvious custom timeout
+await page.waitForLoadState('networkidle', { timeout: 5000 });  // Why 5s?
+```
+
+#### Performance-Based Timeout Tuning
+
+**Measure first, then set timeout:**
+
+```typescript
+// Step 1: Measure actual duration locally
+console.time('chart-render');
+await chart.waitFor({ state: 'visible' });
+console.timeEnd('chart-render');
+// Output: chart-render: 2847ms
+
+// Step 2: Add margin for CI variability (2-3x local time)
+const LOCAL_TIME = 2847;  // ms
+const CI_MARGIN = 2.5;    // CI is 2-3x slower than local (M2 Max vs GitHub Actions)
+const TIMEOUT = Math.ceil(LOCAL_TIME * CI_MARGIN / 1000) * 1000;  // Round up to nearest second
+
+// Step 3: Document final timeout with measurements
+// 7000ms: Chart rendering + data fetching (measured: 2.8s local, ~7s CI with 2.5x margin)
+await chart.waitFor({ state: 'visible', timeout: 7000 });
+```
+
+**Rationale:**
+
+- **Debugging Efficiency**: When CI fails, comment immediately reveals if timeout is reasonable
+- **Maintenance**: Future developers know WHY timeout was chosen (not arbitrary)
+- **Tuning**: If operations get faster (code optimization), comments reveal which timeouts can be reduced
+- **Onboarding**: New team members understand timeout strategy without asking
+- **CI Variability**: Comments explain CI vs local differences (prevents "works on my machine")
+
+**Related Patterns:**
+- See "Network Wait Strategy for Polling Pages" for page load timeout strategies
+- See "Condition-Based Waits Instead of Hardcoded Timeouts" for avoiding hardcoded waits entirely
+
+> **Source**: TODO_234 resolution (2026-01-16) - E2E Price Analytics Widget Visibility
+> **Added**: 2026-01-16
+
+---
+
 ### Visual Regression Testing (Screenshots)
 
 Use Playwright screenshots to lock down critical UI surfaces.

@@ -3,26 +3,46 @@
  *
  * Helper functions for price history chart, volatility, and cross-retailer comparison tests.
  */
-import { type Page } from '@playwright/test';
+import { type Page, type Locator } from '@playwright/test';
 import { waitForPageReady } from '../helpers';
 import { db } from '../../server/db';
 import { products, retailers, productOffers, priceHistory, priceSnapshots } from '@shared/schema';
 import { eq, sql } from 'drizzle-orm';
 
 /**
+ * Wait for an element to become visible with timeout
+ * Returns true if visible, false if timeout
+ */
+export async function waitForElementVisible(
+  locator: Locator,
+  options?: { timeout?: number }
+): Promise<boolean> {
+  try {
+    await locator.first().waitFor({ state: 'visible', timeout: options?.timeout ?? 3000 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Navigate to price history page for a specific product
  * Price analytics components are on /products/:id/price-history (dedicated page)
  *
- * NOTE: Just navigates to the page - tests should check if elements exist and skip if needed
+ * NOTE: Navigates and waits for page to be ready before returning
  */
 export async function navigateToPriceHistory(page: Page, productId: number): Promise<void> {
-  // Navigate without waiting for specific elements - tests will check for feature presence
+  // 15000ms: full page load including lazy-loaded components
   await page.goto(`/products/${productId}/price-history`, {
     waitUntil: 'domcontentloaded',
-    timeout: 10000
-  }).catch(() => {
-    // Page may not exist (404) - tests will skip if elements not found
+    timeout: 15000
   });
+
+  // Wait for page to be fully ready (React hydration complete)
+  await waitForPageReady(page);
+
+  // 5000ms: allows for chart rendering + React hydration on slower CI machines
+  await page.locator('main').waitFor({ state: 'visible', timeout: 5000 }).catch(() => null);
 }
 
 /**
@@ -112,7 +132,7 @@ export async function getPriceDataPoints(
         .locator('[class*="recharts-tooltip"], [data-testid="chart-tooltip"]')
         .first();
 
-      // Prefer waiting for tooltip visibility over fixed animation timing
+      // 2000ms: allows for chart tooltip animation and rendering
       await tooltip.waitFor({ state: 'visible', timeout: 2000 }).catch(() => null);
 
       if ((await tooltip.count()) > 0) {
@@ -146,9 +166,14 @@ export async function getVolatilityScore(
     '[data-testid="volatility-score"], [data-testid="price-volatility"]'
   );
 
+  // 3000ms: widget visibility after parent section is loaded
+  await waitForElementVisible(volatilityWidget, { timeout: 3000 });
+
   if ((await volatilityWidget.count()) === 0) {
     // Try text-based locator
     const volatilitySection = page.locator('text=/volatility.*score|price.*volatility/i').first();
+    // 3000ms: widget visibility after parent section is loaded
+    await waitForElementVisible(volatilitySection, { timeout: 3000 });
 
     if ((await volatilitySection.count()) === 0) {
       return null;
@@ -233,6 +258,13 @@ export async function getRetailerPrices(
 ): Promise<Array<{ retailerName: string; price: number; isBestDeal: boolean }>> {
   const retailerPrices: Array<{ retailerName: string; price: number; isBestDeal: boolean }> = [];
 
+  // Wait for retailer comparison section to load
+  const retailerComparison = page.locator(
+    '[data-testid="retailer-comparison"], [data-testid="retailer-prices"]'
+  );
+  // 5000ms: allows for comparison section rendering with multiple retailers
+  await waitForElementVisible(retailerComparison, { timeout: 5000 });
+
   // Look for retailer comparison table or grid
   const retailerCards = page.locator('[data-testid="retailer-price"], [class*="retailer-card"]');
   const cardCount = await retailerCards.count();
@@ -298,6 +330,7 @@ export async function clickChartDataPoint(page: Page, dataPointIndex = 0): Promi
     return;
   }
 
+  // 15000ms: full chart rendering with complex SVG path calculations
   await chartArea.waitFor({ state: 'visible', timeout: 15000 });
   await chartArea
     .locator('svg')
@@ -339,6 +372,7 @@ export async function clickChartDataPoint(page: Page, dataPointIndex = 0): Promi
 export async function getAlertModalPrefilledPrice(page: Page): Promise<number | null> {
   // Wait for modal to appear
   const modal = page.locator('[data-testid="alert-modal"], [role="dialog"]').first();
+  // 5000ms: allows for modal animation and form rendering
   await modal.waitFor({ state: 'visible', timeout: 5000 }).catch(() => null);
 
   if ((await modal.count()) === 0) {
@@ -444,7 +478,7 @@ export async function seedPriceHistoryData(
         // Distribute prices across the range for variety
         const priceOffset = (priceRange.max - priceRange.min) / (retailerList.length + 1);
         const currentPrice = priceRange.min + priceOffset * (index + 1);
-        const retailerName = retailer.name.toLowerCase().replace(' ', '');
+        const retailerName = retailer.name.toLowerCase().replaceAll(/\s+/g, '');
         return {
           productId: product.id,
           retailerId: retailer.id,
@@ -600,10 +634,13 @@ export async function seedPriceHistoryData(
  * Returns 'rising' | 'falling' | 'stable' based on trend indicator
  */
 export async function getPriceTrend(page: Page): Promise<'rising' | 'falling' | 'stable' | null> {
-  // Look for trend indicator text
+  // Look for trend indicator - wait for it to appear
   const trendIndicator = page.locator(
-    'text=/price.*is.*rising|price.*is.*falling|price.*is.*stable/i'
+    '[data-testid="price-trend-indicator"], text=/price.*is.*rising|price.*is.*falling|price.*is.*stable/i'
   );
+
+  // 5000ms: allows for trend calculation and indicator rendering
+  await trendIndicator.first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => null);
 
   if ((await trendIndicator.count()) === 0) {
     return null;

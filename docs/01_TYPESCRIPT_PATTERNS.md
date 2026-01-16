@@ -3162,6 +3162,169 @@ const result = {
 
 ---
 
+### String Normalization: `.replaceAll()` vs `.replace()` (ANTI-PATTERN) (NEW - 2026-01-16)
+
+**Context:** When normalizing strings for IDs, slugs, URLs, or identifiers that require removing ALL occurrences of a character or pattern.
+
+**Problem:** `.replace()` only replaces the FIRST occurrence of a pattern when used with a string argument, silently leaving subsequent occurrences in place. This causes subtle bugs in string normalization where multi-word inputs are only partially cleaned.
+
+**Priority:** P1 - Common source of subtle normalization bugs
+
+#### ❌ ANTI-PATTERN - `.replace()` Only Handles First Occurrence
+
+```typescript
+// ❌ WRONG - Only removes FIRST space
+const retailerName = "Best Buy Store";
+const slug = retailerName.toLowerCase().replace(' ', '');
+
+console.log(slug);
+// Expected: "bestbuystore"
+// Actual:   "bestbuy Store"  ❌ Only first space removed!
+
+// Real-world failure scenario:
+const retailers = [
+  { name: "Best Buy", slug: "bestbuy" },        // ✅ Works (only 1 space)
+  { name: "Home Depot", slug: "homedepot" },    // ✅ Works (only 1 space)
+  { name: "Bed Bath Beyond", slug: "bed bath beyond" }  // ❌ FAILS (2+ spaces)
+];
+
+// E2E test fails for "Bed Bath Beyond" only:
+await page.goto(`/retailers/${slug}`);  // /retailers/bed bath beyond (invalid URL!)
+```
+
+**Why This Is Dangerous:**
+
+1. **Silent Failure**: No error thrown - looks correct for single-occurrence cases
+2. **Partial Test Coverage**: Tests with 2-word names pass, 3+ word names fail
+3. **Inconsistent Behavior**: Works for some inputs, fails for others
+4. **URL/ID Corruption**: Partially normalized strings break routing, lookups, comparisons
+
+#### ✅ CORRECT - `.replaceAll()` for Normalization (Handles ALL Occurrences)
+
+```typescript
+// ✅ CORRECT - Removes ALL spaces
+const retailerName = "Best Buy Store";
+const slug = retailerName.toLowerCase().replaceAll(' ', '');
+
+console.log(slug);
+// Output: "bestbuystore" ✅ All spaces removed
+
+// ✅ Works for all inputs regardless of word count
+const retailers = [
+  { name: "Best Buy", slug: normalize("Best Buy") },                    // "bestbuy"
+  { name: "Home Depot", slug: normalize("Home Depot") },                // "homedepot"
+  { name: "Bed Bath Beyond", slug: normalize("Bed Bath Beyond") },      // "bedbathbeyond"
+  { name: "Williams Sonoma Inc", slug: normalize("Williams Sonoma Inc") } // "williamsonomainc"
+];
+
+function normalize(name: string): string {
+  return name.toLowerCase().replaceAll(' ', '');
+}
+
+// Regex version for more complex patterns
+const normalized = retailerName
+  .toLowerCase()
+  .replaceAll(/\s+/g, '');  // Replace all whitespace (spaces, tabs, newlines)
+
+const urlSafe = productName
+  .toLowerCase()
+  .replaceAll(/[^a-z0-9]+/g, '-')  // Replace all non-alphanumeric with hyphens
+  .replaceAll(/-+/g, '-')          // Collapse multiple hyphens
+  .replace(/^-|-$/g, '');          // Trim leading/trailing hyphens
+```
+
+#### When to Use `.replace()` vs `.replaceAll()`
+
+| Method | Use Case | Behavior | Example |
+|--------|----------|----------|---------|
+| **`.replace(str, newStr)`** | Replace **first occurrence only** (rare in normalization) | Stops after first match | `"a-b-c".replace('-', '_')` → `"a_b-c"` |
+| **`.replaceAll(str, newStr)`** | Replace **ALL occurrences** (normalization, sanitization) | Replaces every match | `"a-b-c".replaceAll('-', '_')` → `"a_b_c"` |
+| **`.replace(/regex/g, newStr)`** | Replace all via regex (complex patterns) | Global flag replaces all | `"a-b-c".replace(/-/g, '_')` → `"a_b_c"` |
+
+**Rule of Thumb:**
+
+- **Normalizing strings** (IDs, slugs, URLs) → **ALWAYS use `.replaceAll()`**
+- **One-time replacement** (first occurrence only) → `.replace()` is OK
+- **Complex patterns** (whitespace, special chars) → `.replaceAll(/regex/g, '')` or `.replace(/regex/g, '')`
+
+#### Real-World Normalization Examples
+
+```typescript
+// ✅ CORRECT - E2E test data-testid normalization
+const retailerName = "Best Buy Store";
+const testId = retailerName.toLowerCase().replaceAll(/\s+/g, '');
+// Result: "bestbuystore"
+
+await page.locator(`[data-testid="retailer-${testId}"]`).click();
+
+// ✅ CORRECT - URL slug generation
+const productTitle = "Apple iPhone 15 Pro Max";
+const slug = productTitle
+  .toLowerCase()
+  .replaceAll(/[^a-z0-9]+/g, '-')  // Replace non-alphanumeric with hyphen
+  .replace(/^-+|-+$/g, '');         // Trim hyphens from start/end
+// Result: "apple-iphone-15-pro-max"
+
+// ✅ CORRECT - Database identifier sanitization
+const username = "John   Doe";  // Multiple spaces (user input)
+const sanitized = username
+  .trim()
+  .replaceAll(/\s+/g, '-')  // Replace all whitespace sequences with single hyphen
+  .toLowerCase();
+// Result: "john-doe"
+
+// ✅ CORRECT - File path sanitization
+const filename = "Q4 Sales Report (Final).pdf";
+const safeName = filename
+  .replaceAll(/[\/\\:*?"<>|]/g, '')  // Remove illegal file chars
+  .replaceAll(/\s+/g, '_');           // Replace spaces with underscores
+// Result: "Q4_Sales_Report_Final.pdf"
+```
+
+#### Detection Pattern - Find Potential Bugs
+
+```bash
+# Find .replace() calls that might need .replaceAll()
+# (potential normalization bugs)
+grep -rn "\.replace\(" server/ client/ --include="*.ts" --include="*.tsx" \
+  | grep -v "replaceAll" \
+  | grep -E "(toLowerCase|toUpperCase|slug|normalize|sanitize)"
+
+# Example hits that might be bugs:
+# server/routes.ts:42: const slug = name.toLowerCase().replace(' ', '');  # ❌ BUG!
+# client/utils.ts:15: const id = text.toLowerCase().replace(/\s/g, ''); # ✅ OK (regex with /g)
+```
+
+#### Migration Pattern
+
+```typescript
+// BEFORE (buggy)
+const normalize = (str: string) => str.toLowerCase().replace(' ', '');
+
+// AFTER (correct)
+const normalize = (str: string) => str.toLowerCase().replaceAll(' ', '');
+
+// Or with regex for more complex patterns
+const normalize = (str: string) => str.toLowerCase().replaceAll(/\s+/g, '');
+```
+
+**Rationale:**
+
+- **Correctness**: Normalization MUST handle ALL occurrences, not just first
+- **Predictability**: Function behaves consistently regardless of input word count
+- **Debugging**: Partial normalization bugs are hard to spot (only fail on multi-occurrence inputs)
+- **Test Coverage**: Single-word test cases can hide `.replace()` bugs
+- **Intent**: `.replaceAll()` name clearly signals "replace ALL", not "replace first"
+
+**Related Patterns:**
+- See `docs/08_TESTING_PATTERNS.md` - E2E data-testid normalization patterns
+- See `docs/03_API_PATTERNS.md` - URL slug generation in API routes
+
+> **Source**: TODO_234 resolution (2026-01-16) - E2E Price Analytics Widget Visibility (data-testid selector mismatch)
+> **Added**: 2026-01-16
+
+---
+
 ## Generic Patterns
 
 ### Generic Functions

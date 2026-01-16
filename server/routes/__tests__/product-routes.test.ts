@@ -193,12 +193,6 @@ describe('Product Routes - Integration Tests', () => {
     it('should return all products without filters', async () => {
       const response = await request(app).get('/api/products/search');
 
-      // Debug: Log response if it fails
-      if (response.status !== 200) {
-        console.log('Response status:', response.status);
-        console.log('Response body:', JSON.stringify(response.body, null, 2));
-      }
-
       const { data, meta } = expectPaginatedResponse(response, 200);
       expect(Array.isArray(data)).toBe(true);
       expect(meta).toBeDefined();

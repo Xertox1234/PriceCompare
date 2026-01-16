@@ -275,8 +275,11 @@ test.describe('Product Detail - Watchlist Integration', () => {
     await expect(page.getByText(/added to/i).first()).toBeVisible({ timeout: 5000 });
     await expect(watchlistButton).not.toBeDisabled({ timeout: TIMEOUTS.USER_STATE_CHANGE });
 
-    // REMOVE product from watchlist (wait for button to stabilize)
-    await page.waitForTimeout(2000); // Allow React Query refetch + UI updates to complete
+    // REMOVE product from watchlist
+    // NOTE: React Query refetch after ADD can cause button state flicker.
+    // The button may briefly show old state before query invalidation completes.
+    // This wait ensures the optimistic update has fully settled.
+    await page.waitForTimeout(2000);
 
     const removeApiPromise = page.waitForResponse(
       response => response.url().includes('/api/community/watch/') && response.request().method() === 'DELETE',

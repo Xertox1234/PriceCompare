@@ -418,7 +418,7 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
       const totalPagesMatch = paginationText.match(/of\s+(\d+)/i);
       const totalPages = totalPagesMatch ? Number(totalPagesMatch[1]) : 1;
       if (!Number.isFinite(totalPages) || totalPages < 2) {
-        test.skip();
+        test.skip(true, 'Pagination requires at least 2 pages to test navigation');
         return;
       }
 
@@ -472,7 +472,7 @@ test.describe('Advanced Search - Multi-Criteria Filtering', () => {
       const totalPagesMatch = paginationText.match(/of\s+(\d+)/i);
       const totalPages = totalPagesMatch ? Number(totalPagesMatch[1]) : 1;
       if (!Number.isFinite(totalPages) || totalPages < 2) {
-        test.skip();
+        test.skip(true, 'Pagination requires at least 2 pages to test filter persistence');
         return;
       }
 
