@@ -1,8 +1,9 @@
 # Testing Patterns
 
-**Version:** 3.6
-**Last Updated:** 2026-01-14
+**Version:** 3.7
+**Last Updated:** 2026-01-16
 **Changelog:**
+- 3.7 (2026-01-16): Added Dual-Flow E2E Helper Functions Pattern - Optional parameter branching for helpers that support multiple user flows (simple vs. advanced mode), DRY navigation logic, JSDoc documentation pattern (from TODO_233 E2E Watchlist Selector Fix)
 - 3.6 (2026-01-14): Added WebSocket Testing Patterns - Socket.IO Race Condition Prevention, Concurrent Event Waiting, Event Bus Cleanup, setImmediate Room Join Pattern, Test Mode Rate Limit Bypass (from TODO_207 WebSocket integration test fixes)
 - 3.5 (2026-01-08): Added E2E Race Condition Prevention Patterns - Attach-Before-Trigger, API-First Verification, Comprehensive State Verification (from auth E2E flakiness fixes)
 - 3.4 (2026-01-07): Added Database Trigger Conflict Handling in Tests Pattern (from TODO_018 email notifications)
@@ -7048,6 +7049,170 @@ Before committing E2E test files:
 - [ ] Updated comments after implementing features
 
 **Reference**: `todos/2025-12-22_missing-features-implementation-plan.md` (Section 1.1)
+
+---
+
+### Dual-Flow E2E Helper Functions (NEW - 2026-01-16)
+
+**Source**: TODO_233 - E2E Watchlist Selector Fix
+
+**Context**: When a feature has two different user flows (e.g., simple vs. advanced mode), test helpers should support both via optional parameters rather than duplicating helper functions.
+
+**Problem**: After refactoring UI to support both simple watchlist toggle AND named watchlist selection, E2E helper function needed to support both interaction patterns without creating duplicate helpers.
+
+**Pattern**: Use optional parameters to branch between interaction flows within a single helper function.
+
+#### ❌ Anti-Pattern: Duplicate Helper Functions
+
+```typescript
+// WRONG - Two separate helpers for the same conceptual operation
+async function addProductToDefaultWatchlist(page: Page, productId: number) {
+  await page.goto(`/product/${productId}`);
+  const watchlistButton = page.locator('[data-testid="add-to-watchlist"]');
+  await watchlistButton.click();
+  await expect(page.getByText(/added to watchlist/i).first()).toBeVisible();
+}
+
+async function addProductToNamedWatchlist(page: Page, productId: number, watchlistName: string) {
+  await page.goto(`/product/${productId}`);
+  const dropdownButton = page.locator('[data-testid="add-to-named-watchlist"]');
+  await dropdownButton.click();
+  await page.getByRole('option', { name: new RegExp(watchlistName, 'i') }).click();
+  await page.getByRole('button', { name: /^add$/i }).click();
+  await expect(page.getByText(/added to/i).first()).toBeVisible();
+}
+```
+
+**Why This is Wrong**:
+- Code duplication (navigation, wait logic)
+- Harder to maintain (changes need to be applied twice)
+- Unclear which helper to use in tests
+- Forces test writers to know implementation details
+
+#### ✅ Correct Pattern: Optional Parameter Branching
+
+```typescript
+/**
+ * Add a product to a watchlist via UI
+ *
+ * Supports two flows:
+ * 1. Simple watch (no watchlistName) - Uses WatchlistToggleButton
+ * 2. Named watchlist (watchlistName provided) - Uses dropdown dialog
+ *
+ * Simple watch flow:
+ * - Has data-testid="add-to-watchlist"
+ * - Uses aria-label for state: "Add to watchlist" | "Remove from watchlist"
+ * - Direct API call (no modal/dialog)
+ *
+ * Named watchlist flow:
+ * - Uses data-testid="add-to-named-watchlist" dropdown button
+ * - Opens dialog with Select component
+ * - User selects specific watchlist
+ */
+async function addProductToWatchlist(page: Page, productId: number, watchlistName?: string) {
+  // Common navigation logic
+  await page.goto(`/product/${productId}`);
+  await waitForPageReady(page);
+
+  if (watchlistName) {
+    // NAMED WATCHLIST FLOW: Use dropdown button → dialog → select
+
+    // Click the dropdown button to open dialog
+    const dropdownButton = page.locator('[data-testid="add-to-named-watchlist"]');
+    await dropdownButton.waitFor({ state: 'visible', timeout: TIMEOUTS.BUTTON_VISIBLE });
+    await dropdownButton.click();
+
+    // Wait for dialog to appear
+    const dialog = page.locator('[role="dialog"]');
+    await dialog.waitFor({ state: 'visible', timeout: TIMEOUTS.DIALOG_VISIBLE });
+
+    // Open the Select dropdown and click matching option
+    const selectTrigger = dialog.locator('#watchlist-select');
+    await selectTrigger.click();
+
+    const option = page.getByRole('option', { name: new RegExp(watchlistName, 'i') });
+    await option.waitFor({ state: 'visible', timeout: TIMEOUTS.FORM_INPUT });
+    await option.click();
+
+    // Click "Add" button in dialog
+    const addButton = dialog.getByRole('button', { name: /^add$/i });
+    await addButton.click();
+
+    // Wait for success toast
+    await expect(page.getByText(/added to/i).first()).toBeVisible({
+      timeout: TIMEOUTS.DIALOG_VISIBLE,
+    });
+
+  } else {
+    // SIMPLE WATCH FLOW: Use WatchlistToggleButton (existing logic)
+
+    const watchlistButton = page.locator('[data-testid="add-to-watchlist"]');
+    await watchlistButton.waitFor({ state: 'visible', timeout: TIMEOUTS.BUTTON_VISIBLE });
+
+    // Check if already in watchlist (idempotency)
+    const currentLabel = await watchlistButton.getAttribute('aria-label');
+    if (currentLabel === 'Remove from watchlist') {
+      return; // Already added, no-op
+    }
+
+    // Click to add
+    await watchlistButton.click();
+
+    // Verify success toast
+    await expect(page.getByText(/added to watchlist/i).first()).toBeVisible({
+      timeout: TIMEOUTS.DIALOG_VISIBLE,
+    });
+  }
+}
+```
+
+**Usage in Tests**:
+
+```typescript
+// Simple flow (default watchlist)
+await addProductToWatchlist(page, productId);
+
+// Named flow (specific watchlist)
+await addProductToWatchlist(page, productId, 'Holiday Shopping 2025');
+```
+
+**Key Benefits**:
+- ✅ Single source of truth for common logic (navigation, waits)
+- ✅ Self-documenting via JSDoc explaining both flows
+- ✅ Optional parameter makes the distinction clear
+- ✅ Easy to maintain - changes to common logic only need one update
+- ✅ Test code is simpler - one helper, two modes
+
+#### When to Use This Pattern
+
+**✅ USE dual-flow helpers when:**
+- Two flows achieve the same conceptual goal (add to watchlist)
+- Flows share significant common logic (navigation, setup, verification)
+- Parameter naturally describes the difference (presence of `watchlistName`)
+- Both flows will be maintained long-term (not temporary)
+
+**❌ DON'T use dual-flow helpers when:**
+- Flows are unrelated operations (better as separate functions)
+- No shared logic between flows (just use two functions)
+- More than 2-3 flows (consider strategy pattern or separate helpers)
+- Branching logic becomes hard to follow (readability over DRY)
+
+#### Maintenance Checklist
+
+When updating dual-flow helpers:
+- [ ] Update JSDoc to describe all flows and their differences
+- [ ] Ensure common logic (navigation, waits) stays DRY
+- [ ] Verify both flows still work after changes
+- [ ] Add comments explaining why each flow is different
+- [ ] Consider extracting sub-helpers if either flow becomes too complex
+
+**Related Patterns**:
+- [Conditional Skip Helper](#pattern-conditional-skip-helper) - Different purpose (skipping tests vs. multiple flows)
+- [Test Phase Separation](#test-phase-separation-pattern-new---2025-12-23) - Setup vs. test phases
+- [E2E Helper Consistency](#e2e-helper-consistency) - Shared helpers in `e2e/helpers.ts`
+
+*Source: TODO_233 E2E Watchlist Selector Fix*
+*Added: 2026-01-16*
 
 ---
 

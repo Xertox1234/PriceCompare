@@ -450,14 +450,30 @@ function ProductDetailContent() {
                 </Button>
               </div>
 
-              {/* Add to Watchlist Button */}
-              <WatchlistToggleButton
-                productId={product.id}
-                variant="outline"
-                size="lg"
-                showText={true}
-                className="w-full py-6 text-base"
-              />
+              {/* Add to Watchlist Button Group */}
+              <div className="flex gap-2">
+                <WatchlistToggleButton
+                  productId={product.id}
+                  variant="outline"
+                  size="lg"
+                  showText={true}
+                  className="flex-1 py-6 text-base"
+                />
+
+                {/* Named Watchlist Dropdown - only show if authenticated with watchlists */}
+                {user && watchlists.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="px-3 py-6"
+                    onClick={() => setWatchlistDialogOpen(true)}
+                    aria-label="Add to specific watchlist"
+                    data-testid="add-to-named-watchlist"
+                  >
+                    <ChevronDown className="h-5 w-5" />
+                  </Button>
+                )}
+              </div>
 
               {/* Set Price Alert Button */}
               {user && (

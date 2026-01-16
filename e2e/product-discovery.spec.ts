@@ -4,10 +4,8 @@
  * Tests product search, details, price history, and watchlist features
  */
 import { test, expect } from './fixtures';
-import { waitForApiResponse, waitForPageReady } from './helpers';
+import { waitForApiResponse, waitForPageReady, TIMEOUTS } from './helpers';
 import { seedProductDiscoveryTestData } from './helpers/product-discovery-seed-helpers';
-import { getUserIdByEmail } from './helpers/user-helpers';
-import { ensureUserHasWatchlist } from './helpers/watchlist-helpers';
 
 test.describe('Product Discovery & Price Tracking', () => {
   test.beforeEach(async () => {
@@ -258,36 +256,41 @@ test.describe('Product Discovery & Price Tracking', () => {
   test.describe('Watchlist', () => {
     test('should add product to watchlist', async ({
       authenticatedPage: page,
-      authenticatedUser,
     }) => {
-      const userId = await getUserIdByEmail(authenticatedUser.email);
-      await ensureUserHasWatchlist(userId, 'My Test Watchlist');
-
       // Go to product page
       await page.goto('/shop');
       await waitForPageReady(page);
       await page.locator('.expandable-card').first().click();
 
-      // Click "Add to Watchlist" button
-      await page.click('button:has-text("Add to Watchlist")');
+      // Wait for product detail page to load
+      await waitForPageReady(page);
 
-      // Wait for watchlist dialog to open, select the watchlist, and click Add
-      await page.waitForSelector('text=/select a watchlist/i', { timeout: 3000 });
+      // Find watchlist toggle button
+      const watchlistButton = page.locator('[data-testid="add-to-watchlist"]');
+      await watchlistButton.waitFor({ state: 'visible', timeout: TIMEOUTS.BUTTON_VISIBLE });
+      await expect(watchlistButton).not.toBeDisabled({ timeout: TIMEOUTS.USER_STATE_CHANGE });
 
-      // Select the watchlist from dropdown (use force to bypass overlay)
-      await page.click('[id="watchlist-select"]', { force: true });
-      const watchlistOption = page.getByText(/my test watchlist/i).first();
-      await watchlistOption.waitFor({ state: 'visible', timeout: 3000 });
-      await watchlistOption.click({ force: true });
-      await watchlistOption.waitFor({ state: 'hidden', timeout: 3000 }).catch(() => null);
+      // Verify initial state
+      await expect(watchlistButton).toHaveAttribute('aria-label', 'Add to watchlist');
 
-      // Click Add button in dialog (button may be behind overlay initially)
-      const addButton = page.locator('button:has-text("Add")').last();
-      await expect(addButton).toBeVisible({ timeout: 3000 });
-      await addButton.click({ force: true });
+      // Start waiting for API request
+      const apiRequestPromise = page.waitForResponse(
+        response => response.url().includes('/api/community/watch/') && response.request().method() === 'POST',
+        { timeout: TIMEOUTS.API_RESPONSE }
+      );
+
+      // Click to add to watchlist
+      await watchlistButton.click();
+
+      // Wait for API response
+      const apiResponse = await apiRequestPromise;
+      expect(apiResponse.status()).toBe(200);
 
       // Should show success toast (may match multiple elements - use .first())
       await expect(page.locator('text=/added.*watchlist/i').first()).toBeVisible({ timeout: 5000 });
+
+      // NOTE: Button aria-label state change depends on React Query refetch timing.
+      // For E2E tests, verifying API success + toast is sufficient.
     });
 
     // ✅ Watchlist removal - DUPLICATE TEST REMOVED

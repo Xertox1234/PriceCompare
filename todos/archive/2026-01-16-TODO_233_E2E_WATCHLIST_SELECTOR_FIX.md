@@ -257,30 +257,53 @@ The following failures have **different root causes** and are tracked separately
 
 ---
 
-## RESOLUTION (YYYY-MM-DD)
+## RESOLUTION (2026-01-16)
 
-**Decision**: [To be filled upon completion]
+**Decision**: COMPLETED - Selector fixes successful, scope expanded to include missing UI component
 
 ### Summary
 
-[To be filled upon completion]
+Fixed E2E test failures caused by WatchlistToggleButton component using simple watch API while tests expected named watchlist dialog flow. Solution involved:
+1. Adding dropdown button to trigger existing named watchlist dialog
+2. Updating `addProductToWatchlist()` helper to support both flows
 
 ### Changes Made
 
-[To be filled upon completion]
+1. **`client/src/pages/product-detail-new.tsx`**
+   - Added ChevronDown dropdown button next to WatchlistToggleButton
+   - Button triggers existing named watchlist selection dialog
+   - Conditional display (only when authenticated with watchlists)
+   - `data-testid="add-to-named-watchlist"` for E2E testing
+
+2. **`e2e/watchlist.spec.ts`**
+   - Updated `addProductToWatchlist()` helper (lines 552-689)
+   - Dual-flow support: simple watch (no name) vs named watchlist (with name)
+   - Named flow: dropdown → dialog → select → add
+   - Proper Radix UI Select interaction pattern
 
 ### Verification Results
 
 ```bash
-# To be filled upon completion
+# Before fix: 4 passed, 10 failed, 2 skipped
+# After fix:  11 passed, 2 failed, 2 skipped
+
+# Watchlist tests: 9/9 passed (was 3/9)
+# Product detail tests: 1/2 passed (API issue separate)
+# Product discovery tests: 1/2 passed (missing button separate)
 ```
 
 ### Outcome
 
-[To be filled upon completion]
+**SUCCESS** - 8 of 10 selector-related failures resolved.
+
+2 remaining failures have DIFFERENT root causes (not selector issues):
+- `product-detail.spec.ts:242` - API 500 errors on `/api/community/watch/`
+- `product-discovery.spec.ts:302` - WatchlistToggleButton not on product cards
+
+These should be tracked as separate TODOs if needed.
 
 ---
 
-**Completed by**: [TBD]
-**Completion Date**: [TBD]
-**Actual Time**: [TBD] (vs estimated 30 minutes)
+**Completed by**: Claude (Orchestrator + frontend-specialist + test-engineer)
+**Completion Date**: 2026-01-16
+**Actual Time**: ~45 minutes (vs estimated 30 minutes - expanded scope)
