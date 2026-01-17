@@ -25,6 +25,8 @@ This document codifies patterns for background jobs, scheduled tasks, and asynch
 - [Error Handling in Jobs](#error-handling-in-jobs)
 - [TODO vs NOTE Comments](#todo-vs-note-comments)
 - [Monitoring and Observability](#monitoring-and-observability)
+- [Ethical Web Scraping Patterns](#ethical-web-scraping-patterns-new---2026-01-16) *(NEW)*
+- [In-Memory Cache with Lazy Cleanup](#in-memory-cache-with-lazy-cleanup-new---2026-01-16) *(NEW)*
 
 ---
 
@@ -2549,6 +2551,230 @@ log.info('Queue status', {
   delayed: await queue.getDelayedCount(),
 });
 ```
+
+---
+
+## Ethical Web Scraping Patterns (NEW - 2026-01-16)
+
+### Problem
+
+Scrapers that don't respect robots.txt or detect anti-bot measures cause:
+1. **Legal/ethical issues** - Violating site terms of service
+2. **IP blocks** - Retailers block aggressive scrapers
+3. **Wasted resources** - Scraping CAPTCHA pages returns no data
+4. **Silent failures** - No data extracted but job appears successful
+
+### Pattern 1: robots.txt Compliance
+
+**ALWAYS check robots.txt before scraping a URL.**
+
+```typescript
+// server/utils/robots-txt-checker.ts
+import robotsParser from 'robots-parser';
+
+const robotsCache = new Map<string, RobotsCacheEntry>();
+const CACHE_TTL_MS = 3600000; // 1 hour
+const MAX_CACHE_SIZE = 500;   // Prevent unbounded growth
+
+export async function isScrapingAllowed(url: string, userAgent: string): Promise<boolean> {
+  // Input validation at function boundary
+  if (!url || typeof url !== 'string' || url.trim().length === 0) {
+    throw new Error('Invalid url: must be non-empty string');
+  }
+
+  const urlObj = new URL(url);
+  const origin = urlObj.origin;
+
+  // Check cache first
+  const cached = robotsCache.get(origin);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.parser.isAllowed(url, userAgent) ?? true;
+  }
+
+  // Fetch and parse robots.txt
+  const response = await fetch(`${origin}/robots.txt`, {
+    signal: AbortSignal.timeout(5000),
+  });
+
+  if (!response.ok) {
+    return true; // No robots.txt = allow (standard behavior)
+  }
+
+  const parser = robotsParser(robotsUrl, await response.text());
+  setCacheEntry(origin, { parser, expiresAt: Date.now() + CACHE_TTL_MS });
+
+  return parser.isAllowed(url, userAgent) ?? true;
+}
+```
+
+**Usage in extraction agent:**
+
+```typescript
+// ETHICS: Check robots.txt compliance before scraping
+const allowed = await isScrapingAllowed(url, 'PriceCompare Bot/1.0');
+if (!allowed) {
+  throw new Error(`Scraping disallowed by robots.txt: ${url}`);
+}
+```
+
+### Pattern 2: Anti-Bot Detection
+
+**Detect Cloudflare, CAPTCHA, and rate limiting BEFORE attempting extraction.**
+
+```typescript
+// server/utils/antibot-detection.ts
+export type AntiBotType = 'captcha' | 'rate_limit' | 'access_denied' | 'cloudflare' | 'none';
+
+export async function detectAntiBot(page: Page): Promise<AntiBotDetection> {
+  const title = (await page.title().catch(() => '')).toLowerCase();
+
+  // Cloudflare challenge
+  if (title.includes('just a moment') || title.includes('checking your browser')) {
+    return { detected: true, type: 'cloudflare', message: 'Cloudflare challenge detected' };
+  }
+
+  // Access denied
+  if (title.includes('access denied') || title.includes('forbidden')) {
+    return { detected: true, type: 'access_denied', message: 'Access denied page' };
+  }
+
+  // CAPTCHA
+  if (title.includes('robot') || title.includes('captcha')) {
+    return { detected: true, type: 'captcha', message: 'CAPTCHA detected' };
+  }
+
+  // Check DOM for CAPTCHA elements
+  const hasCaptcha = await page
+    .locator('[class*="captcha"], iframe[src*="recaptcha"], iframe[src*="hcaptcha"]')
+    .first()
+    .isVisible({ timeout: 1000 })
+    .catch(() => false);
+
+  if (hasCaptcha) {
+    return { detected: true, type: 'captcha', message: 'CAPTCHA element found' };
+  }
+
+  return { detected: false, type: 'none' };
+}
+```
+
+### Pattern 3: Exponential Backoff with Jitter
+
+**Use graduated backoff based on anti-bot type to avoid thundering herd.**
+
+```typescript
+const BASE_BACKOFF_DELAYS: Record<AntiBotType, number> = {
+  cloudflare: 60000,     // 1 min - challenges resolve quickly
+  rate_limit: 300000,    // 5 min - standard rate limit window
+  access_denied: 600000, // 10 min - IP may be blocked
+  captcha: 120000,       // 2 min - requires intervention
+  none: 0,
+};
+
+export function getAntiBotBackoffMs(type: AntiBotType, attempt: number): number {
+  const base = BASE_BACKOFF_DELAYS[type] || 60000;
+  const exponential = base * Math.pow(2, attempt);
+  const jitter = Math.random() * 10000; // 0-10s random jitter
+
+  return Math.min(exponential + jitter, 3600000); // Cap at 1 hour
+}
+```
+
+### Anti-Pattern: Scraping Without Compliance Checks
+
+```typescript
+// ❌ WRONG - No robots.txt or anti-bot checks
+async function scrapeProduct(url: string) {
+  await page.goto(url);
+  const price = await page.locator('.price').textContent();
+  return price;
+}
+
+// ✅ CORRECT - Full compliance checks
+async function scrapeProduct(url: string) {
+  // 1. Check robots.txt
+  if (!(await isScrapingAllowed(url, USER_AGENT))) {
+    throw new Error('Scraping disallowed by robots.txt');
+  }
+
+  // 2. Navigate
+  await page.goto(url, { timeout: SCRAPER.NAVIGATION_TIMEOUT_MS });
+
+  // 3. Check for anti-bot measures
+  const antiBot = await detectAntiBot(page);
+  if (antiBot.detected) {
+    const backoff = getAntiBotBackoffMs(antiBot.type, 0);
+    throw new Error(`Anti-bot (${antiBot.type}): retry after ${backoff}ms`);
+  }
+
+  // 4. Extract data
+  const price = await page.locator('.price').textContent();
+  return price;
+}
+```
+
+---
+
+## In-Memory Cache with Lazy Cleanup (NEW - 2026-01-16)
+
+### Problem
+
+In-memory caches (Maps) can grow unbounded if entries are never removed, causing memory leaks in long-running processes.
+
+### Pattern: Lazy Cleanup with Size Limits
+
+**Combine TTL expiration with size limits and lazy cleanup.**
+
+```typescript
+const cache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 3600000;  // 1 hour
+const MAX_CACHE_SIZE = 500;    // Prevent unbounded growth
+
+interface CacheEntry {
+  data: unknown;
+  expiresAt: number;
+}
+
+/**
+ * Lazy cleanup - only runs when cache is getting full
+ */
+function cleanupExpiredEntries(): void {
+  const now = Date.now();
+  for (const [key, entry] of cache) {
+    if (entry.expiresAt < now) {
+      cache.delete(key);
+    }
+  }
+}
+
+/**
+ * Set with size enforcement
+ */
+function setCacheEntry(key: string, entry: CacheEntry): void {
+  // Trigger cleanup when 50% full
+  if (cache.size > MAX_CACHE_SIZE / 2) {
+    cleanupExpiredEntries();
+  }
+
+  // FIFO eviction if still over limit
+  if (cache.size >= MAX_CACHE_SIZE) {
+    const oldestKey = cache.keys().next().value;
+    if (oldestKey) cache.delete(oldestKey);
+  }
+
+  cache.set(key, entry);
+}
+```
+
+### Why Lazy vs Periodic Cleanup
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| **Lazy** (on write) | No timers, stateless, simple | Cleanup only on writes |
+| **Periodic** (setInterval) | Predictable cleanup | Requires cleanupManager registration |
+| **On read** | Fresh data guaranteed | Adds latency to reads |
+
+**Recommendation**: Use **lazy cleanup** for simple caches, **periodic** for critical caches that must stay fresh.
 
 ---
 
