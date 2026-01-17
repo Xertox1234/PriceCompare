@@ -381,12 +381,119 @@ Deployment is successful when:
 
 ---
 
+## Content Security Policy (CSP) Enforcement
+
+### Overview
+
+CSP is deployed in **Report-Only mode** by default. This allows monitoring violations before enforcement.
+
+**Implementation**: `server/middleware/security.ts` (lines 366-374)
+
+### CSP Enforcement Checklist
+
+#### Phase 1: Monitoring (24-48 hours)
+
+- [ ] **Deploy with Report-Only mode (default)**
+  - No action needed; CSP_ENFORCE is unset
+  - Browser logs violations but does not block content
+
+- [ ] **Monitor CSP violation reports**
+  ```bash
+  # Check server logs for violation reports
+  grep "csp-violation" /var/log/pricecompare/app.log
+
+  # Or check the violation endpoint logs
+  grep "POST /api/csp-violation-report" /var/log/pricecompare/access.log
+  ```
+
+- [ ] **Review violations for false positives**
+  - Inline scripts without nonces (add nonces or move to external files)
+  - Third-party resources blocked (add to appropriate directive)
+  - Data URIs blocked (verify img-src or font-src includes `data:`)
+
+#### Phase 2: Enable Enforcement
+
+- [ ] **Add environment variable to production**
+  ```bash
+  # In production .env file
+  CSP_ENFORCE=true
+  ```
+
+- [ ] **Deploy and restart application**
+  ```bash
+  pm2 restart pricecompare
+  # OR
+  systemctl restart pricecompare
+  ```
+
+#### Phase 3: Post-Enforcement Verification
+
+- [ ] **Test all major pages**
+  - Home page loads correctly
+  - Product pages render with images
+  - User authentication flows work
+  - Admin dashboard functions normally
+
+- [ ] **Check browser console for CSP errors**
+  ```
+  Open DevTools (F12) -> Console tab
+  Look for: "Refused to load..." or "Refused to execute..."
+  ```
+
+- [ ] **Verify response header**
+  ```bash
+  curl -I https://your-domain.com | grep -i content-security
+  # Should show: Content-Security-Policy: ...
+  # NOT: Content-Security-Policy-Report-Only: ...
+  ```
+
+### Current CSP Directives
+
+```
+default-src 'self'
+script-src 'self' 'nonce-{random}'
+style-src 'self' 'nonce-{random}'
+img-src 'self' data: https:
+font-src 'self' data:
+connect-src 'self'
+frame-ancestors 'none'
+report-uri /api/csp-violation-report
+```
+
+### Troubleshooting CSP Issues
+
+| Symptom | Likely Cause | Solution |
+|---------|--------------|----------|
+| Scripts not executing | Missing nonce | Add `nonce={cspNonce}` to script tags |
+| Styles not applying | Missing nonce | Add `nonce={cspNonce}` to style tags |
+| Images not loading | src not in img-src | Add domain to `img-src` directive |
+| Fonts not loading | Google Fonts blocked | Development mode allows; prod may need update |
+| API calls failing | connect-src too restrictive | Add API domain to `connect-src` |
+
+### Rollback CSP Enforcement
+
+If issues arise after enabling enforcement:
+
+```bash
+# Remove or comment out CSP_ENFORCE
+# CSP_ENFORCE=true
+
+# Restart application
+pm2 restart pricecompare
+
+# Browser will see Report-Only header again
+# Application continues working while you fix issues
+```
+
+---
+
 ## Support & Documentation
 
 - **Audit Report**: `docs/AUDIT_2025-11-16.md`
 - **Patterns Guide**: `docs/PATTERNS.md`
 - **Migration Guide**: `migrations/README.md`
 - **Implementation**: `server/services/job-lock-service.ts`
+- **CSP Implementation**: `server/middleware/security.ts` (securityHeaders function)
 
 For questions or issues, refer to the comprehensive audit report which includes:
 - Race condition analysis

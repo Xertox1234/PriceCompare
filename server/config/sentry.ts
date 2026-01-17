@@ -26,10 +26,18 @@ export function initializeSentry(): void {
 
   if (!dsn) {
     if (isProduction) {
-      log.error('⚠️  WARNING: SENTRY_DSN not configured in production!');
-      log.error('   Error tracking is disabled. Set SENTRY_DSN to enable monitoring.');
+      log.error('');
+      log.error('============ CRITICAL WARNING ============');
+      log.error('SENTRY_DSN not configured in production!');
+      log.error('Error tracking is DISABLED.');
+      log.error('Production issues may go undetected.');
+      log.error('');
+      log.error('To fix: Set SENTRY_DSN environment variable');
+      log.error('Get DSN from: https://sentry.io/settings/projects/');
+      log.error('==========================================');
+      log.error('');
     } else {
-      log.info('ℹ️  Sentry not configured (SENTRY_DSN missing) - error tracking disabled');
+      log.info('Sentry not configured (SENTRY_DSN missing) - error tracking disabled');
     }
     return;
   }

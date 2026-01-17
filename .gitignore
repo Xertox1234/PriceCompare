@@ -55,6 +55,8 @@ Thumbs.db
 # Backup and temp files
 server/routes.ts.backup
 *.backup*
+*.bak
+*.orig
 package-lock.json.backup*
 
 # Generated reports

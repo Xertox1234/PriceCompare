@@ -6,6 +6,13 @@ import { storage } from '../storage';
 import { ExtractionMonitoring } from './extraction-monitoring';
 import { validateScrapingUrl, DEFAULT_ALLOWED_RETAILER_DOMAINS } from '../utils/url-validation';
 import { urlLockService } from '../services/url-lock-service';
+import { SCRAPER } from '../utils/constants';
+import {
+  detectAntiBot,
+  getAntiBotBackoffMs,
+  formatBackoffDuration,
+} from '../utils/antibot-detection';
+import { isScrapingAllowed } from '../utils/robots-txt-checker';
 
 /** Result of a successful extraction task */
 interface ExtractionTaskResult {
@@ -234,10 +241,18 @@ export class DataExtractionAgent extends BaseAgent {
 
     const validatedUrl = validationResult.parsedUrl;
 
+    // ETHICS: Check robots.txt compliance before scraping
+    // Uses standard bot user agent for robots.txt check
+    const robotsUserAgent = 'PriceCompare Bot/1.0';
+    const allowed = await isScrapingAllowed(url, robotsUserAgent);
+    if (!allowed) {
+      throw new Error(`Scraping disallowed by robots.txt: ${url}`);
+    }
+
     // SIMPLE: Launch new browser per request (optimize later if needed)
     this.browser = await chromium.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'],
+      args: [...SCRAPER.BROWSER_ARGS],
     });
 
     const context = await this.browser.newContext({
@@ -261,8 +276,28 @@ export class DataExtractionAgent extends BaseAgent {
       // Navigate and wait for content
       await page.goto(validatedUrl.toString(), {
         waitUntil: 'domcontentloaded',
-        timeout: 30000,
+        timeout: SCRAPER.NAVIGATION_TIMEOUT_MS,
       });
+
+      // ANTI-BOT DETECTION: Check for Cloudflare, CAPTCHA, rate limiting, etc.
+      const antiBotResult = await detectAntiBot(page);
+
+      if (antiBotResult.detected) {
+        const backoffMs = getAntiBotBackoffMs(antiBotResult.type, 0);
+        const backoffDuration = formatBackoffDuration(backoffMs);
+
+        logger.warn('Anti-bot measures detected', {
+          url,
+          type: antiBotResult.type,
+          message: antiBotResult.message,
+          retailer: retailerDomain,
+          suggestedBackoff: backoffDuration,
+        });
+
+        throw new Error(
+          `Anti-bot detected (${antiBotResult.type}): ${antiBotResult.message}. Suggested backoff: ${backoffDuration}`
+        );
+      }
 
       // Get extraction strategy for retailer
       const strategy = this.extractionStrategies.get(retailerDomain) || this.getGenericStrategy();
@@ -271,7 +306,7 @@ export class DataExtractionAgent extends BaseAgent {
       // This is KEY DIFFERENCE from axios+cheerio: we wait for JavaScript to render
       try {
         await page.waitForSelector(strategy.priceSelectors[0], {
-          timeout: 10000,
+          timeout: SCRAPER.SELECTOR_TIMEOUT_MS,
           state: 'visible',
         });
       } catch (selectorError) {
@@ -285,14 +320,14 @@ export class DataExtractionAgent extends BaseAgent {
         );
         // Fallback: wait for network to be idle (indicates AJAX/dynamic content loaded)
         try {
-          await page.waitForLoadState('networkidle', { timeout: 5000 });
+          await page.waitForLoadState('networkidle', { timeout: SCRAPER.NETWORK_IDLE_TIMEOUT_MS });
         } catch (networkError) {
           logger.warn('Network idle wait failed, falling back to DOM load', {
             error: networkError instanceof Error ? networkError.message : String(networkError),
             retailerDomain,
           });
           // If networkidle also fails, try waiting for DOM to be fully loaded
-          await page.waitForLoadState('load', { timeout: 5000 });
+          await page.waitForLoadState('load', { timeout: SCRAPER.NETWORK_IDLE_TIMEOUT_MS });
         }
       }
 
@@ -338,7 +373,7 @@ export class DataExtractionAgent extends BaseAgent {
     for (const selector of selectors) {
       try {
         const element = page.locator(selector).first();
-        const text = await element.textContent({ timeout: 2000 });
+        const text = await element.textContent({ timeout: SCRAPER.ELEMENT_TIMEOUT_MS });
         if (text && text.trim()) {
           return text.trim();
         }
@@ -360,7 +395,7 @@ export class DataExtractionAgent extends BaseAgent {
     for (const selector of selectors) {
       try {
         const element = page.locator(selector).first();
-        const priceText = await element.textContent({ timeout: 2000 });
+        const priceText = await element.textContent({ timeout: SCRAPER.ELEMENT_TIMEOUT_MS });
         if (priceText && priceText.trim()) {
           const price = this.parsePrice(priceText);
           if (price !== null && price > 0) {
@@ -422,9 +457,9 @@ export class DataExtractionAgent extends BaseAgent {
       try {
         const element = page.locator(selector).first();
         // Try src first, then data-src for lazy-loaded images
-        let src = await element.getAttribute('src', { timeout: 2000 });
+        let src = await element.getAttribute('src', { timeout: SCRAPER.ELEMENT_TIMEOUT_MS });
         if (!src || !src.startsWith('http')) {
-          src = await element.getAttribute('data-src', { timeout: 2000 });
+          src = await element.getAttribute('data-src', { timeout: SCRAPER.ELEMENT_TIMEOUT_MS });
         }
         if (src && src.startsWith('http')) {
           return src;
