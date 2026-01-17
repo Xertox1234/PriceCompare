@@ -96,6 +96,58 @@ OR
 
 ---
 
+### Proposal: robots-parser (TODO_240)
+
+**Proposed by**: Claude Code (TODO_240 Resolution)
+**Date**: 2026-01-16
+**Type**: dependency
+**Status**: ✅ Approved
+
+#### Problem Statement
+
+The scraping agents do not check robots.txt before crawling retailer sites. While ethical crawling is mentioned in documentation, it was not implemented in actual code. This poses legal/ethical risk and could result in IP blocks from retailers.
+
+#### Alternatives Considered
+
+- **Option 1**: Manual regex parsing - Insufficient: robots.txt spec is complex (wildcards, crawl-delay, groups)
+- **Option 2**: fetch + custom parser - Insufficient: Would need to reimplement entire spec
+- **Option 3**: Build in-house - Not feasible: robots.txt parsing is well-defined problem with edge cases
+
+#### Proposed Solution
+
+**Package**: robots-parser@^3.0.1
+**Bundle size**: ~5KB minified
+**Weekly downloads**: ~1.5M (popular, well-maintained)
+**Last published**: 2024 (stable)
+**License**: MIT
+**Security audit**: 0 vulnerabilities
+
+#### Impact Assessment
+
+- Bundle size impact: +5KB (negligible)
+- Security vulnerabilities: 0
+- Maintenance burden: Low (stable API, infrequent updates)
+- Breaking changes risk: Low (mature package)
+- Affected files:
+  - `server/utils/robots-txt-checker.ts` (new)
+  - `server/agents/extraction-agent.ts` (integration)
+
+#### Justification
+
+**NECESSARY** for ethical web scraping compliance:
+1. robots.txt is the standard mechanism for site owners to communicate crawling preferences
+2. Respecting robots.txt prevents legal issues (TOS violations, potential litigation)
+3. Prevents IP blocks that would degrade scraper reliability
+4. No existing dependency can parse robots.txt
+
+#### Approval
+
+- [x] Reviewed by project owner
+- [x] Approved on 2026-01-16
+- [x] Approval reference: User approved in conversation (TODO 240 approval)
+
+---
+
 ## Rejected Proposals
 
 (None yet)
@@ -117,5 +169,5 @@ OR
 
 ---
 
-**Last Updated**: 2026-01-13
+**Last Updated**: 2026-01-16
 **Maintained by**: Project Owner

@@ -23,6 +23,43 @@ interface RobotsCacheEntry {
 // Cache robots.txt results to avoid repeated fetches
 const robotsCache = new Map<string, RobotsCacheEntry>();
 const CACHE_TTL_MS = 3600000; // 1 hour
+const MAX_CACHE_SIZE = 500; // Maximum cached origins to prevent unbounded memory growth
+
+/**
+ * Clean up expired cache entries
+ * Called lazily during cache operations to prevent memory leaks
+ */
+function cleanupExpiredEntries(): void {
+  const now = Date.now();
+  for (const [origin, entry] of robotsCache) {
+    if (entry.expiresAt < now) {
+      robotsCache.delete(origin);
+    }
+  }
+}
+
+/**
+ * Set cache entry with size limit enforcement
+ * Removes oldest entries if cache exceeds MAX_CACHE_SIZE
+ */
+function setCacheEntry(origin: string, entry: RobotsCacheEntry): void {
+  // First, clean up expired entries
+  if (robotsCache.size > MAX_CACHE_SIZE / 2) {
+    cleanupExpiredEntries();
+  }
+
+  // If still over limit, remove oldest entries (FIFO)
+  if (robotsCache.size >= MAX_CACHE_SIZE) {
+    const entriesToRemove = robotsCache.size - MAX_CACHE_SIZE + 1;
+    const keys = robotsCache.keys();
+    for (let i = 0; i < entriesToRemove; i++) {
+      const key = keys.next().value;
+      if (key) robotsCache.delete(key);
+    }
+  }
+
+  robotsCache.set(origin, entry);
+}
 
 /**
  * Check if scraping a URL is allowed by robots.txt
@@ -43,6 +80,14 @@ const CACHE_TTL_MS = 3600000; // 1 hour
  * ```
  */
 export async function isScrapingAllowed(url: string, userAgent: string): Promise<boolean> {
+  // Input validation at function boundary
+  if (!url || typeof url !== 'string' || url.trim().length === 0) {
+    throw new Error('Invalid url: must be non-empty string');
+  }
+  if (!userAgent || typeof userAgent !== 'string' || userAgent.trim().length === 0) {
+    throw new Error('Invalid userAgent: must be non-empty string');
+  }
+
   try {
     const urlObj = new URL(url);
     const origin = urlObj.origin;
@@ -70,10 +115,11 @@ export async function isScrapingAllowed(url: string, userAgent: string): Promise
     }
 
     const robotsTxt = await response.text();
+    // Type assertion: robots-parser returns untyped object, cast to our RobotParser interface
     const parser = robotsParser(robotsUrl, robotsTxt) as RobotParser;
 
-    // Cache the result
-    robotsCache.set(origin, {
+    // Cache the result with size limit enforcement
+    setCacheEntry(origin, {
       parser,
       expiresAt: now + CACHE_TTL_MS,
     });
