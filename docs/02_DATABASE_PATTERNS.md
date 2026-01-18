@@ -1,8 +1,9 @@
 # Database Patterns & Anti-Patterns
 
-**Version:** 2.14
-**Last Updated:** 2026-01-07
+**Version:** 2.15
+**Last Updated:** 2026-01-17
 **Changelog:**
+- 2.15 (2026-01-17): Added Drizzle ORM Timestamp Interpretation Mismatch pattern (setHours vs setUTCHours for timestamp columns - from notification daily limit debugging)
 - 2.14 (2026-01-07): Added Correlated Subqueries for N+1 Prevention pattern (from TODO_018 price alert checker - 100x performance improvement)
 - 2.13 (2026-01-04): Added SQL conditional aggregation pattern (COUNT CASE WHEN), deterministic ordering pattern, and WithStats method preference pattern (from TODO 003 - highPriorityCount calculation)
 - 2.12 (2026-01-04): Added comprehensive JSDoc pattern for storage methods and validation helper extraction pattern (from TODO 002 code review)
@@ -3153,6 +3154,149 @@ describe('PriceAggregationService', () => {
 ```
 
 **Reference:** `docs/LEARNINGS_TODO_179_UTC_TIMEZONE_SERVICE_FIX.md` for complete debugging timeline and implementation details.
+
+---
+
+### 5.4.1 Drizzle ORM Timestamp Interpretation Mismatch (NEW - 2026-01-17)
+
+**Context:** Daily notification limits and time-based queries using PostgreSQL `timestamp` (without timezone) columns.
+
+**Problem:** Drizzle ORM reads `timestamp` columns as UTC when querying, but PostgreSQL stores them as local time. This creates a mismatch when comparing JavaScript Date objects (UTC) against database timestamps (local-stored, UTC-interpreted).
+
+**Root Cause:** PostgreSQL `timestamp` (without timezone) stores times as-is with no timezone metadata. When JavaScript creates `new Date()` (UTC) and inserts it, PostgreSQL stores the literal value. Later, Drizzle reads it back and interprets it as UTC, but comparison logic using `.setUTCHours(0, 0, 0, 0)` creates UTC midnight timestamps that don't match the local-stored values.
+
+#### ❌ ANTI-PATTERN - Using setUTCHours with Local Timestamp Columns
+
+```typescript
+// server/storage/domains/notification-storage.ts
+async getTodayNotificationCount(userId: number): Promise<number> {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0); // UTC midnight - WRONG for local timestamp columns
+
+  // Query against 'timestamp' (without timezone) column
+  const notifications = await db.select({ count: sql<number>`count(*)` })
+    .from(notifications)
+    .where(
+      and(
+        eq(notifications.userId, userId),
+        gte(notifications.createdAt, today) // Comparing UTC midnight to local-stored times
+      )
+    );
+
+  // BUG: If user in PST timezone:
+  // - today = 2026-01-17 00:00:00 UTC
+  // - Database createdAt = 2026-01-17 08:00:00 (stored as local PST, 8 hours behind)
+  // - Drizzle interprets DB value as 2026-01-17 08:00:00 UTC
+  // - Comparison fails: 08:00 UTC > 00:00 UTC (excludes today's notifications!)
+
+  return parseInt(notifications[0].count);
+}
+```
+
+**Impact:**
+- Daily notification counts appear as 0 when notifications exist
+- Daily limits not enforced (notifications created beyond limit)
+- Time-based queries return incorrect results
+- Behavior differs between dev (UTC) and production (non-UTC timezone)
+
+#### ✅ CORRECT PATTERN - Use Local Midnight for Local Timestamp Columns
+
+```typescript
+// server/storage/domains/notification-storage.ts
+async getTodayNotificationCount(userId: number): Promise<number> {
+  // IMPORTANT: Use local midnight because PostgreSQL 'timestamp' (without timezone)
+  // stores local time, but Drizzle interprets it as UTC when reading.
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Local midnight - matches PostgreSQL storage
+
+  const notifications = await db.select({ count: sql<number>`count(*)` })
+    .from(notifications)
+    .where(
+      and(
+        eq(notifications.userId, userId),
+        gte(notifications.createdAt, today)
+      )
+    );
+
+  return parseInt(notifications[0].count);
+}
+```
+
+**Why This Works:**
+- `setHours(0, 0, 0, 0)` creates midnight in server's local timezone
+- PostgreSQL stores this as local time (no conversion)
+- Drizzle reads it back and interprets as UTC (matches what we stored)
+- Comparison logic now consistent: local midnight (as UTC) vs. stored local times (as UTC)
+
+**Alternative: Use setUTCHours Consistently (Preferred Long-Term)**
+
+If your schema uses `timestamptz` (with timezone):
+
+```typescript
+// ONLY use this pattern with timestamptz columns
+const today = new Date();
+today.setUTCHours(0, 0, 0, 0); // UTC midnight - SAFE with timestamptz
+
+const notifications = await db.select({ count: sql<number>`count(*)` })
+  .from(notifications)
+  .where(
+    and(
+      eq(notifications.userId, userId),
+      gte(notifications.createdAt, today) // Safe: comparing UTC to UTC
+    )
+  );
+```
+
+#### When to Use Each Approach
+
+| Column Type | JavaScript Method | PostgreSQL Behavior | Drizzle Interpretation |
+|-------------|------------------|---------------------|----------------------|
+| `timestamp` (no TZ) | `setHours(0, 0, 0, 0)` | Stores local time | Reads as UTC ✅ |
+| `timestamp` (no TZ) | `setUTCHours(0, 0, 0, 0)` | Stores local time | Reads as UTC ❌ Mismatch! |
+| `timestamptz` | `setUTCHours(0, 0, 0, 0)` | Stores UTC | Reads as UTC ✅ |
+| `timestamptz` | `setHours(0, 0, 0, 0)` | Stores UTC (converts local→UTC) | Reads as UTC ⚠️ Works but confusing |
+
+#### Rationale
+
+**Immediate Fix (Current Schema):**
+- Use `setHours(0, 0, 0, 0)` for `timestamp` (without timezone) columns
+- Add comment explaining Drizzle ORM interpretation mismatch
+- Document as workaround until migration to `timestamptz`
+
+**Long-Term Fix (Recommended):**
+- Migrate `timestamp` columns to `timestamptz` in schema (see Section 5.3)
+- Use `setUTCHours(0, 0, 0, 0)` consistently across codebase
+- Eliminate timezone ambiguity
+
+#### Detection Rule
+
+```bash
+# Find setUTCHours usage with timestamp (without timezone) columns
+grep -r "setUTCHours" server/storage/ | \
+  while read line; do
+    file=$(echo "$line" | cut -d: -f1)
+    # Check if file queries timestamp columns (not timestamptz)
+    grep -q "timestamp.*withTimezone.*true" "$file" || echo "⚠️  $line"
+  done
+
+# Find timestamp columns in schema
+grep "timestamp(" shared/schema.ts | grep -v "withTimezone: true"
+```
+
+#### Related Patterns
+
+- **Section 5.3**: Timestamp vs Timestamptz (schema-level issue)
+- **Section 5.4**: Application-Layer UTC Date Handling (JavaScript date methods)
+- **This Pattern**: Drizzle ORM interpretation of timestamp columns
+
+**Real-World Bug:** Daily notification limit bypass
+- **File:** `server/storage/domains/notification-storage.ts:315`
+- **Symptom:** `getTodayNotificationCount()` returned 0 despite notifications existing
+- **Fix:** Changed `setUTCHours(0, 0, 0, 0)` → `setHours(0, 0, 0, 0)`
+- **Test:** Added test with local timezone comparison
+
+*Source: Notification daily limit debugging session*
+*Added: 2026-01-17*
 
 ---
 

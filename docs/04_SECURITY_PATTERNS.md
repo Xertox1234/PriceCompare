@@ -1,7 +1,7 @@
 ---
 Pattern: Security Patterns & Anti-Patterns
-Version: 2.7
-Last Updated: 2026-01-07
+Version: 2.8
+Last Updated: 2026-01-17
 Maintainer: Claude Code / Development Team
 Status: Active - SINGLE SOURCE OF TRUTH
 Migrated From:
@@ -11,6 +11,7 @@ Migrated From:
   - docs/PHASE0_WATCHLIST_PATTERNS.md (validation layer separation section)
 Related Patterns: [DATABASE_PATTERNS.md, API_PATTERNS.md, ERROR_HANDLING_PATTERNS.md, TYPESCRIPT_PATTERNS.md]
 Changelog:
+  - 2.8 (2026-01-17): Added PostgreSQL Identifier Injection Prevention pattern - validation + double-quote escaping for database/table/column names (from database creation script security review)
   - 2.7 (2026-01-07): Added Consistent XSS Escaping Across Template Types pattern (from TODO_018 email service code review)
   - 2.6 (2025-12-27): Added Unified Authentication Middleware Order pattern (flexibleAuth → csrfProtection → withAuth), inline SECURITY comment requirements for pre-commit hooks
   - 2.5 (2025-12-26): Added HTTP Basic Auth CSRF exemption pattern, intentional passwordHash exposure documentation pattern
@@ -3204,6 +3205,192 @@ const result = await db.select()
   .from(products)
   .where(sql`${products.name} ILIKE ${'%' + searchTerm + '%'}`);
 ```
+
+### PostgreSQL Identifier Injection Prevention (NEW - 2026-01-17)
+
+**Context:** Database creation scripts, dynamic table operations, or any code that uses PostgreSQL identifiers (table names, column names, database names) from variables.
+
+**Problem:** PostgreSQL identifiers (table/database/column names) CANNOT use parameterized queries (`$1`). They require different handling than values to prevent SQL injection.
+
+**Key Insight:** Identifiers and values have different escaping rules in PostgreSQL:
+- **Values**: Use `$1` parameterization → `WHERE id = $1`
+- **Identifiers**: Use validation + double-quote escaping → `CREATE DATABASE "dbname"`
+
+#### ❌ ANTI-PATTERN - Unvalidated Identifier Concatenation
+
+```typescript
+// CRITICAL VULNERABILITY - SQL injection in database creation
+async function createDatabase(databaseName: string) {
+  const client = new Client(connectionString);
+  await client.connect();
+
+  // WRONG: Direct concatenation of identifier (cannot use $1 for identifiers)
+  await client.query(`CREATE DATABASE ${databaseName}`);
+  //                                  ^^^^^^^^^^^^^^
+  //                  Vulnerable to injection: `testdb; DROP DATABASE production; --`
+
+  await client.end();
+}
+```
+
+**Attack Vector:**
+```typescript
+// Malicious input
+createDatabase('testdb; DROP DATABASE production; --');
+
+// Executed SQL
+CREATE DATABASE testdb; DROP DATABASE production; --;
+//              ^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^  ^^^
+//              Create  Delete production DB      Comment out rest
+```
+
+#### ✅ CORRECT PATTERN - Validate + Quote Identifiers
+
+```typescript
+// scripts/check-postgres.ts
+async function createDatabase(databaseName: string) {
+  // STEP 1: Validate identifier against safe pattern
+  // PostgreSQL identifiers: start with letter/underscore, contain alphanumeric/underscore
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(databaseName)) {
+    throw new Error(
+      `Invalid database name: "${databaseName}". ` +
+      `Must start with letter/underscore and contain only alphanumeric characters and underscores.`
+    );
+  }
+
+  const client = new Client(connectionString);
+  await client.connect();
+
+  try {
+    // STEP 2: Use double-quote escaping (PostgreSQL identifier standard)
+    await client.query(`CREATE DATABASE "${databaseName}"`);
+    //                                   ^              ^
+    //                         Double quotes protect identifier
+
+    console.log(`Database "${databaseName}" created successfully`);
+  } finally {
+    await client.end();
+  }
+}
+```
+
+**Why This Works:**
+- **Validation regex**: Blocks special characters (`;`, `-`, spaces, quotes)
+- **Double quotes**: PostgreSQL identifier delimiter (like backticks in MySQL)
+- **Fail-fast**: Throws before executing any SQL
+- **Clear error**: Explains what's allowed
+
+#### Identifier vs. Value Parameterization Comparison
+
+| Scenario | Type | Safe Approach | Example |
+|----------|------|---------------|---------|
+| **User ID lookup** | Value | Use `$1` parameterization | `WHERE id = $1` with `[userId]` |
+| **Search term** | Value | Use `$1` parameterization | `WHERE name ILIKE $1` with `['%'+term+'%']` |
+| **Table name** | Identifier | Validate + quote | `CREATE TABLE "${tableName}"` |
+| **Database name** | Identifier | Validate + quote | `CREATE DATABASE "${dbName}"` |
+| **Column name** | Identifier | Validate + quote | `ALTER TABLE users ADD "${colName}"` |
+
+#### Safe Regex Patterns for Identifiers
+
+```typescript
+// PostgreSQL identifier rules
+const VALID_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
+// Validate identifier
+function validatePostgresIdentifier(name: string, label: string): void {
+  if (!VALID_IDENTIFIER.test(name)) {
+    throw new Error(
+      `Invalid ${label}: "${name}". Must match pattern: [a-zA-Z_][a-zA-Z0-9_]*`
+    );
+  }
+
+  // Optional: Check length (PostgreSQL max 63 chars)
+  if (name.length > 63) {
+    throw new Error(`${label} exceeds PostgreSQL max length of 63 characters`);
+  }
+}
+
+// Usage
+validatePostgresIdentifier(databaseName, 'database name');
+await client.query(`CREATE DATABASE "${databaseName}"`);
+```
+
+#### When Identifiers Come From User Input (Advanced)
+
+**⚠️ WARNING:** If identifiers MUST come from user input (rare), use a whitelist approach:
+
+```typescript
+// ❌ NEVER allow arbitrary user input as identifiers
+function queryTable(userTableName: string) {
+  await db.execute(`SELECT * FROM "${userTableName}"`); // Still risky!
+}
+
+// ✅ CORRECT - Whitelist approach
+const ALLOWED_TABLES = new Set(['users', 'products', 'orders']);
+
+function queryTable(userTableName: string) {
+  if (!ALLOWED_TABLES.has(userTableName)) {
+    throw new Error(`Invalid table name: ${userTableName}`);
+  }
+
+  // Safe: validated against whitelist
+  await db.execute(`SELECT * FROM "${userTableName}"`);
+}
+```
+
+#### Contrast: Parameterized Values Are SAFE
+
+```typescript
+// ✅ SAFE - Values use $1 parameterization (Drizzle/pg library handles this)
+const userId = req.params.id; // User input (could be malicious)
+
+// Drizzle automatically parameterizes
+const user = await db.select()
+  .from(users)
+  .where(eq(users.id, userId)); // Generates: WHERE id = $1 with [userId]
+
+// Raw SQL with manual parameterization
+await client.query('SELECT * FROM users WHERE id = $1', [userId]);
+//                                            ^^         ^^^^^^^^
+//                                        Placeholder  Safe value
+```
+
+#### Detection Rule
+
+```bash
+# Find potential identifier injection vulnerabilities
+# Look for CREATE DATABASE/TABLE with string concatenation
+grep -r "CREATE DATABASE\|CREATE TABLE\|ALTER TABLE" scripts/ server/ | \
+  grep -v '"\$' | \
+  grep -v "VALID_IDENTIFIER\|test(" | \
+  head -20
+
+# Check for identifiers without validation
+grep -r 'CREATE.*`\${' scripts/ server/
+grep -r 'CREATE.*"\${' scripts/ server/ | grep -v "if (.*test("
+```
+
+#### Rationale
+
+- **Identifiers ≠ Values**: PostgreSQL treats them differently (cannot use `$1` for identifiers)
+- **Defense in depth**: Validation catches attack before SQL execution
+- **Standard compliance**: Double quotes are PostgreSQL's identifier delimiter
+- **Clear errors**: Developers understand what's allowed
+- **No false positives**: Regex is strict but covers all valid identifiers
+
+#### Related Patterns
+
+- **Parameterized Queries (above)**: Use `$1` for VALUES, not identifiers
+- **Pre-commit hook**: SQL injection detection (checks for raw concatenation)
+- **docs/tooling/PRE_COMMIT_HOOK_GUIDE.md**: SQL injection check patterns
+
+**Real-World Usage:**
+- **File:** `scripts/check-postgres.ts:62-71`
+- **Context:** Database creation from `DATABASE_NAME` environment variable
+- **Fix:** Added regex validation before `CREATE DATABASE` command
+
+*Source: Database creation script security review*
+*Added: 2026-01-17*
 
 ---
 

@@ -197,9 +197,10 @@ describe('PriceAggregationService (Integration)', () => {
 
     it('should calculate day-over-day change correctly', async () => {
       // Setup: Create aggregate for day before yesterday
+      // IMPORTANT: Use UTC dates consistently with how the service calculates dates
       const twoDaysAgo = new Date();
-      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
-      const twoDaysAgoStr = `${twoDaysAgo.getFullYear()}-${String(twoDaysAgo.getMonth() + 1).padStart(2, '0')}-${String(twoDaysAgo.getDate()).padStart(2, '0')}`;
+      twoDaysAgo.setUTCDate(twoDaysAgo.getUTCDate() - 2);
+      const twoDaysAgoStr = `${twoDaysAgo.getUTCFullYear()}-${String(twoDaysAgo.getUTCMonth() + 1).padStart(2, '0')}-${String(twoDaysAgo.getUTCDate()).padStart(2, '0')}`;
 
       await db.insert(priceAggregatesDaily).values({
         productId: testProduct.id,

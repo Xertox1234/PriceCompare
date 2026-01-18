@@ -1,8 +1,9 @@
 # Testing Patterns
 
-**Version:** 3.8
-**Last Updated:** 2026-01-16
+**Version:** 3.9
+**Last Updated:** 2026-01-17
 **Changelog:**
+- 3.9 (2026-01-17): Added Mock Completeness for Redis and Playwright pattern - comprehensive method checklists, diagnostic process for finding missing methods (from scraping agent test debugging)
 - 3.8 (2026-01-16): Added E2E CSRF Token Patterns - getCsrfToken() helper for direct API calls, defensive API response validation, page reload after API modifications (from accessibility E2E test fix)
 - 3.7 (2026-01-16): Added Dual-Flow E2E Helper Functions Pattern - Optional parameter branching for helpers that support multiple user flows (simple vs. advanced mode), DRY navigation logic, JSDoc documentation pattern (from TODO_233 E2E Watchlist Selector Fix)
 - 3.6 (2026-01-14): Added WebSocket Testing Patterns - Socket.IO Race Condition Prevention, Concurrent Event Waiting, Event Bus Cleanup, setImmediate Room Join Pattern, Test Mode Rate Limit Bypass (from TODO_207 WebSocket integration test fixes)
@@ -1552,6 +1553,277 @@ vi.mock('../../config/redis', () => ({
 ```
 
 **Why this matters:** The `storage-cache.ts` and `advanced-cache.ts` modules require Redis at import time. Without this mock, tests fail during module initialization.
+
+---
+
+### Mock Completeness for Redis and Playwright (NEW - 2026-01-17)
+
+**Context:** Test mocks must include ALL methods that any code path might call, not just the methods you think will be used. Helper functions and utilities often call additional methods.
+
+**Problem:** Incomplete mocks cause "X is not a function" test failures that only appear when specific code paths execute.
+
+**Key Insight:** When a test fails with "X is not a function", trace the call stack to find which helper/utility is calling that method, then add it to the mock.
+
+#### ❌ ANTI-PATTERN - Incomplete Redis Mock
+
+```typescript
+// server/__tests__/scraping-agent.test.ts
+vi.mock('../../config/redis', () => ({
+  getRedisClient: vi.fn(() => ({
+    // Core operations
+    get: vi.fn(),
+    set: vi.fn().mockResolvedValue('OK'),
+    del: vi.fn().mockResolvedValue(1),
+    // Missing methods that helper functions need!
+  })),
+}));
+
+// Later in test:
+it('should handle rate limiting', async () => {
+  await agent.scrapeProduct(url);
+
+  // FAILURE: TypeError: redisClient.hincrby is not a function
+  // Reason: Rate limiter uses hincrby() which wasn't mocked
+});
+```
+
+**Failure Scenario:**
+1. Test calls `agent.scrapeProduct()`
+2. Agent calls rate limiting helper
+3. Rate limiter calls `redisClient.hincrby()`
+4. Test crashes: "hincrby is not a function"
+
+#### ✅ CORRECT PATTERN - Complete Redis Mock
+
+```typescript
+// server/__tests__/scraping-agent.test.ts
+vi.mock('../../config/redis', () => ({
+  getRedisClient: vi.fn(() => ({
+    // Core operations
+    get: vi.fn(),
+    set: vi.fn().mockResolvedValue('OK'),
+    del: vi.fn().mockResolvedValue(1),
+
+    // Hash operations (used by rate limiters)
+    hincrby: vi.fn(),
+    hincrbyfloat: vi.fn(),
+    hgetall: vi.fn().mockResolvedValue({}),
+    expire: vi.fn(),
+
+    // Additional methods that helpers might use
+    ttl: vi.fn().mockResolvedValue(-1),
+    exists: vi.fn().mockResolvedValue(0),
+  })),
+
+  // Session client (used by session-index.ts)
+  getRedisSessionClient: vi.fn(() => null),
+}));
+```
+
+**How to Build Complete Mocks:**
+
+1. **Start with error**: Run test, note which method is missing
+2. **Trace call stack**: Find which file/helper calls that method
+3. **Add method to mock**: Include in mock with appropriate return value
+4. **Repeat**: Run test again, add next missing method
+5. **Document**: Add comment explaining which helper uses each method group
+
+**Redis Mock Checklist:**
+
+```typescript
+vi.mock('../../config/redis', () => ({
+  getRedisClient: vi.fn(() => ({
+    // Core operations
+    get: vi.fn(),
+    set: vi.fn().mockResolvedValue('OK'),
+    setex: vi.fn().mockResolvedValue('OK'),
+    del: vi.fn().mockResolvedValue(1),
+
+    // Hash operations (rate-limiter.ts, distributed-lock.ts)
+    hincrby: vi.fn(),
+    hincrbyfloat: vi.fn(),
+    hgetall: vi.fn().mockResolvedValue({}),
+    hset: vi.fn().mockResolvedValue(1),
+
+    // Expiration (cache-service.ts)
+    expire: vi.fn(),
+    ttl: vi.fn().mockResolvedValue(-1),
+
+    // Pub/Sub (websocket-service.ts)
+    publish: vi.fn(),
+    subscribe: vi.fn(),
+
+    // Scanning (cache-invalidation.ts)
+    keys: vi.fn().mockResolvedValue([]),
+    scan: vi.fn().mockResolvedValue([0, []]),
+
+    // Existence checks
+    exists: vi.fn().mockResolvedValue(0),
+  })),
+
+  // Session client (session-index.ts, connect-redis)
+  getRedisSessionClient: vi.fn(() => null),
+}));
+```
+
+#### ✅ CORRECT PATTERN - Complete Playwright Page Mock
+
+```typescript
+// server/agents/__tests__/extraction-agent.test.ts
+import type { Page, Locator } from 'playwright';
+
+describe('ExtractionAgent', () => {
+  let mockPage: Page;
+  let mockElement: Locator;
+  let mockLocator: Locator;
+
+  beforeEach(() => {
+    // Mock locator
+    mockLocator = {
+      textContent: vi.fn().mockResolvedValue('$99.99'),
+      getAttribute: vi.fn().mockResolvedValue('https://example.com/image.jpg'),
+      isVisible: vi.fn().mockResolvedValue(true),
+    } as unknown as Locator;
+
+    // Mock element
+    mockElement = {
+      textContent: vi.fn().mockResolvedValue('Product Name'),
+    } as unknown as Locator;
+
+    // Mock page
+    mockPage = {
+      goto: vi.fn().mockResolvedValue(undefined),
+      waitForSelector: vi.fn().mockResolvedValue(mockElement),
+      locator: vi.fn().mockReturnValue(mockLocator),
+      close: vi.fn().mockResolvedValue(undefined),
+
+      // OFTEN FORGOTTEN - Required by antibot-detection.ts
+      title: vi.fn().mockResolvedValue('Test Page'),
+      url: vi.fn().mockReturnValue('https://example.com'),
+
+      // Required by some extraction patterns
+      content: vi.fn().mockResolvedValue('<html>...</html>'),
+      screenshot: vi.fn().mockResolvedValue(Buffer.from('')),
+    } as unknown as Page;
+  });
+
+  it('should extract product data', async () => {
+    const data = await agent.extractProduct(mockPage, 'test-selector');
+
+    expect(data.name).toBe('Product Name');
+    expect(data.price).toBe(99.99);
+    // No "title is not a function" error!
+  });
+});
+```
+
+**Playwright Page Mock Checklist:**
+
+```typescript
+mockPage = {
+  // Navigation (required by all scrapers)
+  goto: vi.fn().mockResolvedValue(undefined),
+  waitForSelector: vi.fn().mockResolvedValue(mockElement),
+  waitForLoadState: vi.fn().mockResolvedValue(undefined),
+
+  // Element selection (extraction-agent.ts)
+  locator: vi.fn().mockReturnValue(mockLocator),
+  $: vi.fn().mockResolvedValue(mockElement),
+  $$: vi.fn().mockResolvedValue([mockElement]),
+
+  // Page metadata (antibot-detection.ts, logging helpers)
+  title: vi.fn().mockResolvedValue('Test Page'),
+  url: vi.fn().mockReturnValue('https://example.com'),
+
+  // Content access (debugging helpers)
+  content: vi.fn().mockResolvedValue('<html>...</html>'),
+
+  // Cleanup (required by all scrapers)
+  close: vi.fn().mockResolvedValue(undefined),
+
+  // Optional: Screenshot for error debugging
+  screenshot: vi.fn().mockResolvedValue(Buffer.from('')),
+} as unknown as Page;
+```
+
+#### Diagnostic Process: Finding Missing Methods
+
+**Step 1: Run test, get error**
+```bash
+npm test scraping-agent.test.ts
+
+# Error: TypeError: redisClient.hincrby is not a function
+#   at RateLimiter.checkLimit (rate-limiter.ts:45)
+#   at ScrapingAgent.scrapeProduct (scraping-agent.ts:123)
+```
+
+**Step 2: Trace call stack**
+```typescript
+// scraping-agent.ts:123
+await this.rateLimiter.checkLimit(url);
+
+// rate-limiter.ts:45
+await redisClient.hincrby(`rate:${key}`, 'count', 1);
+//                ^^^^^^^ Missing method!
+```
+
+**Step 3: Add to mock**
+```typescript
+vi.mock('../../config/redis', () => ({
+  getRedisClient: vi.fn(() => ({
+    // ... existing methods
+    hincrby: vi.fn().mockResolvedValue(1), // ← Add this
+  })),
+}));
+```
+
+**Step 4: Document in mock**
+```typescript
+vi.mock('../../config/redis', () => ({
+  getRedisClient: vi.fn(() => ({
+    get: vi.fn(),
+    set: vi.fn().mockResolvedValue('OK'),
+
+    // Hash operations - used by rate-limiter.ts
+    hincrby: vi.fn().mockResolvedValue(1),
+    hincrbyfloat: vi.fn().mockResolvedValue(1.5),
+  })),
+}));
+```
+
+#### Rationale
+
+- **Trace dependencies**: Helpers/utilities call additional methods
+- **Fail fast**: Missing methods fail tests immediately (good!)
+- **Document usage**: Comments explain which file uses which methods
+- **Prevent regression**: Complete mock prevents future "not a function" errors
+- **Realistic mocks**: Include methods that real implementation would have
+
+#### When to Add Methods
+
+**Add method when:**
+- ✅ Test fails with "X is not a function"
+- ✅ Helper function calls it (even if not directly tested)
+- ✅ Error handling code path might call it
+- ✅ Logging/debugging utilities might call it
+
+**Don't add method when:**
+- ❌ Purely theoretical (no code path uses it)
+- ❌ Only used by other tests (add to those test mocks)
+- ❌ Deprecated method that's being removed
+
+#### Related Patterns
+
+- **Redis Mock Pattern (above)**: Basic Redis mock structure
+- **vi.mock() Intentional Duplication**: Keep mocks local to test files
+- **Mock-Based Test Anti-Pattern**: Prefer real database over mocks when possible
+
+**Real-World Bugs Fixed:**
+- `server/agents/__tests__/scraping-agent.test.ts`: Added `hincrby`, `hgetall`, `expire` for rate limiter
+- `server/agents/__tests__/extraction-agent.test.ts`: Added `title`, `url` for antibot detection
+
+*Source: Test mock debugging sessions (scraping agent tests, extraction agent tests)*
+*Added: 2026-01-17*
 
 ---
 

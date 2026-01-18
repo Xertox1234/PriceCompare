@@ -64,13 +64,16 @@ vi.mock('../../utils/scraper-utils', () => ({
   },
 }));
 
-// Mock Redis client for extraction monitoring
+// Mock Redis client for extraction monitoring and URL locking
 vi.mock('../../config/redis', () => ({
   getRedisClient: vi.fn(() => ({
     hincrby: vi.fn(),
     hincrbyfloat: vi.fn(),
     expire: vi.fn(),
     hgetall: vi.fn().mockResolvedValue({}),
+    // URL lock methods (used by url-lock-service.ts)
+    set: vi.fn().mockResolvedValue('OK'),
+    del: vi.fn().mockResolvedValue(1),
   })),
   getRedisSessionClient: vi.fn(),
 }));
@@ -1032,6 +1035,8 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
         getAttribute: vi.fn().mockResolvedValue(null),
       }),
       close: vi.fn().mockResolvedValue(undefined),
+      // Required by antibot-detection.ts
+      title: vi.fn().mockResolvedValue('Test Page'),
     } as unknown as Page;
 
     mockContext = {

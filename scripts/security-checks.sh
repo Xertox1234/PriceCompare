@@ -320,6 +320,40 @@ else
   echo -e "${GREEN}   ✅ No unsafe parseInt on request params${NC}"
 fi
 
+# -----------------------------------------------------------------------------
+# BLOCKER: SQL Identifier Injection (CREATE DATABASE/TABLE without validation)
+# Pattern: docs/04_SECURITY_PATTERNS.md#postgresql-identifier-injection-prevention
+# -----------------------------------------------------------------------------
+echo "   🗄️  Checking for SQL identifier injection vulnerabilities..."
+
+# Look for CREATE DATABASE/TABLE with string interpolation (backticks with ${})
+# Identifiers CANNOT use $1 parameterization - must validate + quote
+IDENTIFIER_INJECTION=$(grep -rn 'CREATE DATABASE.*\${.*}\|CREATE TABLE.*\${.*}' . --include="*.ts" 2>/dev/null | \
+  grep -v "node_modules" | \
+  grep -v "__tests__" | \
+  grep -v "\.test\." | \
+  grep -v '/"' | \
+  grep -v "// IDENTIFIER VALIDATED" || true)
+
+if [ -n "$IDENTIFIER_INJECTION" ]; then
+  echo -e "${RED}   ❌ BLOCKER: Unvalidated SQL identifier interpolation detected:${NC}"
+  echo "$IDENTIFIER_INJECTION" | head -5 | while read -r line; do
+    echo "      $line"
+  done
+  echo ""
+  echo -e "${YELLOW}   FIX: Validate identifier + use double-quote escaping${NC}"
+  echo "   WRONG:  await client.query(\`CREATE DATABASE \${name}\`);"
+  echo "   RIGHT:  if (!/^[a-zA-Z_][a-zA-Z0-9_]*\$/.test(name)) throw new Error('Invalid');"
+  echo "           await client.query(\`CREATE DATABASE \"\${name}\"\`);"
+  echo "   NOTE:   PostgreSQL identifiers CANNOT use \$1 parameterization"
+  echo "   DOCS: docs/04_SECURITY_PATTERNS.md#postgresql-identifier-injection-prevention"
+  echo "   BYPASS: Add '// IDENTIFIER VALIDATED' comment after validation check"
+  SECURITY_ISSUES=$((SECURITY_ISSUES + 1))
+  echo ""
+else
+  echo -e "${GREEN}   ✅ No SQL identifier injection vulnerabilities${NC}"
+fi
+
 echo ""
 
 # =============================================================================

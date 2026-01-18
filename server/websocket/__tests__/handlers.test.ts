@@ -166,7 +166,7 @@ describe('WebSocket Event Handlers', () => {
         'error',
         expect.objectContaining({
           message: 'Too many requests. Please slow down and try again',
-          code: 'LIMIT_EXCEEDED',
+          code: 'RATE_LIMIT_EXCEEDED',
         })
       );
 

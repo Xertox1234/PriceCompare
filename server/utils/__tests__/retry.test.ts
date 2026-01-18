@@ -61,16 +61,24 @@ describe('retry utility', () => {
     it('should throw after max attempts exhausted', async () => {
       const fn = vi.fn().mockRejectedValue(new Error('ETIMEDOUT'));
 
+      // IMPORTANT: Capture the rejection to prevent unhandled rejection error
+      let caughtError: Error | null = null;
       const promise = withRetry(fn, {
         maxAttempts: 3,
         baseDelayMs: 100,
         shouldRetry: isRetryableError,
+      }).catch((e: Error) => {
+        caughtError = e;
+        return e; // Return instead of throwing
       });
 
       // Advance timers through all retry attempts
       await vi.advanceTimersByTimeAsync(10000);
 
-      await expect(promise).rejects.toThrow('ETIMEDOUT');
+      await promise;
+      expect(caughtError).toBeInstanceOf(Error);
+      // After toBeInstanceOf check, TypeScript knows caughtError is Error (not null)
+      expect(caughtError!.message).toBe('ETIMEDOUT');
       expect(fn).toHaveBeenCalledTimes(3);
     });
 
@@ -163,14 +171,18 @@ describe('retry utility', () => {
       const delays1: number[] = [];
       const delays2: number[] = [];
 
-      const onRetry1 = vi.fn((error, attempt, delayMs) => delays1.push(delayMs));
-      const onRetry2 = vi.fn((error, attempt, delayMs) => delays2.push(delayMs));
+      const onRetry1 = vi.fn((_error, _attempt, delayMs) => delays1.push(delayMs));
+      const onRetry2 = vi.fn((_error, _attempt, delayMs) => delays2.push(delayMs));
 
+      // IMPORTANT: Attach .catch() immediately to prevent unhandled rejection
+      // when vi.advanceTimersByTimeAsync() triggers the rejection
       const promise1 = withRetry(fn1, {
         maxAttempts: 2,
         baseDelayMs: 1000,
         shouldRetry: isRetryableError,
         onRetry: onRetry1,
+      }).catch(() => {
+        /* Expected to fail */
       });
 
       const promise2 = withRetry(fn2, {
@@ -178,6 +190,8 @@ describe('retry utility', () => {
         baseDelayMs: 1000,
         shouldRetry: isRetryableError,
         onRetry: onRetry2,
+      }).catch(() => {
+        /* Expected to fail */
       });
 
       await vi.advanceTimersByTimeAsync(3000);
@@ -290,15 +304,24 @@ describe('retry utility', () => {
 
       const shouldRetry = createSmartRetryCondition();
 
+      // IMPORTANT: Capture the rejection - don't re-throw to avoid unhandled rejection
+      // The error will be caught and verified via the captured value
+      let caughtError: Error | null = null;
       const promise = withRetry(fn, {
         maxAttempts: 3,
         baseDelayMs: 100,
         shouldRetry,
+      }).catch((e: Error) => {
+        caughtError = e;
+        return e; // Return error instead of throwing to prevent unhandled rejection
       });
 
       await vi.advanceTimersByTimeAsync(2000);
 
-      await expect(promise).rejects.toThrow('Invalid URL');
+      await promise; // Wait for promise to settle
+      expect(caughtError).toBeInstanceOf(Error);
+      // After toBeInstanceOf check, TypeScript knows caughtError is Error (not null)
+      expect(caughtError!.message).toBe('Invalid URL');
       expect(fn).toHaveBeenCalledTimes(2); // First attempt + 1 retry, then fail fast
     });
 

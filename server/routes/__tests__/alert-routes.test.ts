@@ -46,6 +46,8 @@ vi.mock('../../config/redis', () => ({
     })),
   },
   getRedisClient: vi.fn(() => null),
+  // getRedisSessionClient is used by session-index.ts for session management
+  getRedisSessionClient: vi.fn(() => null),
 }));
 
 // Mock dependencies

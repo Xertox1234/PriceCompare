@@ -454,6 +454,7 @@ export function registerNotificationRoutes(app: Express) {
    */
   app.post(
     '/api/notifications/smart/:id/dismiss',
+    flexibleAuth,
     csrfProtection,
     requireAuth,
     async (req, res) => {

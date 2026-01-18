@@ -1,7 +1,7 @@
 ---
 Pattern: Error Handling Patterns & Anti-Patterns
-Version: 2.2
-Last Updated: 2026-01-07
+Version: 2.3
+Last Updated: 2026-01-17
 Maintainer: Claude Code / Development Team
 Status: Active
 Migrated From:
@@ -9,6 +9,7 @@ Migrated From:
   - docs/PHASE0_WATCHLIST_PATTERNS.md (PostgreSQL error code classification)
 Related Patterns: [API_PATTERNS.md, SECURITY_PATTERNS.md, TYPESCRIPT_PATTERNS.md, SERVICE_INTEGRATION_PATTERNS.md, DATABASE_PATTERNS.md]
 Changelog:
+  - 2.3 (2026-01-17): Added Error Code Semantic Distinction pattern - RATE_LIMIT_EXCEEDED vs LIMIT_EXCEEDED (from error handler code review)
   - 2.2 (2026-01-07): Added Fire-and-Forget Pattern and Graceful Degradation patterns (from TODO_018 email notification implementation)
   - 2.1 (2025-12-09): Added "unique", "constraint", "duplicate" keywords to 409 status code inference
   - 2.0 (2025-11-29): Initial consolidated error handling patterns
@@ -257,6 +258,168 @@ throw new Error('User already exists'); // → 409
 throw new Error('Unique constraint violation'); // → 409
 throw new Error('Duplicate key value'); // → 409
 ```
+
+### Error Code Semantic Distinction: RATE_LIMIT_EXCEEDED vs. LIMIT_EXCEEDED (NEW - 2026-01-17)
+
+**Context:** Error codes serve as machine-readable identifiers for client-side error handling. Similar-sounding codes may have DISTINCT semantic meanings.
+
+**Problem:** Conflating `RATE_LIMIT_EXCEEDED` and `LIMIT_EXCEEDED` creates ambiguity in client error handling and user messaging.
+
+**Key Insight:** Error codes communicate the TYPE of limit exceeded, not just that a limit exists:
+- **RATE_LIMIT_EXCEEDED**: Too many requests per time window (temporal limit)
+- **LIMIT_EXCEEDED**: Reached a resource/quantity limit (capacity limit)
+
+#### Error Code Semantic Table
+
+| Error Code | Meaning | Example Scenarios | HTTP Status | Client Action |
+|-----------|---------|------------------|-------------|---------------|
+| `RATE_LIMIT_EXCEEDED` | Too many requests per time window | "5 login attempts in 1 minute", "100 API calls per hour" | 429 | Retry with exponential backoff, show countdown timer |
+| `LIMIT_EXCEEDED` | Reached resource/quantity limit | "Maximum 10 watch lists", "Daily notification limit reached" | 400 or 409 | Don't retry, show upgrade prompt or "delete existing items" |
+
+#### ✅ CORRECT - Use Distinct Error Codes
+
+```typescript
+// server/utils/error-handler.ts (error code inference)
+function inferErrorCode(error: Error, statusCode: number): string {
+  const lowerMessage = error.message.toLowerCase();
+
+  // RATE_LIMIT_EXCEEDED - Temporal rate limiting
+  if (lowerMessage.includes('rate limit')) {
+    return 'RATE_LIMIT_EXCEEDED';
+  }
+
+  // LIMIT_EXCEEDED - Generic resource/quantity limit
+  if (error.message.includes('limit')) {
+    return 'LIMIT_EXCEEDED';
+  }
+
+  // Other error codes...
+  return 'INTERNAL_SERVER_ERROR';
+}
+```
+
+**Implementation Examples:**
+
+```typescript
+// Rate limiting (temporal)
+if (requestCount > rateLimit) {
+  throw new Error('Rate limit exceeded');
+  // Inferred: RATE_LIMIT_EXCEEDED
+  // Client shows: "Too many requests. Please wait 30 seconds."
+}
+
+// Resource limit (capacity)
+if (watchLists.length >= MAX_WATCH_LISTS) {
+  throw new Error('Maximum watch list limit reached');
+  // Inferred: LIMIT_EXCEEDED
+  // Client shows: "You've reached the 10 watch list limit. Delete one to create another."
+}
+```
+
+#### Client-Side Handling Examples
+
+```typescript
+// client/src/lib/api-client.ts
+async function handleApiError(error: ApiError) {
+  switch (error.code) {
+    case 'RATE_LIMIT_EXCEEDED':
+      // Show countdown timer
+      const retryAfter = error.details?.retryAfter || 60;
+      showToast(`Too many requests. Please wait ${retryAfter} seconds.`, {
+        duration: retryAfter * 1000,
+        icon: '⏱️',
+      });
+      // Implement exponential backoff
+      return { shouldRetry: true, retryAfter };
+
+    case 'LIMIT_EXCEEDED':
+      // Show actionable message
+      if (error.message.includes('watch list')) {
+        showToast('Maximum 10 watch lists. Delete one to create another.', {
+          action: { label: 'Manage Lists', onClick: () => navigate('/watchlists') },
+        });
+      } else {
+        showToast('Limit reached. Please upgrade or delete items.', {
+          action: { label: 'Upgrade', onClick: () => navigate('/pricing') },
+        });
+      }
+      // Don't retry
+      return { shouldRetry: false };
+
+    default:
+      showToast('An error occurred. Please try again.');
+      return { shouldRetry: false };
+  }
+}
+```
+
+#### Why These Are NOT Interchangeable
+
+**RATE_LIMIT_EXCEEDED (429)**:
+- **Meaning**: "You're doing this too fast"
+- **Solution**: Wait and retry
+- **User action**: Passive waiting
+- **Example**: Login attempts, API calls, search requests
+
+**LIMIT_EXCEEDED (400/409)**:
+- **Meaning**: "You've hit a capacity/quota"
+- **Solution**: Delete existing items or upgrade plan
+- **User action**: Active management
+- **Example**: Watch list limit, daily notification quota, storage quota
+
+#### ❌ ANTI-PATTERN - Conflating Error Codes
+
+```typescript
+// WRONG - Using RATE_LIMIT_EXCEEDED for capacity limits
+if (watchLists.length >= MAX_WATCH_LISTS) {
+  throw new Error('Rate limit exceeded'); // ❌ Wrong semantic!
+  // Inferred: RATE_LIMIT_EXCEEDED
+  // Client shows countdown timer (incorrect UX!)
+}
+
+// WRONG - Using LIMIT_EXCEEDED for rate limiting
+if (requestCount > rateLimit) {
+  throw new Error('Limit exceeded'); // ❌ Missing "rate" keyword!
+  // Inferred: LIMIT_EXCEEDED
+  // Client shows "delete items" (incorrect UX!)
+}
+```
+
+#### Error Message Keywords for Inference
+
+**For RATE_LIMIT_EXCEEDED** (include "rate"):
+- ✅ "Rate limit exceeded"
+- ✅ "Too many requests per minute"
+- ✅ "Rate limiting applied"
+
+**For LIMIT_EXCEEDED** (generic "limit" without "rate"):
+- ✅ "Maximum limit reached"
+- ✅ "Watch list limit exceeded"
+- ✅ "Daily notification limit reached"
+
+#### Rationale
+
+- **Clear semantics**: Error code explicitly communicates limit type
+- **Client-side routing**: Different error codes trigger different UX
+- **User expectations**: Users understand temporal vs. capacity limits differently
+- **Retry logic**: Rate limits auto-resolve with time; capacity limits require action
+- **Monitoring**: Distinguish rate limiting issues from capacity planning needs
+
+#### Related Patterns
+
+- **Error Status Code Inference (above)**: How error messages map to codes
+- **Rate Limiting Patterns (04_SECURITY_PATTERNS.md)**: When to use 429 vs. 400
+- **User-Facing Error Messages (below)**: How to communicate limits to users
+
+**Real-World Review:**
+- **File:** `server/utils/error-handler.ts` (error code inference logic)
+- **Context:** Code review questioned RATE_LIMIT_EXCEEDED vs. LIMIT_EXCEEDED difference
+- **Decision:** Keep both codes - they serve distinct purposes
+
+*Source: Error handler code review session*
+*Added: 2026-01-17*
+
+---
 
 ### Custom Error Classes
 

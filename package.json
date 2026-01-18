@@ -26,6 +26,7 @@
     "test:e2e:bundle": "playwright test --config playwright.bundle.config.ts",
     "db:push": "drizzle-kit push",
     "migrate": "tsx scripts/run-migrations.ts",
+    "check:db": "tsx scripts/check-postgres.ts",
     "validate:schema": "tsx scripts/validate-schema-migrations.ts",
     "validate:fk-cascades": "tsx scripts/validate-fk-cascades.ts",
     "validate:schema-sync": "tsx scripts/validate-test-schema-sync.ts",

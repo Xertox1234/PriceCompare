@@ -49,6 +49,14 @@ import { registerApiV1Routes } from './api-v1-routes';
  * - If order is reversed, Basic Auth requests will incorrectly require CSRF tokens
  * - withAuth wrapper provides runtime validation that req.user exists
  *
+ * 📝 ADMIN ROUTES EXCEPTION:
+ * Admin routes (scraping-routes, affiliate-routes, monitoring-routes, etc.)
+ * intentionally use `csrfProtection, requireAuth, requireAdmin` WITHOUT flexibleAuth.
+ * This is by design:
+ * - Admin operations are web-app only (session-based authentication)
+ * - For API access to admin operations, use /api/v1/* routes with HTTP Basic Auth
+ * - This separation enforces that admin actions require the web dashboard context
+ *
  * Route organization:
  * - health-routes: Health check endpoints
  * - auth-routes: Authentication (register, login, logout, password reset)

@@ -989,7 +989,7 @@ export function registerApiV1Routes(app: Express): void {
    * API discovery endpoint - lists all available API v1 capabilities
    * Agent-native API catalog for self-discovery
    */
-  app.get('/api/v1', flexibleAuth, withAuth(async (_req: Request, res: Response) => {
+  app.get('/api/v1', flexibleAuth, withAuth((_req: Request, res: Response) => {
     try {
       logger.info('API v1: Discovery endpoint accessed');
 
@@ -1084,7 +1084,7 @@ export function registerApiV1Routes(app: Express): void {
    * OpenAPI 3.0 specification for API v1 endpoints
    * Enables automatic client SDK generation and documentation
    */
-  app.get('/api/v1/openapi.json', flexibleAuth, withAuth(async (_req: Request, res: Response) => {
+  app.get('/api/v1/openapi.json', flexibleAuth, withAuth((_req: Request, res: Response) => {
     try {
       logger.info('API v1: OpenAPI spec requested');
 

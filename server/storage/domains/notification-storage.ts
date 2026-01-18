@@ -308,9 +308,11 @@ export class NotificationStorage extends BaseStorage {
         this.db.transaction(
           async (tx) => {
             // Check daily limit within transaction
-            // IMPORTANT: Use UTC midnight to properly handle timezone differences
+            // IMPORTANT: Use local midnight because PostgreSQL 'timestamp' (without timezone)
+            // stores local time, but Drizzle interprets it as UTC when reading.
+            // Using setHours() (local) instead of setUTCHours() ensures the comparison works correctly.
             const today = new Date();
-            today.setUTCHours(0, 0, 0, 0);
+            today.setHours(0, 0, 0, 0); // Local midnight, not UTC
 
             const todayCount = await tx
               .select({ count: count() })

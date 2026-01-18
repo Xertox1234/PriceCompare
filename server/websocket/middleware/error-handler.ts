@@ -89,10 +89,12 @@ function getUserFriendlyMessage(error: unknown): string {
  */
 function getErrorCode(error: unknown): string | undefined {
   if (error instanceof Error) {
-    // Check for common error patterns (generic before specific to allow fallthrough)
+    const lowerMessage = error.message.toLowerCase();
+    // Check for specific patterns first, then generic ones
+    if (lowerMessage.includes('rate limit')) return 'RATE_LIMIT_EXCEEDED';
     if (error.message.includes('not found')) return 'NOT_FOUND';
     if (error.message.includes('unauthorized')) return 'UNAUTHORIZED';
-    if (error.message.includes('limit')) return 'LIMIT_EXCEEDED'; // Generic pattern first
+    if (error.message.includes('limit')) return 'LIMIT_EXCEEDED'; // Generic limit pattern
     if (error.message.includes('invalid')) return 'INVALID_INPUT';
   }
 
