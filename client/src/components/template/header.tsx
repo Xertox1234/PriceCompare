@@ -166,6 +166,11 @@ export function TemplateHeader({
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && searchQuery) {
+                        window.location.href = `/shop?search=${encodeURIComponent(searchQuery)}`;
+                      }
+                    }}
                     placeholder="Search for products, brands and more..."
                     className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus:ring-primary h-12 w-full rounded-lg border pr-12 pl-5 text-sm transition-all focus:border-transparent focus:ring-2 focus:outline-none"
                   />
@@ -458,6 +463,11 @@ export function TemplateHeader({
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && searchQuery) {
+                      window.location.href = `/shop?search=${encodeURIComponent(searchQuery)}`;
+                    }
+                  }}
                   placeholder="Search for products, brands and more..."
                   className="bg-muted border-border text-foreground placeholder:text-muted-foreground focus:ring-primary h-10 w-full rounded-lg border pr-12 pl-4 text-sm transition-all focus:border-transparent focus:ring-2 focus:outline-none"
                 />

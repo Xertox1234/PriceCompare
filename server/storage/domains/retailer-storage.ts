@@ -14,7 +14,6 @@ import { eq, asc, sql, inArray } from 'drizzle-orm';
 import { BaseStorage } from '../base-storage';
 import { retailers, productOffers, type Retailer, type InsertRetailer } from '@shared/schema';
 import type { RetailerWithAffiliateStats, AffiliateConfig } from '../types';
-import { logger } from '../../utils/logger';
 import { storageCache } from '../../services/storage-cache';
 
 export class RetailerStorage extends BaseStorage {
@@ -358,64 +357,56 @@ export class RetailerStorage extends BaseStorage {
   // ============================================================================
 
   /**
-   * Get retailers with affiliate stats (database aggregation + fault isolation)
-   * Uses Promise.allSettled for graceful error handling per retailer
+   * Get retailers with affiliate stats (single query with GROUP BY)
+   * N+1 Prevention: Uses LEFT JOIN + GROUP BY instead of per-retailer queries
    * @returns Array of retailers with affiliate statistics
    */
   async getRetailersWithAffiliateStats(): Promise<RetailerWithAffiliateStats[]> {
     try {
-      // Fetch all retailers
-      const allRetailers = await this.db.select().from(retailers).orderBy(asc(retailers.name));
-
-      // Use Promise.allSettled for graceful error handling per retailer
-      const results = await Promise.allSettled(
-        allRetailers.map(async (retailer) => {
-          // Get affiliate stats using database-level aggregation
-          const statsResult = await this.db
-            .select({
-              totalOffers: sql<number>`count(*)::int`,
-              offersWithAffiliateLinks: sql<number>`count(case when ${productOffers.affiliateUrl} is not null then 1 end)::int`,
-              totalClicks: sql<number>`coalesce(sum(${productOffers.clickCount}), 0)::int`,
-            })
-            .from(productOffers)
-            .where(eq(productOffers.retailerId, retailer.id));
-
-          const stats = statsResult[0] || {
-            totalOffers: 0,
-            offersWithAffiliateLinks: 0,
-            totalClicks: 0,
-          };
-
-          return {
-            ...retailer,
-            affiliateConfigParsed: retailer.affiliateConfig
-              ? (JSON.parse(retailer.affiliateConfig) as Record<string, unknown>)
-              : null,
-            stats,
-          };
+      // Single query with LEFT JOIN and GROUP BY - eliminates N+1 pattern
+      const results = await this.db
+        .select({
+          id: retailers.id,
+          name: retailers.name,
+          logo: retailers.logo,
+          website: retailers.website,
+          isActive: retailers.isActive,
+          affiliateId: retailers.affiliateId,
+          affiliateProgram: retailers.affiliateProgram,
+          baseAffiliateUrl: retailers.baseAffiliateUrl,
+          commissionRate: retailers.commissionRate,
+          affiliateStatus: retailers.affiliateStatus,
+          affiliateConfig: retailers.affiliateConfig,
+          totalOffers: sql<number>`count(${productOffers.id})::int`,
+          offersWithAffiliateLinks: sql<number>`count(case when ${productOffers.affiliateUrl} is not null then 1 end)::int`,
+          totalClicks: sql<number>`coalesce(sum(${productOffers.clickCount}), 0)::int`,
         })
-      );
+        .from(retailers)
+        .leftJoin(productOffers, eq(retailers.id, productOffers.retailerId))
+        .groupBy(retailers.id)
+        .orderBy(asc(retailers.name));
 
-      // Handle failures gracefully - return retailer with empty stats on error
-      const retailersWithStats = results.map((result, index) => {
-        if (result.status === 'fulfilled') {
-          return result.value;
-        }
-
-        // Log error but don't fail entire operation
-        logger.error('[RetailerStorage] Failed to fetch affiliate stats for retailer', {
-          retailerId: allRetailers[index].id,
-          error: result.reason instanceof Error ? result.reason.message : String(result.reason),
-        });
-
-        return {
-          ...allRetailers[index],
-          affiliateConfigParsed: allRetailers[index].affiliateConfig
-            ? (JSON.parse(allRetailers[index].affiliateConfig) as Record<string, unknown>)
-            : null,
-          stats: { totalOffers: 0, offersWithAffiliateLinks: 0, totalClicks: 0 },
-        };
-      });
+      const retailersWithStats: RetailerWithAffiliateStats[] = results.map((row) => ({
+        id: row.id,
+        name: row.name,
+        logo: row.logo,
+        website: row.website,
+        isActive: row.isActive,
+        affiliateId: row.affiliateId,
+        affiliateProgram: row.affiliateProgram,
+        baseAffiliateUrl: row.baseAffiliateUrl,
+        commissionRate: row.commissionRate,
+        affiliateStatus: row.affiliateStatus,
+        affiliateConfig: row.affiliateConfig,
+        affiliateConfigParsed: row.affiliateConfig
+          ? (JSON.parse(row.affiliateConfig) as Record<string, unknown>)
+          : null,
+        stats: {
+          totalOffers: row.totalOffers,
+          offersWithAffiliateLinks: row.offersWithAffiliateLinks,
+          totalClicks: row.totalClicks,
+        },
+      }));
 
       this.logSuccess('getRetailersWithAffiliateStats', { count: retailersWithStats.length });
       return retailersWithStats;

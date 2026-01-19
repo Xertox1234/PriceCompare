@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useSearch } from 'wouter';
 import {
   ChevronRight,
@@ -8,7 +8,6 @@ import {
   SlidersHorizontal,
   Grid3X3,
   LayoutList,
-  ChevronLeft,
   Loader2,
 } from 'lucide-react';
 import { Link } from 'wouter';
@@ -74,6 +73,7 @@ const sortOptions = [
 ];
 
 interface Filters {
+  query: string | null;
   category: string | null;
   brands: string[];
   priceRange: { min: number; max: number } | null;
@@ -110,6 +110,7 @@ function ProductsContent() {
 
   // Filter states
   const [filters, setFilters] = useState<Filters>({
+    query: initialSearch,
     category: initialCategory,
     brands: [],
     priceRange: null,
@@ -121,6 +122,9 @@ function ProductsContent() {
   const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+
   // Bulk watchlist add state
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
   const [bulkAddDialogOpen, setBulkAddDialogOpen] = useState(false);
@@ -130,10 +134,56 @@ function ProductsContent() {
   const [customMinPrice, setCustomMinPrice] = useState('');
   const [customMaxPrice, setCustomMaxPrice] = useState('');
 
-  // Build API search filters
+  // Sync filters with URL changes (e.g., when navigating via header links)
+  useEffect(() => {
+    const urlCategory = urlParams.get('category');
+    const urlSearch = urlParams.get('search');
+    const urlDeals = urlParams.get('deals');
+
+    // Update query if URL changed
+    if (urlSearch !== filters.query) {
+      setFilters(prev => ({
+        ...prev,
+        query: urlSearch,
+      }));
+    }
+
+    // Update category if URL changed
+    if (urlCategory !== filters.category) {
+      setFilters(prev => ({
+        ...prev,
+        category: urlCategory,
+      }));
+    }
+
+    // Handle deals filter from URL
+    if (urlDeals === 'true' && filters.deals !== 'discounts') {
+      setFilters(prev => ({
+        ...prev,
+        deals: 'discounts',
+      }));
+    }
+  }, [searchParams]); // Re-run when search params change
+
+  // Atomic filter reset - prevents race conditions
+  // Reset page to 1 when ANY filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    filters.query,
+    filters.category,
+    filters.brands,
+    filters.priceRange,
+    filters.rating,
+    filters.deals,
+    filters.condition,
+    sortBy,
+  ]);
+
+  // Build API search filters from filters state
   const apiFilters = useMemo(
     () => ({
-      query: initialSearch || undefined,
+      query: filters.query || undefined,
       category: filters.category || undefined,
       minPrice: filters.priceRange?.min,
       maxPrice: filters.priceRange?.max === Infinity ? undefined : filters.priceRange?.max,
@@ -143,17 +193,18 @@ function ProductsContent() {
           ? (sortBy as 'price_low' | 'price_high' | 'rating' | 'popularity')
           : undefined,
     }),
-    [initialSearch, filters.category, filters.priceRange, filters.rating, sortBy]
+    [filters.query, filters.category, filters.priceRange, filters.rating, sortBy]
   );
 
   // Fetch products from API
-  const { data: productsData, isLoading, error } = useProducts(apiFilters);
+  const { data: productsData, isLoading, error } = useProducts(apiFilters, currentPage, 20);
+  const meta = productsData?.meta;
 
   // Transform API products to ProductData format
   const filteredProducts = useMemo(() => {
     if (!productsData) return [];
 
-    let result = productsData.map(transformProduct);
+    let result = productsData.data.map(transformProduct);
 
     // Apply client-side brand filter (not available in API)
     if (filters.brands.length > 0) {
@@ -176,6 +227,7 @@ function ProductsContent() {
 
   // Check if any filters are active
   const hasActiveFilters =
+    filters.query ||
     filters.category ||
     filters.brands.length > 0 ||
     filters.priceRange ||
@@ -185,6 +237,7 @@ function ProductsContent() {
 
   const clearAllFilters = () => {
     setFilters({
+      query: null,
       category: null,
       brands: [],
       priceRange: null,
@@ -583,12 +636,12 @@ function ProductsContent() {
 
                 {/* Results count */}
                 <p className="text-muted-foreground text-sm">
-                  <span className="text-foreground font-medium">{products.length}</span> products
+                  <span className="text-foreground font-medium">{meta?.total ?? products.length}</span> products
                   found
-                  {initialSearch && (
+                  {filters.query && (
                     <span>
                       {' '}
-                      for "<span className="text-foreground font-medium">{initialSearch}</span>"
+                      for "<span className="text-foreground font-medium">{filters.query}</span>"
                     </span>
                   )}
                 </p>
@@ -817,31 +870,34 @@ function ProductsContent() {
               </div>
             )}
 
-            {/* Pagination */}
-            {products.length > 0 && (
-              <div className="mt-12 flex items-center justify-center gap-2">
-                <button
-                  className="border-border hover:bg-muted rounded-lg border p-2 transition-colors disabled:opacity-50"
-                  disabled
+            {/* Pagination UI - Only show when there are multiple pages */}
+            {meta && meta.totalPages > 1 && (
+              <div className="flex items-center justify-center gap-4 mt-8" data-testid="pagination-container">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setCurrentPage(p => Math.max(1, p - 1));
+                    window.scrollTo(0, 0);
+                  }}
+                  disabled={currentPage === 1}
+                  data-testid="pagination-prev"
                 >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-                <button className="bg-primary h-10 w-10 rounded-lg font-medium text-white">
-                  1
-                </button>
-                <button className="border-border hover:bg-muted h-10 w-10 rounded-lg border font-medium transition-colors">
-                  2
-                </button>
-                <button className="border-border hover:bg-muted h-10 w-10 rounded-lg border font-medium transition-colors">
-                  3
-                </button>
-                <span className="text-muted-foreground px-2">...</span>
-                <button className="border-border hover:bg-muted h-10 w-10 rounded-lg border font-medium transition-colors">
-                  10
-                </button>
-                <button className="border-border hover:bg-muted rounded-lg border p-2 transition-colors">
-                  <ChevronRight className="h-5 w-5" />
-                </button>
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground" data-testid="pagination-info">
+                  Page {currentPage} of {meta.totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setCurrentPage(p => Math.min(meta.totalPages, p + 1));
+                    window.scrollTo(0, 0);
+                  }}
+                  disabled={currentPage === meta.totalPages}
+                  data-testid="pagination-next"
+                >
+                  Next
+                </Button>
               </div>
             )}
           </div>
