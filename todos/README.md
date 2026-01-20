@@ -4,9 +4,16 @@ This folder contains TODO items for the PriceCompare project. Completed TODOs ar
 
 ## Active TODOs
 
-Currently, there are **3 active TODOs**:
+Currently, there are **4 active TODOs**:
 
-### 🟡 Medium Priority (3)
+### 🟡 Medium Priority (4)
+- **TODO_248 (Pre-commit Hook Warnings)** - P3, ~2-3 hours
+  - **Problem**: Pre-commit hook reports recurring warnings for bcrypt rounds, type assertions, and test cleanup
+  - **Warnings**: Hardcoded bcrypt rounds, undocumented type assertions, `db.delete()` vs `TRUNCATE`
+  - **Impact**: Technical debt, code quality warnings on every commit
+  - **Files**: Test files, `server/storage/domains/retailer-storage.ts`
+  - **Key Tasks**: Centralize constants, add safety comments, migrate to TRUNCATE where appropriate
+
 - **TODO_231 (Unimplemented UI Elements)** - P2, ~10 hours 📋 Comprehensive UI Tracker
   - **Problem**: 16 UI elements missing across 6 feature areas
   - **Categories**: Price Analytics (7), Notifications (4), Watchlist (2), Product Discovery (1), Product Detail (1), Accessibility (1)
@@ -31,7 +38,12 @@ Currently, there are **3 active TODOs**:
   - **E2E Tests**: 1 skipped test waiting for button
   - **Original estimate**: 1-2 hours → **Actual**: 10 minutes (92% time savings)
 
-### ✅ Archived (10)
+### ✅ Archived (11)
+- **TODO_247 (Product Listing Pagination)** → Completed 2026-01-19
+  - **Solution**: Added pagination to useProducts hook with atomic filter reset
+  - **Implementation**: Prev/Next buttons, page state, 12 E2E tests
+  - **Bonus**: Fixed header search Enter key support
+
 - **TODO_227 (Scraper Retry Logic)** → Completed 2026-01-15
   - **Problem**: Retry utility existed but NOT applied to scraper jobs - transient failures caused permanent data gaps
   - **Solution**: Applied multi-layer retry strategy with intelligent error classification

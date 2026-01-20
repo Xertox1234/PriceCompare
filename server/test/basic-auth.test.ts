@@ -15,6 +15,7 @@ import type { SafeUser } from '../storage/types';
 import { basicAuth } from '../middleware/basic-auth';
 import { withAuth, withAdmin } from '../routes/helpers';
 import { sendSuccess, sendErrorFromException } from '../utils/api-response';
+import { PASSWORD } from '../utils/constants';
 import { db } from '../db';
 import { sql } from 'drizzle-orm';
 
@@ -446,8 +447,8 @@ describe('HTTP Basic Auth - Integration Tests', () => {
       // Create a test user with a weak hash (4 rounds - bcrypt minimum)
       const bcrypt = await import('bcrypt');
       const weakPassword = 'TestPassword123!';
-      // SECURITY TEST: Intentionally weak hash (4 rounds) to test weak password detection/upgrade
-      const weakHash = await bcrypt.hash(weakPassword, 4);
+      // SECURITY TEST: Intentionally weak hash to test weak password detection/upgrade
+      const weakHash = await bcrypt.hash(weakPassword, PASSWORD.BCRYPT_ROUNDS_TEST);
 
       // Create user normally first
       const weakUser = await storage.registerUser({

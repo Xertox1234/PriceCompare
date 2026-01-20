@@ -398,6 +398,7 @@ export class RetailerStorage extends BaseStorage {
         commissionRate: row.commissionRate,
         affiliateStatus: row.affiliateStatus,
         affiliateConfig: row.affiliateConfig,
+        // SAFETY: affiliateConfig is a TEXT column storing JSON. Valid JSON parses to Record<string, unknown>
         affiliateConfigParsed: row.affiliateConfig
           ? (JSON.parse(row.affiliateConfig) as Record<string, unknown>)
           : null,

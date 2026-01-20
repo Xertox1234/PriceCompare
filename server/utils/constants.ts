@@ -15,7 +15,8 @@ export const PASSWORD = {
   REQUIRE_NUMBER: true,
   REQUIRE_SPECIAL: true,
   MIN_STRENGTH_SCORE: 3, // zxcvbn score (0-4)
-  BCRYPT_ROUNDS: 12, // Cost factor for password hashing
+  BCRYPT_ROUNDS: 12, // Cost factor for password hashing (production security)
+  BCRYPT_ROUNDS_TEST: 4, // Fast tests (intentionally weak, bcrypt minimum)
 } as const;
 
 /**

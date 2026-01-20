@@ -735,9 +735,28 @@ export const PASSWORD = {
   REQUIRE_NUMBER: true,
   REQUIRE_SPECIAL: true,
   MIN_STRENGTH_SCORE: 3,
-  BCRYPT_ROUNDS: 12,
+  BCRYPT_ROUNDS: 12,        // Production security (12 rounds)
+  BCRYPT_ROUNDS_TEST: 4,    // Fast tests (intentionally weak, bcrypt minimum)
 } as const;
 ```
+
+#### Using BCRYPT_ROUNDS_TEST in Tests
+
+Test files that need to hash passwords should use `PASSWORD.BCRYPT_ROUNDS_TEST` for performance:
+
+```typescript
+// ✅ CORRECT - Fast test with centralized constant
+import { PASSWORD } from '../utils/constants';
+const hash = await bcrypt.hash(password, PASSWORD.BCRYPT_ROUNDS_TEST);
+
+// ❌ WRONG - Hardcoded rounds triggers WARNING 13
+const hash = await bcrypt.hash(password, 4);
+```
+
+**Why separate test rounds?**
+- Production uses 12 rounds for security (~250ms per hash)
+- Tests use 4 rounds for speed (~1ms per hash)
+- Centralized constant ensures consistency across all tests
 
 ### Password Validation Completeness
 

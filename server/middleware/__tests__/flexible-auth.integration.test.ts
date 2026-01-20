@@ -61,9 +61,8 @@ describe('Flexible Auth Integration Tests', () => {
   });
 
   afterAll(async () => {
-    // Cleanup test user
     if (testUser?.id) {
-      await db.delete(users).where(eq(users.id, testUser.id));
+      await db.delete(users).where(eq(users.id, testUser.id)); // Testing delete functionality
     }
   });
 
