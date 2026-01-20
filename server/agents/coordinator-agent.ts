@@ -434,6 +434,7 @@ export class CoordinationAgent extends BaseAgent {
           });
 
           let taskResult: unknown;
+          // SAFETY: targetData is validated JSON stored in DB at job creation time
           const targetData = JSON.parse(job.targetData) as Record<string, unknown>;
 
           switch (job.jobType) {

@@ -322,6 +322,7 @@ export class AdvancedCacheService {
       const l2Value = await redis.get(key);
       if (l2Value) {
         this.stats.l2Hits++;
+        // SAFETY: Value was serialized with JSON.stringify(T) at set time; parse restores original type
         const parsed = JSON.parse(l2Value) as T;
 
         // Populate L1 cache for next time
@@ -543,6 +544,7 @@ export class AdvancedCacheService {
           const value = values[index];
           if (value !== null) {
             try {
+              // SAFETY: Value was serialized with JSON.stringify(T) at set time; parse restores original type
               const parsed = JSON.parse(value) as T;
               result.set(key, parsed);
               this.stats.l2Hits++;

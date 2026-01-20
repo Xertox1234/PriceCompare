@@ -282,6 +282,7 @@ export class PriceMonitoringAgent extends BaseAgent {
    * Get monitoring statistics using storage layer
    */
   async getMonitoringStats(): Promise<MonitoringStats> {
+    // SAFETY: storage.getMonitoringStats() returns data matching MonitoringStats interface
     return storage.getMonitoringStats() as Promise<MonitoringStats>;
   }
 

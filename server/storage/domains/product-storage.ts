@@ -556,6 +556,7 @@ export class ProductStorage extends BaseStorage {
         let offers: Array<ProductOffer & { retailer: Retailer }> = [];
         if (row.topOffers) {
           if (typeof row.topOffers === 'string') {
+            // SAFETY: topOffers is built by json_agg() in SQL query with known column structure
             offers = JSON.parse(row.topOffers) as Array<ProductOffer & { retailer: Retailer }>;
           } else if (Array.isArray(row.topOffers)) {
             offers = row.topOffers as Array<ProductOffer & { retailer: Retailer }>;

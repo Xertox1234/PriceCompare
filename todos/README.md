@@ -4,7 +4,20 @@ This folder contains TODO items for the PriceCompare project. Completed TODOs ar
 
 ## Active TODOs
 
-Currently, there are **4 active TODOs**:
+Currently, there are **6 active TODOs**:
+
+### 🔴 High Priority (2)
+- **TODO_249 (API Response Type Guards)** - P1, ~1-2 hours
+  - **Problem**: Chart components use unsafe type assertions when parsing API responses
+  - **Files**: `client/src/components/price-history/price-history-chart-enhanced.tsx`
+  - **Solution**: Create type guards for price history API responses, add Zod validation
+  - **Impact**: Runtime errors possible from malformed data
+
+- **TODO_250 (JSON Parsing Validation)** - P1, ~1 hour
+  - **Problem**: JSON parsing uses type assertions without error handling
+  - **Files**: `server/storage/domains/retailer-storage.ts`, `server/agents/coordinator-agent.ts`, `server/services/advanced-cache.ts`
+  - **Solution**: Create safe JSON parser utility with try-catch and optional Zod validation
+  - **Impact**: Uncaught exceptions from malformed JSON
 
 ### 🟡 Medium Priority (4)
 - **TODO_248 (Pre-commit Hook Warnings)** - P3, ~2-3 hours

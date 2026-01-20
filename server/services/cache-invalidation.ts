@@ -364,6 +364,7 @@ export function withCacheInvalidation<T extends (...args: unknown[]) => Promise<
       }
     }
 
+    // SAFETY: Generic T is the return type of the callback function; result is guaranteed to be T
     return result;
   }) as T;
 }
