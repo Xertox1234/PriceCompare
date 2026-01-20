@@ -1,6 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import type { PriceHistory, PriceSnapshot } from '@shared/schema';
+import { isPriceHistoryApiResponse, validatePriceHistoryEntries } from '@shared/api-types';
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('PriceHistory');
 
 export interface PriceStats {
   currentPrice: number;
@@ -101,9 +105,33 @@ export function usePriceHistory(
         queryParams.append('days', params.days.toString());
       }
 
-      return apiRequest<PriceHistoryResponse>(
+      const response: unknown = await apiRequest<PriceHistoryResponse>(
         `/api/products/${productId}/offers/${offerId}/price-history?${queryParams.toString()}`
       );
+
+      // Runtime validation of API response structure
+      if (!isPriceHistoryApiResponse(response)) {
+        log.warn('API response failed validation, attempting to recover');
+
+        // Attempt to recover by validating individual entries
+        const maybeResponse = response as { data?: unknown[] } | null;
+        if (maybeResponse && Array.isArray(maybeResponse.data)) {
+          const validatedEntries = validatePriceHistoryEntries(maybeResponse.data);
+          return {
+            data: validatedEntries as PriceHistory[],
+            count: validatedEntries.length,
+          };
+        }
+
+        // Return empty response if recovery fails
+        return { data: [], count: 0 };
+      }
+
+      // Type guard narrows to PriceHistoryApiResponse
+      return {
+        data: response.data as PriceHistory[],
+        count: response.count,
+      };
     },
     enabled: !!productId && !!offerId,
     staleTime: 5 * 60 * 1000, // 5 minutes

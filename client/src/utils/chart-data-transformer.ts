@@ -1,13 +1,51 @@
 import { format, parseISO, startOfWeek, startOfMonth } from 'date-fns';
+import {
+  isChartPriceDataPoint,
+  safeParsePriceToNumber,
+  type ChartPriceDataPoint,
+} from '@shared/api-types';
+import { createLogger } from '@/utils/logger';
 
-export interface PriceDataPoint {
-  id: number;
-  productId: number;
-  retailerId: number;
-  retailerName: string;
-  retailerLogo: string | null;
-  price: string;
-  recordedAt: Date | string;
+const log = createLogger('ChartData');
+
+/**
+ * Price data point for chart rendering
+ *
+ * This is an alias for ChartPriceDataPoint from shared/api-types
+ * to maintain backwards compatibility with existing chart code.
+ */
+export type PriceDataPoint = ChartPriceDataPoint;
+
+/**
+ * Validate and filter price data points for chart rendering
+ *
+ * Filters out invalid entries to prevent runtime errors in chart components.
+ * Uses type guards from shared/api-types for consistent validation.
+ *
+ * @param data - Array of potentially invalid price data points
+ * @returns Array of validated PriceDataPoint objects
+ */
+export function validatePriceDataPoints(data: unknown[]): PriceDataPoint[] {
+  const validPoints: PriceDataPoint[] = [];
+  let invalidCount = 0;
+
+  for (const item of data) {
+    if (isChartPriceDataPoint(item)) {
+      // Type guard narrows item to ChartPriceDataPoint (= PriceDataPoint)
+      validPoints.push(item);
+    } else {
+      invalidCount++;
+      if (invalidCount <= 3) {
+        log.warn('Invalid price data point filtered out', { item });
+      }
+    }
+  }
+
+  if (invalidCount > 0) {
+    log.warn('Invalid data points filtered out', { count: invalidCount });
+  }
+
+  return validPoints;
 }
 
 export interface AggregatedDataPoint {
@@ -86,7 +124,8 @@ export function aggregatePriceData(
 
     // Calculate average for each group
     grouped.forEach((groupPoints, dateKey) => {
-      const prices = groupPoints.map((p) => parseFloat(p.price));
+      const prices = groupPoints.map((p) => safeParsePriceToNumber(p.price, 0)).filter((p) => p > 0);
+      if (prices.length === 0) return; // Skip groups with no valid prices
       const avgPrice = prices.reduce((sum, p) => sum + p, 0) / prices.length;
 
       // Use the first point as template
@@ -142,8 +181,11 @@ export function transformForChart(
       date: dateKey,
       timestamp: date.getTime(),
     };
-    dateData[retailerKey] = parseFloat(item.price);
-    dataByDate.set(dateKey, dateData);
+    const parsedPrice = safeParsePriceToNumber(item.price, -1);
+    if (parsedPrice >= 0) {
+      dateData[retailerKey] = parsedPrice;
+      dataByDate.set(dateKey, dateData);
+    }
   });
 
   // Convert to array and sort by date
@@ -225,13 +267,25 @@ export function transformForChartCached(
 
 /**
  * Calculate statistics for price data
+ *
+ * Uses safeParsePriceToNumber for robust price parsing that handles
+ * invalid values gracefully (filters them out instead of producing NaN).
  */
 export function calculatePriceStats(data: PriceDataPoint[]) {
   if (data.length === 0) {
     return null;
   }
 
-  const prices = data.map((item) => parseFloat(item.price));
+  // Filter out invalid prices (parse and exclude NaN/invalid values)
+  const prices = data
+    .map((item) => safeParsePriceToNumber(item.price, -1))
+    .filter((price) => price >= 0);
+
+  if (prices.length === 0) {
+    log.warn('No valid prices found in data');
+    return null;
+  }
+
   const sum = prices.reduce((acc, price) => acc + price, 0);
   const avg = sum / prices.length;
   const min = Math.min(...prices);

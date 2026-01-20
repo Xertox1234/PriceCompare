@@ -1,7 +1,7 @@
 # TypeScript Patterns & Anti-Patterns
 
-**Version:** 2.9
-**Last Updated:** 2026-01-15
+**Version:** 2.10
+**Last Updated:** 2026-01-20
 **Domain:** TypeScript, Type Safety, Async/Await, Zod Validation
 **Migrated From:**
 - docs/TYPESCRIPT_PATTERNS.md (v1.0)
@@ -9,6 +9,7 @@
 - TODO 2026: Zod validation for CHECK constraints (v2.1)
 
 **Changelog:**
+- 2.10 (2026-01-20): Added Database Schema-Aware Type Guards, Decimal Parseability Validation, Safe Parsing Utility patterns (from TODO_249)
 - 2.9 (2026-01-15): Added Type-Safe Bull Job Data Access pattern (from TODO_227 retry logic)
 - 2.8 (2026-01-06): Added Maintenance Documentation for Synchronized Lists Pattern (from TODO_012 code review)
 - 2.7 (2026-01-04): Added TypeScript Assertion Signatures for Validation Helpers pattern (from TODO 002 code review)
@@ -35,6 +36,8 @@ This document codifies TypeScript patterns to ensure type safety and prevent run
 - [Error Type Handling](#error-type-handling)
 - [Async/Promise Patterns](#asyncpromise-patterns)
 - [Type Guards & Narrowing](#type-guards--narrowing)
+  - [Database Schema-Aware Type Guards](#database-schema-aware-type-guards-new---2026-01-20) ⭐ **NEW**
+  - [Decimal Type Parseability Validation](#decimal-type-parseability-validation-new---2026-01-20) ⭐ **NEW**
 - [Non-Null Assertion Patterns](#non-null-assertion-patterns-new---2025-12-04)
 - [Generic Patterns](#generic-patterns)
 - [Maintenance Documentation for Synchronized Lists](#maintenance-documentation-for-synchronized-lists-new---2026-01-06) ⭐ **NEW**
@@ -2762,6 +2765,162 @@ export function validateOutput(
   // Now safe to proceed with validation...
 }
 ```
+
+---
+
+### Database Schema-Aware Type Guards (NEW - 2026-01-20)
+
+**Context:** When validating API responses that map to database entities, especially for client-side rendering (charts, tables, forms).
+
+**Problem:** Basic type guards only check TypeScript types (`typeof`, `instanceof`), but don't validate runtime constraints from database schema (NOT NULL, positive IDs, CHECK constraints). This causes runtime errors when invalid data reaches rendering logic.
+
+**Source:** TODO 249 - API Response Type Guards (`shared/api-types.ts` lines 201-226)
+
+#### ✅ CORRECT - Schema-Aware Type Guard
+
+```typescript
+// Validate against database schema constraints
+export function isPriceHistoryEntry(data: unknown): data is PriceHistoryEntry {
+  if (typeof data !== 'object' || data === null) {
+    return false;
+  }
+
+  const entry = data as Record<string, unknown>;
+
+  // Required fields (matches database schema: all these are NOT NULL)
+  if (typeof entry.id !== 'number' || entry.id <= 0) return false;
+  if (typeof entry.productOfferId !== 'number' || entry.productOfferId <= 0) return false;
+  if (typeof entry.productId !== 'number' || entry.productId <= 0) return false;
+  if (typeof entry.retailerId !== 'number' || entry.retailerId <= 0) return false;
+
+  // Price must be a string (Decimal type in DB) and parseable as a valid number
+  if (typeof entry.price !== 'string') return false;
+  const priceNum = parseFloat(entry.price);
+  if (isNaN(priceNum) || priceNum < 0) return false;
+
+  // recordedAt is required (NOT NULL in schema)
+  if (entry.recordedAt === undefined || entry.recordedAt === null) return false;
+  if (typeof entry.recordedAt !== 'string' && !(entry.recordedAt instanceof Date)) {
+    return false;
+  }
+
+  return true;
+}
+```
+
+#### ❌ WRONG - Only Checks Existence (Not Schema Constraints)
+
+```typescript
+function isPriceHistoryEntry(data: unknown): data is PriceHistoryEntry {
+  if (typeof data !== 'object' || data === null) return false;
+
+  const entry = data as Record<string, unknown>;
+
+  // ❌ Doesn't validate NOT NULL constraints
+  // ❌ Doesn't validate positive numbers for IDs
+  // ❌ Doesn't validate price parseability
+  return 'id' in entry && 'price' in entry && 'recordedAt' in entry;
+}
+```
+
+#### When to Use
+
+✅ **Use schema-aware type guards when:**
+- Validating API responses for database-backed entities
+- Client-side hooks consuming API data (React Query, SWR)
+- Before passing data to chart/visualization libraries
+- Anywhere TypeScript types aren't sufficient for runtime safety
+
+❌ **Standard type guards are sufficient when:**
+- Data comes from trusted internal sources (already validated by storage layer)
+- Simple type checks without database constraint requirements
+- Performance-critical hot paths where validation overhead matters
+
+#### Rationale
+
+- **Database constraints represent business rules**: NOT NULL, CHECK, FK constraints
+- **Early validation provides better errors**: Catch at API boundary, not during render
+- **IDs must be positive**: Database serial/integer IDs are always > 0
+- **Decimal fields need parseability**: Drizzle maps DECIMAL→string, but consumers need numbers
+
+**Related Patterns:**
+- [DECIMAL Field Validation](#decimal-field-validation-with-drizzle-orm-critical---phase-5) - Schema-level validation
+- [Type Predicates](#type-predicates) - Basic type guard syntax
+- See `docs/02_DATABASE_PATTERNS.md` for database schema patterns
+
+---
+
+### Decimal Type Parseability Validation (NEW - 2026-01-20)
+
+**Context:** Drizzle ORM maps PostgreSQL DECIMAL types to JavaScript strings to preserve precision. API consumers often expect numeric values.
+
+**Problem:** Type guards that check `typeof price === 'string'` pass strings like `"not-a-number"`, `"NaN"`, or `""` which cause runtime errors when parsed.
+
+**Source:** TODO 249 - API Response Type Guards (`shared/api-types.ts` lines 214-217)
+
+#### ✅ CORRECT - Validate String AND Parseability
+
+```typescript
+// Price must be a string (Decimal type in DB) AND parseable as valid number
+if (typeof entry.price !== 'string') return false;
+const priceNum = parseFloat(entry.price);
+if (isNaN(priceNum) || priceNum < 0) return false;  // Reject NaN and negative prices
+```
+
+#### ❌ WRONG - Only Validates String Type
+
+```typescript
+// ❌ Passes invalid values like "not-a-number", "NaN", ""
+if (typeof entry.price !== 'string') return false;
+// Missing parseability check!
+```
+
+#### Safe Parsing Utility (Recommended)
+
+```typescript
+/**
+ * Safely parse a price string to a number
+ * Never returns NaN - always returns valid number or fallback
+ */
+export function safeParsePriceToNumber(price: unknown, fallback = 0): number {
+  if (typeof price === 'number') {
+    return isNaN(price) ? fallback : price;
+  }
+
+  if (typeof price !== 'string') {
+    return fallback;
+  }
+
+  const parsed = parseFloat(price);
+  return isNaN(parsed) ? fallback : parsed;
+}
+
+// Usage in aggregation/statistics
+const prices = data
+  .map((item) => safeParsePriceToNumber(item.price, -1))
+  .filter((price) => price >= 0);  // Filter out invalid (-1) values
+```
+
+#### Why This Matters
+
+**Drizzle ORM Decimal Mapping:**
+```typescript
+// In schema.ts
+price: decimal('price', { precision: 10, scale: 2 }).notNull()
+
+// Returns from database as:
+{ price: "29.99" }  // String, not number!
+
+// Common mistake:
+const total = item.price * quantity;  // ❌ "29.99" * 2 = NaN (string * number)
+
+// Correct:
+const total = safeParsePriceToNumber(item.price) * quantity;  // ✅ 29.99 * 2 = 59.98
+```
+
+**Related Patterns:**
+- [DECIMAL Field Validation](#decimal-field-validation-with-drizzle-orm-critical---phase-5) - Zod schema validation
+- [Database Schema-Aware Type Guards](#database-schema-aware-type-guards-new---2026-01-20) - Full type guard pattern
 
 ---
 

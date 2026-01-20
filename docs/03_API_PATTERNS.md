@@ -1,10 +1,11 @@
 # API & Route Patterns
 
-**Version:** 2.4
-**Last Updated:** 2026-01-04
+**Version:** 2.5
+**Last Updated:** 2026-01-20
 **Migrated From:** 6 source documents (see References)
 **Status:** Active - Mandatory for all API/route code
 **Changelog:**
+- 2.5 (2026-01-20): Added Graceful Degradation (Filter-Not-Throw) pattern for client-side API consumption (from TODO 249)
 - 2.4 (2026-01-04): Added Backward Compatibility with Parallel Methods pattern and Avoid Client-Side Data Transformation pattern (from TODO 003 - highPriorityCount calculation)
 - 2.3 (2025-12-27): Added Unified Authentication Middleware Pattern (flexibleAuth + withAuth mandatory wrapper)
 - 2.2 (2025-12-26): Added Agent-Native Authentication Design pattern (HTTP Basic Auth)
@@ -2851,6 +2852,101 @@ app.get("/api/products/:id", async (req, res) => {
 - Consistent error response format
 - Automatic logging
 - Clear, maintainable code
+
+---
+
+### Graceful Degradation (Filter-Not-Throw) Pattern
+
+**Purpose**: For client-side API consumption, filter out invalid entries rather than throwing errors. Partial valid data is better than a broken UI.
+
+**When to Use**:
+- Chart/visualization components that can render with partial data
+- List displays where missing items don't break the UI
+- Non-critical data where UX continuity matters more than completeness
+- API responses that may contain malformed entries from external sources
+
+**When NOT to Use**:
+- Critical operations where partial data could cause incorrect behavior
+- Financial calculations where missing entries affect totals
+- Data integrity operations (backups, exports, audits)
+
+**Pattern Implementation**:
+
+```typescript
+// ✅ CORRECT - Graceful degradation with logging
+import { isPriceHistoryApiResponse, validatePriceHistoryEntries } from '@shared/api-types';
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('PriceHistory');
+
+export async function fetchPriceHistory(productId: number, offerId: number) {
+  const response: unknown = await apiRequest<PriceHistoryResponse>(
+    `/api/products/${productId}/offers/${offerId}/price-history`
+  );
+
+  // Validate API response structure
+  if (!isPriceHistoryApiResponse(response)) {
+    log.warn('API response failed validation, attempting to recover', {
+      productId,
+      offerId,
+      responseType: typeof response,
+    });
+
+    // Attempt recovery by validating individual entries
+    const maybeResponse = response as { data?: unknown[] } | null;
+    if (maybeResponse && Array.isArray(maybeResponse.data)) {
+      const validatedEntries = validatePriceHistoryEntries(maybeResponse.data);
+      log.info('Recovered partial data', {
+        original: maybeResponse.data.length,
+        valid: validatedEntries.length,
+        filtered: maybeResponse.data.length - validatedEntries.length,
+      });
+      return {
+        data: validatedEntries,
+        count: validatedEntries.length,
+      };
+    }
+
+    // Return empty response if recovery fails (don't crash the UI)
+    log.warn('Recovery failed, returning empty response');
+    return { data: [], count: 0 };
+  }
+
+  // Type guard narrows to validated response
+  return {
+    data: response.data,
+    count: response.count,
+  };
+}
+```
+
+**Key Principles**:
+
+1. **Log warnings, don't throw** - Track issues for debugging without crashing
+2. **Attempt recovery** - Try to salvage valid entries before giving up
+3. **Return empty over error** - For display-only data, empty array beats error modal
+4. **Include diagnostics** - Log enough context to debug later (counts, types, samples)
+
+**Anti-Pattern - Throw on Validation Failure**:
+
+```typescript
+// ❌ WRONG - Throws on any invalid entry
+const response = await apiRequest<PriceHistoryResponse>(url);
+if (!isPriceHistoryApiResponse(response)) {
+  throw new Error('Invalid API response');  // Crashes entire component!
+}
+```
+
+**Why this pattern matters**: API responses can contain malformed data due to:
+- Database schema migrations in progress
+- Third-party data source inconsistencies
+- Race conditions during updates
+- Legacy data before validation was added
+
+A chart showing 95% of price history is better than an error message.
+
+*Source: TODO 249 - Added runtime type guards to chart components*
+*Added: 2026-01-20*
 
 ---
 
