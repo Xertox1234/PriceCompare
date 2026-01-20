@@ -51,7 +51,7 @@ Follow `CLAUDE.md` (Security Patterns section) and `docs/04_SECURITY_PATTERNS.md
    const id = parseIntSafe(req.params.id, 'productId', { min: 1 });
    ```
 
-3. **Sanitize errors in production** using `server/utils/error-sanitizer.ts`
+3. **Sanitize errors in production** using `server/utils/api-response.ts`
 
    ```typescript
    // ❌ WRONG - leaks implementation details
@@ -60,14 +60,10 @@ Follow `CLAUDE.md` (Security Patterns section) and `docs/04_SECURITY_PATTERNS.md
    }
 
    // ✅ CORRECT - sanitized error response
-   import { createErrorResponse } from './utils/error-sanitizer';
+   import { sendErrorFromException } from './utils/api-response';
    catch (error) {
-     console.error('Operation failed:', error);
-     const errorResponse = createErrorResponse(error, 'Operation');
-     res.status(errorResponse.status).json({
-       error: errorResponse.error,
-       details: errorResponse.details // Only in development
-     });
+     // sendErrorFromException handles logging, Sentry capture, and sanitization
+     sendErrorFromException(res, error, 'Operation');
    }
    ```
 
@@ -226,7 +222,7 @@ const allOffers = await db
   .where(inArray(productOffers.productId, productIds));
 // Group offers by productId in application code
 
-// ✅ BEST - Use array_agg() for grouped data (see docs/PATTERNS.md)
+// ✅ BEST - Use array_agg() for grouped data (see docs/02_DATABASE_PATTERNS.md)
 const priceData = await db
   .select({
     productId: priceHistory.productId,
@@ -242,7 +238,7 @@ const priceData = await db
 
 - **JOIN**: When you need related data for most/all records (1:1, 1:many)
 - **IN clause**: When you need to batch-fetch optional related data or filter by IDs
-- **array_agg()**: When you need grouped/nested data in a single query (see `docs/PATTERNS.md` for examples)
+- **array_agg()**: When you need grouped/nested data in a single query (see `docs/02_DATABASE_PATTERNS.md` for examples)
 
 **Storage pattern**: All data access goes through `server/storage.ts` which implements `IStorage` interface. Never query `db` directly from routes.
 
@@ -291,7 +287,7 @@ import { Product } from '@shared/schema';
 All AI prompts centralized in `server/ai/prompt-registry.ts` with versioning:
 
 ```typescript
-import { getActivePrompt, executePrompt } from './ai/prompt-registry';
+import { getActivePrompt, renderTemplate } from './ai/prompt-registry';
 
 // Get versioned prompt
 const prompt = getActivePrompt('search-query-generation');
@@ -326,6 +322,8 @@ const result = await executePrompt('search-query-generation', {
 Example route with all security patterns:
 
 ```typescript
+import { sendSuccess, sendErrorFromException } from './utils/api-response';
+
 app.post(
   '/api/products',
   csrfProtection, // CSRF on state-changing ops
@@ -337,13 +335,9 @@ app.post(
       // Storage layer handles DB
       const product = await storage.createProduct(data);
 
-      res.json(product);
+      sendSuccess(res, product, 201);
     } catch (error) {
-      const errorResponse = createErrorResponse(error, 'CreateProduct');
-      res.status(errorResponse.status).json({
-        error: errorResponse.error,
-        details: errorResponse.details,
-      });
+      sendErrorFromException(res, error, 'CreateProduct');
     }
   }
 );
@@ -444,7 +438,7 @@ Keep routes thin - extract business logic to `server/services/`:
 - `price-snapshot-service.ts` - Automated price tracking (see price update flow in ARCHITECTURE.md)
 - `google-search.ts` - Product URL discovery
 - `email-service.ts` - Notifications
-- `distributed-lock.ts` - Prevent race conditions in jobs
+- `job-lock-service.ts` - Distributed locking for scheduled jobs (prevents race conditions)
 - `password-reset-service.ts` - Password reset tokens
 - `websocket-service.ts` - Real-time notifications
 
@@ -460,7 +454,7 @@ import { jobLockService } from './services/job-lock-service';
 await priceSnapshotQueue.add('snapshot', { productId: 123 });
 
 // CRITICAL: Use distributed locks in scheduled jobs (multi-server safety)
-// See docs/PATTERNS.md section "Distributed Job Locking"
+// See docs/07_BACKGROUND_JOBS_PATTERNS.md section "Distributed Job Locking"
 cron.schedule('0 2 * * *', async () => {
   const result = await jobLockService.withLock(
     'price-snapshot:daily',
@@ -498,7 +492,7 @@ Extension shares types from `shared/` but runs independently from main app.
 **See `docs/PERFORMANCE_GUIDE.md` for complete optimization strategies**
 
 - **NO N+1 QUERIES EVER**: Always use JOINs or batch queries with `inArray()` - see Database & ORM section
-- **Use SQL aggregations**: COUNT(\*), GROUP BY, array_agg() at database level (see `docs/PATTERNS.md`)
+- **Use SQL aggregations**: COUNT(\*), GROUP BY, array_agg() at database level (see `docs/02_DATABASE_PATTERNS.md`)
 - **Component memoization**: React.memo() with custom comparison functions for expensive renders
 - **Query debouncing**: 300ms debounce on search inputs to reduce API calls
 - **Lazy loading**: Code-split pages and lazy-load images with Intersection Observer
@@ -520,10 +514,11 @@ Extension shares types from `shared/` but runs independently from main app.
 
 ### Pattern Libraries (docs/)
 
-- `docs/PATTERNS.md` - **Essential** database query patterns, distributed locking, aggregation best practices
-- `docs/PERFORMANCE_GUIDE.md` - Frontend/backend optimization strategies, caching, lazy loading
+- `docs/02_DATABASE_PATTERNS.md` - Database query patterns, aggregation best practices
+- `docs/07_BACKGROUND_JOBS_PATTERNS.md` - Distributed locking, scheduled jobs
+- `docs/guides/PERFORMANCE_GUIDE.md` - Frontend/backend optimization strategies, caching, lazy loading
 - `docs/COMPONENT_GUIDE.md` - React component architecture, props, usage patterns
-- `docs/PROMPT_ENGINEERING_GUIDE.md` - AI prompt structure and best practices
+- `docs/guides/PROMPT_ENGINEERING_GUIDE.md` - AI prompt structure and best practices
 - `docs/API_DOCUMENTATION.md` - Complete API endpoint reference
 - `server/ai/README.md` - AI prompt system documentation
 

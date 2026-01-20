@@ -322,7 +322,7 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/pricecompare_test
 - No console.log (use `log()` from utils/logger)
 - Strict equality (===)
 
-**See `docs/ESLINT_ENFORCEMENT.md` for fixes.**
+**See `docs/tooling/ESLINT_ENFORCEMENT.md` for fixes.**
 
 ## Design System
 

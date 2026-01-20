@@ -19,7 +19,7 @@
  *     socket.emit('notification:new', payload.notification);
  *   });
  *
- * @see docs/PATTERNS.md for event bus pattern documentation
+ * @see docs/07_BACKGROUND_JOBS_PATTERNS.md for event bus pattern documentation
  */
 
 import { EventEmitter } from 'events';

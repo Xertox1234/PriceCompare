@@ -131,27 +131,30 @@ interface IStorage {
   // ... 99 methods across 8 domains
 }
 
-// Domain repositories (7 domains)
+// Domain repositories (8 domains)
 class UserStorage extends BaseStorage {
-  /* 15 methods */
+  /* user management methods */
 }
 class ProductStorage extends BaseStorage {
-  /* 20 methods */
+  /* product CRUD methods */
 }
 class PriceStorage extends BaseStorage {
-  /* 28 methods */
+  /* price history and aggregation methods */
 }
 class WatchListStorage extends BaseStorage {
-  /* 13 methods */
-}
-class ForumStorage extends BaseStorage {
-  /* 6 methods */
+  /* watchlist management methods */
 }
 class RetailerStorage extends BaseStorage {
-  /* 12 methods */
+  /* retailer operations */
 }
 class JobLockStorage extends BaseStorage {
-  /* 9 methods */
+  /* distributed job locking */
+}
+class AgentStorage extends BaseStorage {
+  /* AI agent session management */
+}
+class NotificationStorage extends BaseStorage {
+  /* notification delivery and preferences */
 }
 
 // Facade pattern for delegation
@@ -166,30 +169,30 @@ class DatabaseStorage implements IStorage {
 }
 ```
 
-**Domain Structure** (9,752 lines total):
+**Domain Structure** (15,700+ lines total):
 
 ```
 server/storage/
-├── storage.ts                  # Main facade (4,418 lines)
-├── types.ts                    # Shared types (845 lines)
-├── base-storage.ts             # Abstract base class (74 lines)
-├── index.ts                    # Public exports (111 lines)
+├── storage.ts                  # Main facade (6,463 lines - legacy + delegation)
+├── types.ts                    # Shared types (748 lines)
+├── base-storage.ts             # Abstract base class (73 lines)
+├── index.ts                    # Public exports (110 lines)
 └── domains/
-    ├── user-storage.ts         # 476 lines (15 methods)
-    ├── product-storage.ts      # 660 lines (20 methods)
-    ├── price-storage.ts        # 1,146 lines (28 methods)
-    ├── watchlist-storage.ts    # 1,684 lines (13 methods)
-    ├── forum-storage.ts        # 567 lines (6 methods)
-    ├── retailer-storage.ts     # 429 lines (12 methods)
-    └── job-lock-storage.ts     # 372 lines (9 methods)
+    ├── user-storage.ts         # User management (898 lines)
+    ├── product-storage.ts      # Product CRUD (968 lines)
+    ├── price-storage.ts        # Price history/aggregation (2,080 lines)
+    ├── watchlist-storage.ts    # Watchlist management (2,223 lines)
+    ├── retailer-storage.ts     # Retailer operations (461 lines)
+    ├── job-lock-storage.ts     # Distributed locking (360 lines)
+    ├── agent-storage.ts        # AI agent sessions (726 lines)
+    └── notification-storage.ts # Notifications (537 lines)
 ```
 
 **Refactoring Impact:**
 
-- **Before**: 1 monolithic file (7,035 lines, 99 methods)
-- **After**: 8 well-organized files (9,752 lines total)
-- **Reduction in main file**: 54% (4,418 lines from 7,035)
-- **Methods extracted**: 99/99 (100% complete)
+- **Current**: 9 well-organized files (15,700+ lines total)
+- **Domain files**: 8 specialized domain repositories
+- **100% Type Safety**: Specialized types per domain
 
 **Benefits:**
 

@@ -436,7 +436,7 @@ const clean = sanitizeOutput(rawAIOutput);
 
 ## API Reference
 
-See [Prompt Engineering Guide](/docs/PROMPT_ENGINEERING_GUIDE.md) for detailed documentation.
+See [Prompt Engineering Guide](/docs/guides/PROMPT_ENGINEERING_GUIDE.md) for detailed documentation.
 
 ## Contributing
 
@@ -447,7 +447,7 @@ When adding new AI features:
 3. Write tests in `__tests__/`
 4. Add monitoring hooks
 5. Update this README
-6. Follow the [Prompt Engineering Guide](/docs/PROMPT_ENGINEERING_GUIDE.md)
+6. Follow the [Prompt Engineering Guide](/docs/guides/PROMPT_ENGINEERING_GUIDE.md)
 
 ## License
 

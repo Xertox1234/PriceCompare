@@ -490,7 +490,8 @@ pm2 restart pricecompare
 ## Support & Documentation
 
 - **Audit Report**: `docs/AUDIT_2025-11-16.md`
-- **Patterns Guide**: `docs/PATTERNS.md`
+- **Database Patterns**: `docs/02_DATABASE_PATTERNS.md`
+- **Background Jobs Patterns**: `docs/07_BACKGROUND_JOBS_PATTERNS.md`
 - **Migration Guide**: `migrations/README.md`
 - **Implementation**: `server/services/job-lock-service.ts`
 - **CSP Implementation**: `server/middleware/security.ts` (securityHeaders function)
