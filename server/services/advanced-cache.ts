@@ -31,6 +31,7 @@
 import type { Redis } from 'ioredis';
 import { redisClient } from '../config/redis';
 import { logger } from '../utils/logger';
+import { safeJsonParse } from '../utils/json-helpers';
 
 /**
  * In-memory LRU cache for ultra-hot data
@@ -321,9 +322,17 @@ export class AdvancedCacheService {
       const redis = this.getRedis();
       const l2Value = await redis.get(key);
       if (l2Value) {
+        // Parse cached value safely - invalidate on parse failure
+        const parseResult = safeJsonParse<T>(l2Value, 'AdvancedCache.get');
+        if (!parseResult.success) {
+          // Corrupted cache entry - invalidate it
+          await redis.del(key);
+          this.stats.l2Misses++;
+          return null;
+        }
+
         this.stats.l2Hits++;
-        // SAFETY: Value was serialized with JSON.stringify(T) at set time; parse restores original type
-        const parsed = JSON.parse(l2Value) as T;
+        const parsed = parseResult.data;
 
         // Populate L1 cache for next time
         if (useL1) {
@@ -543,22 +552,24 @@ export class AdvancedCacheService {
         missingKeys.forEach((key, index) => {
           const value = values[index];
           if (value !== null) {
-            try {
-              // SAFETY: Value was serialized with JSON.stringify(T) at set time; parse restores original type
-              const parsed = JSON.parse(value) as T;
-              result.set(key, parsed);
+            // Parse cached value safely - skip on parse failure
+            const parseResult = safeJsonParse<T>(value, 'AdvancedCache.getMany');
+            if (parseResult.success) {
+              result.set(key, parseResult.data);
               this.stats.l2Hits++;
 
               // Populate L1 cache
               if (useL1) {
-                this.l1Cache.set(key, parsed);
+                this.l1Cache.set(key, parseResult.data);
               }
-            } catch (error) {
+            } else {
+              // Parse failed - treat as cache miss and invalidate corrupted entry
               this.stats.errors++;
-              logger.error('Failed to parse cached value from Redis', {
-                error: error instanceof Error ? error.message : String(error),
-                key,
-                valuePreview: value.substring(0, 100),
+              void redis.del(key).catch((err) => {
+                logger.error('Failed to delete corrupted cache entry', {
+                  error: err instanceof Error ? err.message : String(err),
+                  key,
+                });
               });
             }
           } else {
@@ -725,9 +736,19 @@ export class AdvancedCacheService {
     this.subscriber.on('message', (channel, message) => {
       if (channel === this.PUBSUB_CHANNEL) {
         try {
-          const parsed: unknown = JSON.parse(message);
-          // Type guard for the expected message shape
-          const invalidationMsg = parsed as { key?: unknown; isPattern?: unknown };
+          // Parse invalidation message safely
+          const parseResult = safeJsonParse<{ key?: unknown; isPattern?: unknown }>(
+            message,
+            'AdvancedCache.subscriber'
+          );
+          if (!parseResult.success) {
+            logger.warn('Failed to parse invalidation message, skipping', {
+              error: parseResult.error,
+            });
+            return;
+          }
+
+          const invalidationMsg = parseResult.data;
           const key = typeof invalidationMsg.key === 'string' ? invalidationMsg.key : '';
           const isPattern = Boolean(invalidationMsg.isPattern);
 

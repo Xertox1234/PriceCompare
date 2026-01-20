@@ -7,6 +7,7 @@ import type { SystemStatus, TrendData } from './types';
 import { logger } from '../utils/logger';
 import { jobLockService } from '../services/job-lock-service';
 import { db } from '../db';
+import { safeJsonParse } from '../utils/json-helpers';
 
 interface CoordinatorConfig {
   maxConcurrentJobs: number;
@@ -434,8 +435,16 @@ export class CoordinationAgent extends BaseAgent {
           });
 
           let taskResult: unknown;
-          // SAFETY: targetData is validated JSON stored in DB at job creation time
-          const targetData = JSON.parse(job.targetData) as Record<string, unknown>;
+
+          // Parse targetData safely - skip job on parse failure
+          const parseResult = safeJsonParse<Record<string, unknown>>(
+            job.targetData,
+            'CoordinatorAgent.processJob'
+          );
+          if (!parseResult.success) {
+            throw new Error(`Invalid job targetData: ${parseResult.error}`);
+          }
+          const targetData = parseResult.data;
 
           switch (job.jobType) {
             case 'discovery':

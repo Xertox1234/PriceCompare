@@ -11,6 +11,7 @@
 import { advancedCache, CachePrefix } from './advanced-cache';
 import { logger } from '../utils/logger';
 import { getRedisClient } from '../config/redis';
+import { safeJsonParse } from '../utils/json-helpers';
 
 /**
  * Extract error message for logging
@@ -302,8 +303,17 @@ export class CacheInvalidationService {
     subscriber.on('message', (channel, message) => {
       if (channel === this.INVALIDATION_CHANNEL) {
         try {
-          const parsed: unknown = JSON.parse(message);
-          const payload = parsed as InvalidationPayload;
+          const parseResult = safeJsonParse<InvalidationPayload>(
+            message,
+            'CacheInvalidationService.subscriber'
+          );
+          if (!parseResult.success) {
+            logger.warn('Failed to parse invalidation message, skipping', {
+              error: parseResult.error,
+            });
+            return;
+          }
+          const payload = parseResult.data;
           logger.debug('Received invalidation event:', {
             event: payload.event,
             productId: payload.productId,

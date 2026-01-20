@@ -3,7 +3,8 @@
 **Priority**: P1
 **File(s)**: `server/storage/domains/retailer-storage.ts`, `server/agents/coordinator-agent.ts`, `server/services/advanced-cache.ts`
 **Estimated Time**: 1 hour
-**Status**: Not Started
+**Status**: ✅ Completed
+**Completed Date**: 2026-01-20
 
 ## Problem Statement
 
@@ -100,7 +101,31 @@ export function safeJsonParse<T>(
 
 ## Success Criteria
 
-- [ ] All JSON parsing uses safe wrapper
-- [ ] Parse errors are logged with context
-- [ ] No uncaught exceptions from malformed JSON
-- [ ] Existing functionality preserved
+- [x] All JSON parsing uses safe wrapper
+- [x] Parse errors are logged with context
+- [x] No uncaught exceptions from malformed JSON
+- [x] Existing functionality preserved
+
+## Implementation Summary
+
+### Files Created
+1. **server/utils/json-helpers.ts** - Safe JSON parser utility with discriminated union pattern
+2. **server/utils/__tests__/json-helpers.test.ts** - Comprehensive test suite (40 tests, 100% coverage)
+
+### Files Modified
+1. **server/storage/domains/retailer-storage.ts** - Safe parsing of affiliateConfig
+2. **server/agents/coordinator-agent.ts** - Safe parsing of job.targetData
+3. **server/services/advanced-cache.ts** - Safe parsing in 3 locations
+4. **server/services/cache-invalidation.ts** - Safe parsing in pub/sub subscriber
+
+### Key Features
+- **Discriminated union pattern**: `{ success: true, data: T } | { success: false, error: string }`
+- **Optional Zod validation**: Schema validation parameter for known JSON structures
+- **Structured error logging**: All parse failures logged with context using project logger
+- **Graceful degradation**: Returns safe defaults instead of throwing uncaught exceptions
+
+### Test Coverage
+- 40 tests covering all functionality
+- Statement coverage: 100%
+- Edge cases: empty strings, null, whitespace, large JSON, special characters
+- Real-world usage examples tested

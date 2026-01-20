@@ -15,6 +15,7 @@ import { BaseStorage } from '../base-storage';
 import { retailers, productOffers, type Retailer, type InsertRetailer } from '@shared/schema';
 import type { RetailerWithAffiliateStats, AffiliateConfig } from '../types';
 import { storageCache } from '../../services/storage-cache';
+import { safeJsonParse } from '../../utils/json-helpers';
 
 export class RetailerStorage extends BaseStorage {
   constructor(database: typeof db) {
@@ -386,28 +387,40 @@ export class RetailerStorage extends BaseStorage {
         .groupBy(retailers.id)
         .orderBy(asc(retailers.name));
 
-      const retailersWithStats: RetailerWithAffiliateStats[] = results.map((row) => ({
-        id: row.id,
-        name: row.name,
-        logo: row.logo,
-        website: row.website,
-        isActive: row.isActive,
-        affiliateId: row.affiliateId,
-        affiliateProgram: row.affiliateProgram,
-        baseAffiliateUrl: row.baseAffiliateUrl,
-        commissionRate: row.commissionRate,
-        affiliateStatus: row.affiliateStatus,
-        affiliateConfig: row.affiliateConfig,
-        // SAFETY: affiliateConfig is a TEXT column storing JSON. Valid JSON parses to Record<string, unknown>
-        affiliateConfigParsed: row.affiliateConfig
-          ? (JSON.parse(row.affiliateConfig) as Record<string, unknown>)
-          : null,
-        stats: {
-          totalOffers: row.totalOffers,
-          offersWithAffiliateLinks: row.offersWithAffiliateLinks,
-          totalClicks: row.totalClicks,
-        },
-      }));
+      const retailersWithStats: RetailerWithAffiliateStats[] = results.map((row) => {
+        // Parse affiliateConfig safely - return null on parse failure
+        let affiliateConfigParsed: Record<string, unknown> | null = null;
+        if (row.affiliateConfig) {
+          const parseResult = safeJsonParse<Record<string, unknown>>(
+            row.affiliateConfig,
+            'RetailerStorage.getRetailersWithAffiliateStats'
+          );
+          if (parseResult.success) {
+            affiliateConfigParsed = parseResult.data;
+          }
+          // On failure, affiliateConfigParsed remains null (graceful degradation)
+        }
+
+        return {
+          id: row.id,
+          name: row.name,
+          logo: row.logo,
+          website: row.website,
+          isActive: row.isActive,
+          affiliateId: row.affiliateId,
+          affiliateProgram: row.affiliateProgram,
+          baseAffiliateUrl: row.baseAffiliateUrl,
+          commissionRate: row.commissionRate,
+          affiliateStatus: row.affiliateStatus,
+          affiliateConfig: row.affiliateConfig,
+          affiliateConfigParsed,
+          stats: {
+            totalOffers: row.totalOffers,
+            offersWithAffiliateLinks: row.offersWithAffiliateLinks,
+            totalClicks: row.totalClicks,
+          },
+        };
+      });
 
       this.logSuccess('getRetailersWithAffiliateStats', { count: retailersWithStats.length });
       return retailersWithStats;
