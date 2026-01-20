@@ -165,7 +165,7 @@ export function QuickviewModal({ isOpen, onClose, product }: QuickviewModalProps
                       : 'border-border/50 hover:border-border opacity-70 hover:opacity-100'
                   )}
                 >
-                  <img src={img} alt="" className="h-full w-full object-cover" />
+                  <img src={img} alt={`Product thumbnail ${idx + 1}`} className="h-full w-full object-cover" />
                 </button>
               ))}
             </div>

@@ -32,9 +32,9 @@ export function ConnectionStatus() {
         className={cn(
           'flex items-center gap-2 rounded-lg px-4 py-2 shadow-lg backdrop-blur-sm',
           'transition-all duration-300',
-          connectionState === 'connecting' && 'bg-yellow-500/90 text-white',
-          connectionState === 'reconnecting' && 'bg-orange-500/90 text-white',
-          connectionState === 'disconnected' && 'bg-red-500/90 text-white'
+          connectionState === 'connecting' && 'bg-warning/90 text-warning-foreground',
+          connectionState === 'reconnecting' && 'bg-secondary/90 text-secondary-foreground',
+          connectionState === 'disconnected' && 'bg-destructive/90 text-destructive-foreground'
         )}
       >
         {/* Icon based on connection state */}

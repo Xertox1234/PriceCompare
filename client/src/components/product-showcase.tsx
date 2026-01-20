@@ -45,7 +45,7 @@ export function ProductShowcase() {
               </div>
               <div className="p-6">
                 <h3 className="text-xl font-bold">MacBook Pro M3</h3>
-                <p className="mt-1 text-sm text-gray-600">Starting at $1,599</p>
+                <p className="mt-1 text-sm text-muted-foreground">Starting at $1,599</p>
               </div>
             </div>
           </div>

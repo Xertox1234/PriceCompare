@@ -302,69 +302,64 @@
 
 /* Hero Slider Styles - Smooth animated slider with thumbnails */
 .hero-slider {
-  border-radius: 10px;
+  border-radius: 0;
   position: relative;
   width: 100%;
   height: 100%;
 }
 
 .hero-slide {
-  width: 140px;
-  height: 180px;
+  width: 200px;
+  height: 300px;
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  border-radius: 12px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  border-radius: 20px;
+  box-shadow: 0 30px 50px rgba(80, 80, 80, 0.5);
   background-position: 50% 50%;
   background-size: cover;
+  background-repeat: no-repeat;
   display: inline-block;
-  transition: all 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
+  transition: 0.5s;
 }
 
-/* First two slides become the full background */
-.hero-slide[data-index='0'],
-.hero-slide[data-index='1'] {
+/* First two slides become the full background (stacked) */
+.hero-slide:nth-child(1),
+.hero-slide:nth-child(2) {
   top: 0;
   left: 0;
   transform: translateY(0);
-  border-radius: 10px;
+  border-radius: 0;
   width: 100%;
   height: 100%;
 }
 
-/* Position thumbnails on the right side */
-.hero-slide[data-index='2'] {
-  right: 20px;
-  left: auto;
-  top: 20px;
-  transform: translateY(0);
+/* Position thumbnails horizontally from center-right */
+.hero-slide:nth-child(3) {
+  left: 50%;
 }
 
-.hero-slide[data-index='3'] {
-  right: 20px;
-  left: auto;
-  top: calc(20px + 180px + 15px);
-  transform: translateY(0);
+.hero-slide:nth-child(4) {
+  left: calc(50% + 220px);
 }
 
-/* Hide additional slides */
-.hero-slide[data-index='4'],
-.hero-slide[data-index='5'],
-.hero-slide[data-index='6'] {
-  right: 20px;
-  left: auto;
-  top: calc(20px + 360px + 30px);
-  transform: translateY(0);
+.hero-slide:nth-child(5) {
+  left: calc(50% + 440px);
+}
+
+/* Hide additional slides (overflow) */
+.hero-slide:nth-child(n + 6) {
+  left: calc(50% + 440px);
   opacity: 0;
 }
 
-/* Slide content - only visible on active (index 1) */
+/* Slide content - only visible on active (2nd child) */
 .hero-slide-content {
   position: absolute;
-  bottom: 80px;
-  left: 40px;
-  width: 350px;
+  top: 50%;
+  left: 100px;
+  width: 300px;
+  transform: translateY(-50%);
   text-align: left;
   color: #fff;
   font-family:
@@ -375,12 +370,12 @@
   z-index: 5;
 }
 
-.hero-slide[data-index='1'] .hero-slide-content {
+.hero-slide:nth-child(2) .hero-slide-content {
   display: block;
 }
 
 /* Dark overlay for readability on active slide */
-.hero-slide[data-index='1']::before {
+.hero-slide:nth-child(2)::before {
   content: '';
   position: absolute;
   inset: 0;

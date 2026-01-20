@@ -88,39 +88,45 @@ const defaultDealCards = [
 ];
 
 export function HeroGrid({ slides = defaultSlides, dealCards = defaultDealCards }: HeroGridProps) {
-  const [items, setItems] = React.useState(slides);
+  const sliderRef = React.useRef<HTMLDivElement>(null);
   const [isAnimating, setIsAnimating] = React.useState(false);
-  const [isPaused, setIsPaused] = React.useState(false);
 
-  const handleNext = React.useCallback(() => {
-    if (isAnimating) return;
+  // Next: Move first item to the end (like appendChild in original)
+  const handleNext = () => {
+    if (isAnimating || !sliderRef.current) return;
     setIsAnimating(true);
-    // Move first item to end
-    setItems((prev) => [...prev.slice(1), prev[0]]);
-    setTimeout(() => setIsAnimating(false), 500);
-  }, [isAnimating]);
-
-  const handlePrev = () => {
-    if (isAnimating) return;
-    setIsAnimating(true);
-    // Move last item to beginning
-    setItems((prev) => [prev[prev.length - 1], ...prev.slice(0, -1)]);
+    const items = sliderRef.current.querySelectorAll('.hero-slide');
+    if (items.length > 0) {
+      sliderRef.current.appendChild(items[0]);
+    }
     setTimeout(() => setIsAnimating(false), 500);
   };
 
-  // Auto-scroll every 3 seconds
-  React.useEffect(() => {
-    if (isPaused) return;
+  // Prev: Move last item to the beginning (like prepend in original)
+  const handlePrev = () => {
+    if (isAnimating || !sliderRef.current) return;
+    setIsAnimating(true);
+    const items = sliderRef.current.querySelectorAll('.hero-slide');
+    if (items.length > 0) {
+      sliderRef.current.prepend(items[items.length - 1]);
+    }
+    setTimeout(() => setIsAnimating(false), 500);
+  };
 
-    const interval = setInterval(() => {
+  // Click on thumbnail slides (nth-child 3+) to go next
+  const handleSlideClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const slide = target.closest('.hero-slide');
+    if (!slide || !sliderRef.current) return;
+    
+    const items = Array.from(sliderRef.current.querySelectorAll('.hero-slide'));
+    const index = items.indexOf(slide);
+    
+    // Only thumbnail slides (index 2+) are clickable
+    if (index >= 2) {
       handleNext();
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [isPaused, handleNext]);
-
-  // The active slide is always the second item (index 1) due to the animation pattern
-  const _activeSlide = items[1] || items[0];
+    }
+  };
 
   return (
     <section className="py-5">
@@ -140,21 +146,22 @@ export function HeroGrid({ slides = defaultSlides, dealCards = defaultDealCards 
           <div
             className="relative min-h-[550px] overflow-hidden rounded-[10px]"
             style={{ gridArea: 'main' }}
-            onMouseEnter={() => setIsPaused(true)}
-            onMouseLeave={() => setIsPaused(false)}
           >
             {/* Slider Container */}
-            <div className="hero-slider absolute inset-0">
-              {items.map((slide, index) => (
+            <div 
+              ref={sliderRef} 
+              className="hero-slider absolute inset-0"
+              onClick={handleSlideClick}
+            >
+              {slides.map((slide) => (
                 <div
                   key={slide.id}
                   className="hero-slide"
-                  data-index={index}
                   style={{
                     backgroundImage: `url('${slide.image}')`,
                   }}
                 >
-                  {/* Content only shows on active slide (index 1) */}
+                  {/* Content only shows on active slide (nth-child(2) in CSS) */}
                   <div className="hero-slide-content">
                     <p className="hero-slide-tagline">{slide.tagline}</p>
                     <h2 className="hero-slide-name">{slide.name}</h2>
@@ -179,7 +186,7 @@ export function HeroGrid({ slides = defaultSlides, dealCards = defaultDealCards 
                 type="button"
                 onClick={handlePrev}
                 className="flex h-9 w-10 items-center justify-center rounded-lg border-2 border-black/70 bg-white/60 transition-all hover:scale-110 hover:bg-white"
-                aria-label="Previous hero slide"
+                aria-label="Previous slide"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -187,7 +194,7 @@ export function HeroGrid({ slides = defaultSlides, dealCards = defaultDealCards 
                 type="button"
                 onClick={handleNext}
                 className="flex h-9 w-10 items-center justify-center rounded-lg border-2 border-black/70 bg-white/60 transition-all hover:scale-110 hover:bg-white"
-                aria-label="Next hero slide"
+                aria-label="Next slide"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
@@ -276,6 +283,7 @@ export function HeroCompact({
           <img
             src={backgroundImage}
             alt=""
+            aria-hidden="true"
             className="h-full w-full object-cover opacity-20 dark:opacity-10"
           />
           <div className="from-background via-background to-muted absolute inset-0 bg-gradient-to-r" />

@@ -1,8 +1,9 @@
 # Frontend Patterns
 
-**Version:** 2.10
-**Last Updated:** 2026-01-16
+**Version:** 2.11
+**Last Updated:** 2026-01-18
 **Changelog:**
+- 2.11 (2026-01-18): Added URL Query Parameter Sync with Component State pattern - documents useEffect-based sync for wouter client-side navigation, preventing stale state when URL changes via Link components (from header navigation fix)
 - 2.10 (2026-01-16): Added Toast Notifications: WCAG Compliance pattern - documents Radix Toast type prop mapping for proper ARIA live region announcements (aria-live="assertive" for destructive, aria-live="polite" for default), WCAG AA color contrast verification, and E2E testing strategy (from TODO_231 Phase 6)
 - 2.9 (2026-01-06): Added Authentication Guards for React Query Hooks pattern - documents `enabled: !!user` requirement for authenticated endpoints, HTTP Basic Auth popup prevention, middleware-based classification, compound conditions, and audit methodology (15 hooks fixed across 4 files from TODO_014 follow-up)
 - 2.8 (2026-01-06): Added Optimistic Updates with Rollback pattern to React Query Patterns section - documents instant UI feedback with automatic rollback, race condition prevention via query cancellation, minimal invalidation strategy, and performance optimization (6→1 API calls, 200-500ms→0ms latency) from TODO_013 watchlist integration
@@ -41,6 +42,7 @@
   - [Decimal Field Handling](#decimal-field-handling)
 5. [State Management](#state-management)
   - [Local State vs Server State](#local-state-vs-server-state)
+  - [URL Query Parameter Sync with Component State](#url-query-parameter-sync-with-component-state-new---2026-01-18)
   - [Component Integration Pattern](#component-integration-pattern)
 6. [API Integration Patterns](#api-integration-patterns)
   - [Centralized API Client](#centralized-api-client)
@@ -2482,6 +2484,108 @@ function ModalExample() {
   );
 }
 ```
+
+---
+
+### URL Query Parameter Sync with Component State (NEW - 2026-01-18)
+
+**When:** Components need to react to URL changes from client-side navigation (e.g., wouter `Link` components clicking category/filter links in headers or navigation menus).
+
+**Problem:** When using `useState` to initialize from URL parameters, the state becomes stale when the URL changes via client-side navigation. The component doesn't re-mount, so the initial value isn't re-read from the new URL.
+
+**Root Cause:** wouter's `Link` component performs client-side navigation that changes the URL without a full page reload. Components initialized from `useSearch()` only read the value once on mount.
+
+#### ❌ WRONG - Stale URL State
+```typescript
+import { useState } from 'react';
+import { useSearch } from 'wouter';
+
+function ProductsPage() {
+  const searchParams = useSearch();
+  const urlParams = new URLSearchParams(searchParams);
+  
+  // ❌ Only reads URL on initial mount - becomes stale on navigation!
+  const [filters, setFilters] = useState({
+    category: urlParams.get('category'),
+  });
+
+  // When user clicks "Cameras" link in header:
+  // URL changes to /shop?category=cameras
+  // BUT filters.category is still the OLD value!
+}
+```
+
+#### ✅ CORRECT - Synced URL State
+```typescript
+import { useState, useEffect, useMemo } from 'react';
+import { useSearch } from 'wouter';
+
+function ProductsPage() {
+  const searchParams = useSearch();
+  const urlParams = new URLSearchParams(searchParams);
+  
+  // Initial state from URL (runs on mount)
+  const [filters, setFilters] = useState({
+    category: urlParams.get('category'),
+    deals: null as 'all' | 'discounts' | null,
+  });
+
+  // ✅ Sync state when URL changes (runs on every navigation)
+  useEffect(() => {
+    const urlCategory = urlParams.get('category');
+    const urlDeals = urlParams.get('deals');
+    
+    // Update category if URL changed
+    if (urlCategory !== filters.category) {
+      setFilters(prev => ({ ...prev, category: urlCategory }));
+    }
+    
+    // Handle deals filter from URL
+    if (urlDeals === 'true' && filters.deals !== 'discounts') {
+      setFilters(prev => ({ ...prev, deals: 'discounts' }));
+    }
+  }, [searchParams]); // Key: depend on searchParams string
+
+  // ✅ For derived data, use searchParams in dependency array
+  const apiFilters = useMemo(() => ({
+    query: urlParams.get('search') || undefined,
+    category: filters.category || undefined,
+  }), [searchParams, filters.category]);
+
+  // Now when user clicks "Cameras" in header:
+  // 1. URL changes to /shop?category=cameras
+  // 2. searchParams changes, triggering useEffect
+  // 3. filters.category updates to 'cameras'
+  // 4. apiFilters recomputes, triggering new API fetch
+}
+```
+
+#### Key Implementation Details
+
+1. **Depend on `searchParams` string, not `urlParams` object**
+   - `urlParams` is recreated on every render (reference changes)
+   - `searchParams` is a stable string that only changes when URL actually changes
+
+2. **Compare before updating to avoid infinite loops**
+   - Always check `if (urlValue !== currentState)` before calling `setState`
+
+3. **Use for any URL-driven filters or navigation**
+   - Category filters, search queries, pagination, sorting
+   - Any state that should be shareable via URL
+
+4. **Consider clearing other filters on category change**
+   ```typescript
+   // Optional: Reset related filters when category changes
+   if (urlCategory !== filters.category) {
+     setFilters(prev => ({
+       ...prev,
+       category: urlCategory,
+       brands: [],  // Reset brand filter on category change
+     }));
+   }
+   ```
+
+**Real-World Example:** See `client/src/pages/products-new.tsx` for the full implementation with header navigation integration.
 
 ---
 

@@ -734,18 +734,25 @@ export const dealSpottings = pgTable(
 );
 
 // Post revision history
-export const postRevisions = pgTable('post_revisions', {
-  id: serial('id').primaryKey(),
-  postId: integer('post_id')
-    .references(() => forumPosts.id, { onDelete: 'cascade' })
-    .notNull(),
-  content: text('content').notNull(),
-  rawContent: text('raw_content').notNull(),
-  editedById: integer('edited_by_id').references(() => users.id, { onDelete: 'set null' }), // Nullable to allow SET NULL on user deletion
-  editReason: varchar('edit_reason', { length: 255 }),
-  version: integer('version').notNull(),
-  createdAt: timestamp('created_at').defaultNow(),
-});
+export const postRevisions = pgTable(
+  'post_revisions',
+  {
+    id: serial('id').primaryKey(),
+    postId: integer('post_id')
+      .references(() => forumPosts.id, { onDelete: 'cascade' })
+      .notNull(),
+    content: text('content').notNull(),
+    rawContent: text('raw_content').notNull(),
+    editedById: integer('edited_by_id').references(() => users.id, { onDelete: 'set null' }), // Nullable to allow SET NULL on user deletion
+    editReason: varchar('edit_reason', { length: 255 }),
+    version: integer('version').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    postIdIdx: index('post_revisions_post_id_idx').on(table.postId),
+    editedByIdIdx: index('post_revisions_edited_by_id_idx').on(table.editedById),
+  })
+);
 
 export const insertRetailerSchema = createInsertSchema(retailers).omit({
   id: true,
@@ -1115,43 +1122,56 @@ export const agentSessions = pgTable('agent_sessions', {
 });
 
 // Scraping job management and queue
-export const scrapingJobs = pgTable('scraping_jobs', {
-  id: serial('id').primaryKey(),
-  jobType: varchar('job_type', { length: 50 }).notNull(), // discovery, search, scrape, validate, price_update
-  priority: integer('priority').default(5), // 1-10, higher = more priority
-  status: varchar('status', { length: 20 }).default('pending'), // pending, running, completed, failed, retrying
-  targetData: text('target_data').notNull(), // JSON with job parameters
-  resultData: text('result_data'), // JSON with job results
-  errorMessage: text('error_message'),
-  retryCount: integer('retry_count').default(0),
-  maxRetries: integer('max_retries').default(3),
-  scheduledAt: timestamp('scheduled_at'),
-  startedAt: timestamp('started_at'),
-  completedAt: timestamp('completed_at'),
-  agentSessionId: integer('agent_session_id').references(() => agentSessions.id, {
-    onDelete: 'set null',
-  }),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
-});
+export const scrapingJobs = pgTable(
+  'scraping_jobs',
+  {
+    id: serial('id').primaryKey(),
+    jobType: varchar('job_type', { length: 50 }).notNull(), // discovery, search, scrape, validate, price_update
+    priority: integer('priority').default(5), // 1-10, higher = more priority
+    status: varchar('status', { length: 20 }).default('pending'), // pending, running, completed, failed, retrying
+    targetData: text('target_data').notNull(), // JSON with job parameters
+    resultData: text('result_data'), // JSON with job results
+    errorMessage: text('error_message'),
+    retryCount: integer('retry_count').default(0),
+    maxRetries: integer('max_retries').default(3),
+    scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    agentSessionId: integer('agent_session_id').references(() => agentSessions.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    agentSessionIdIdx: index('scraping_jobs_agent_session_id_idx').on(table.agentSessionId),
+    statusIdx: index('scraping_jobs_status_idx').on(table.status),
+    priorityStatusIdx: index('scraping_jobs_priority_status_idx').on(table.priority, table.status),
+  })
+);
 
 // Price predictions and historical analysis
-export const pricePredictions = pgTable('price_predictions', {
-  id: serial('id').primaryKey(),
-  productOfferId: integer('product_offer_id')
-    .references(() => productOffers.id, { onDelete: 'cascade' })
-    .notNull(),
-  currentPrice: decimal('current_price', { precision: 10, scale: 2 }).notNull(),
-  predictedPrice: decimal('predicted_price', { precision: 10, scale: 2 }).notNull(),
-  predictionType: varchar('prediction_type', { length: 30 }).notNull(), // daily, weekly, monthly, seasonal
-  confidenceScore: decimal('confidence_score', { precision: 3, scale: 2 }).notNull(),
-  predictionDate: timestamp('prediction_date').notNull(),
-  actualPrice: decimal('actual_price', { precision: 10, scale: 2 }), // Filled when prediction period ends
-  predictionAccuracy: decimal('prediction_accuracy', { precision: 3, scale: 2 }), // Calculated after validation
-  modelVersion: varchar('model_version', { length: 20 }).default('1.0'),
-  createdAt: timestamp('created_at').defaultNow(),
-  validatedAt: timestamp('validated_at'),
-});
+export const pricePredictions = pgTable(
+  'price_predictions',
+  {
+    id: serial('id').primaryKey(),
+    productOfferId: integer('product_offer_id')
+      .references(() => productOffers.id, { onDelete: 'cascade' })
+      .notNull(),
+    currentPrice: decimal('current_price', { precision: 10, scale: 2 }).notNull(),
+    predictedPrice: decimal('predicted_price', { precision: 10, scale: 2 }).notNull(),
+    predictionType: varchar('prediction_type', { length: 30 }).notNull(), // daily, weekly, monthly, seasonal
+    confidenceScore: decimal('confidence_score', { precision: 3, scale: 2 }).notNull(),
+    predictionDate: timestamp('prediction_date', { withTimezone: true }).notNull(),
+    actualPrice: decimal('actual_price', { precision: 10, scale: 2 }), // Filled when prediction period ends
+    predictionAccuracy: decimal('prediction_accuracy', { precision: 3, scale: 2 }), // Calculated after validation
+    modelVersion: varchar('model_version', { length: 20 }).default('1.0'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    validatedAt: timestamp('validated_at', { withTimezone: true }),
+  },
+  (table) => ({
+    productOfferIdIdx: index('price_predictions_product_offer_id_idx').on(table.productOfferId),
+    predictionDateIdx: index('price_predictions_prediction_date_idx').on(table.predictionDate),
+  })
+);
 
 // Price snapshots - Daily aggregated price data
 // Price snapshots - Daily aggregated price data

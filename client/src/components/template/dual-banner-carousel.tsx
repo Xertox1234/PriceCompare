@@ -87,6 +87,7 @@ function DualBannerCard({ banner }: { banner: DualBannerItem }) {
             <img
               src={banner.productImage}
               alt=""
+              aria-hidden="true"
               className="h-full w-full object-contain drop-shadow-2xl transition-transform duration-300 group-hover:scale-110"
             />
           </div>

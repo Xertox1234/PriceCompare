@@ -178,7 +178,7 @@ export const NewsletterBanner = memo(({ className }: NewsletterBannerProps) => {
                     'border-0 px-5',
                     'placeholder:text-muted-foreground',
                     'focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-0',
-                    submissionState === 'error' && 'bg-red-50/95 ring-2 ring-red-300'
+                    submissionState === 'error' && 'bg-destructive/10 ring-2 ring-destructive/50'
                   )}
                   aria-label="Email address"
                   aria-describedby={submissionState === 'error' ? 'email-error' : undefined}

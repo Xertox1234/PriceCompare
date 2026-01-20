@@ -23,7 +23,6 @@ export type {
  */
 export interface AuthenticatedSocket extends Socket {
   userId: number;
-  userEmail: string;
 }
 
 /**

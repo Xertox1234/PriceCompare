@@ -88,7 +88,7 @@ export function ProductComparison({
   if (products.length === 0) {
     return (
       <Card className="p-8 text-center">
-        <BarChart2 className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+        <BarChart2 className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
         <h3 className="mb-2 text-lg font-semibold">No Products to Compare</h3>
         <p className="text-muted-foreground text-sm">
           Add products to start comparing their price histories
@@ -281,11 +281,11 @@ export function ProductComparison({
                   </div>
                   <div className="space-y-1 text-xs">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Current:</span>
+                      <span className="text-muted-foreground">Current:</span>
                       <span className="font-semibold">${insight.currentPrice.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Average:</span>
+                      <span className="text-muted-foreground">Average:</span>
                       <span>${insight.averagePrice.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">

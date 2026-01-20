@@ -331,7 +331,14 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
 
   // Build connect-src directive based on environment
   // Development needs WebSocket for Vite HMR (Hot Module Replacement)
-  const connectSrc = isDevelopment ? "connect-src 'self' ws: wss:" : "connect-src 'self'";
+  // Sentry domains included for error monitoring (*.ingest.us.sentry.io)
+  const sentryDomain = 'https://*.ingest.us.sentry.io';
+  const connectSrc = isDevelopment
+    ? `connect-src 'self' ws: wss: ${sentryDomain}`
+    : `connect-src 'self' ${sentryDomain}`;
+
+  // Build worker-src directive - allow blob: for Sentry workers
+  const workerSrc = "worker-src 'self' blob:";
 
   // Build style-src directive - allow Google Fonts in dev/test mode
   const styleSrc = isDevelopment
@@ -357,6 +364,7 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
       "img-src 'self' data: https:",
       fontSrc,
       connectSrc,
+      workerSrc,
       "frame-ancestors 'none'",
       'report-uri /api/csp-violation-report',
     ]

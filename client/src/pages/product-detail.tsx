@@ -223,7 +223,7 @@ function ProductDetailContent() {
                         : 'border-border hover:border-muted-foreground'
                     )}
                   >
-                    <img src={img} alt="" className="h-full w-full object-cover" />
+                    <img src={img} alt={`Product thumbnail ${idx + 1}`} className="h-full w-full object-cover" />
                   </button>
                 ))}
               </div>

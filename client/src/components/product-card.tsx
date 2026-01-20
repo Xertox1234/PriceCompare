@@ -221,7 +221,7 @@ export const ProductCard = memo(
               <Button
                 variant="outline"
                 size="sm"
-                className="flex-1 border-blue-200 text-blue-600 hover:border-blue-300 hover:bg-blue-50"
+                className="flex-1 border-primary/30 text-primary hover:border-primary/50 hover:bg-primary/5"
                 onClick={() => setDetailDialogOpen(true)}
               >
                 <TrendingUp className="mr-2 h-4 w-4" />

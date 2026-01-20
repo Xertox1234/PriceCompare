@@ -67,7 +67,7 @@ export const MiniProductCard = memo(
           />
 
           {/* Amazon-style Corner Savings Badge */}
-          <div className="absolute top-1 left-1 rounded-sm bg-red-600 px-1.5 py-0.5 text-white shadow-md">
+          <div className="absolute top-1 left-1 rounded-sm bg-destructive px-1.5 py-0.5 text-destructive-foreground shadow-md">
             <span className="text-2xs font-bold">{displayBadge}</span>
           </div>
         </div>

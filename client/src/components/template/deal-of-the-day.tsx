@@ -106,7 +106,7 @@ function FeaturedDealCard({
           <div className="bg-muted relative mb-4 overflow-hidden rounded-xl">
             {/* Save Badge */}
             {discount > 0 && (
-              <span className="absolute top-4 left-4 z-10 inline-flex flex-col items-center rounded-lg bg-red-500 px-3 py-2 text-white">
+              <span className="absolute top-4 left-4 z-10 inline-flex flex-col items-center rounded-lg bg-destructive px-3 py-2 text-destructive-foreground">
                 <span className="text-xs font-medium uppercase">Save</span>
                 <span className="text-lg font-bold">${discount.toFixed(0)}</span>
               </span>
@@ -135,7 +135,7 @@ function FeaturedDealCard({
                     : 'hover:border-primary/50 border-transparent'
                 )}
               >
-                <img src={img} alt="" className="h-full w-full object-cover" />
+                <img src={img} alt={`Product view ${index + 1}`} className="h-full w-full object-cover" />
               </button>
             ))}
           </div>
