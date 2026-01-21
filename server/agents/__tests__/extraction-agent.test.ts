@@ -83,7 +83,7 @@ let playwrightAgent: DataExtractionAgent;
 
 // DEPRECATED: Baseline tests for axios+cheerio implementation (replaced by Playwright)
 // These tests are preserved for reference but skipped since they test the old implementation
-// The axios+cheerio version is backed up in extraction-agent-axios-backup.ts
+// The axios+cheerio backup files were removed in the 2026-01-21 pattern cleanup
 describe.skip('DataExtractionAgent - Baseline Tests (axios+cheerio - DEPRECATED)', () => {
   const fixturesDir = path.join(__dirname, 'fixtures');
 
