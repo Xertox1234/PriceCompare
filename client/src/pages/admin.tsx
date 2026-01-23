@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useLocation } from 'wouter';
+import { Helmet } from 'react-helmet-async';
 import type {
   AnalyticsOverview,
   UserGrowthData,
@@ -124,8 +125,14 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="bg-background min-h-screen">
-      <SharedNavigation currentPage="admin" />
+    <>
+      <Helmet>
+        <title>Admin Panel | PriceCompare</title>
+        <meta name="description" content="Administration panel for managing users, products, retailers, and platform settings" />
+      </Helmet>
+
+      <div className="bg-background min-h-screen">
+        <SharedNavigation currentPage="admin" />
 
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8 flex items-center gap-2">
@@ -236,5 +243,6 @@ export default function AdminPage() {
         </Tabs>
       </main>
     </div>
+    </>
   );
 }

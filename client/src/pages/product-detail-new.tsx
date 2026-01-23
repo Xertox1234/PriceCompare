@@ -1,4 +1,5 @@
 import { useState, useEffect, Suspense } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useParams, Link } from 'wouter';
 import {
   ChevronRight,
@@ -259,9 +260,14 @@ function ProductDetailContent() {
     : false;
 
   return (
-    <div className="bg-background min-h-screen">
-      <TemplateHeader
-        onOpenCart={openCart}
+    <>
+      <Helmet>
+        <title>{product.name} | PriceCompare</title>
+        <meta name="description" content={`Compare prices for ${product.name}. Find the best deals across multiple retailers.`} />
+      </Helmet>
+      <div className="bg-background min-h-screen">
+        <TemplateHeader
+          onOpenCart={openCart}
         onOpenMobileMenu={() => setMobileMenuOpen(true)}
         onOpenCompare={() => setCompareOpen(true)}
         onOpenSearch={() => setSearchOpen(true)}
@@ -739,7 +745,8 @@ function ProductDetailContent() {
           setPrefilledAlertPrice(undefined);
         }}
       />
-    </div>
+      </div>
+    </>
   );
 }
 

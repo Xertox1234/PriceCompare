@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useToast } from '@/hooks/use-toast';
 import {
   useWatchLists,
@@ -555,7 +556,16 @@ export default function WatchListManager() {
   }
 
   return (
-    <div className="container mx-auto py-8">
+    <>
+      <Helmet>
+        <title>Watch Lists | PriceCompare</title>
+        <meta
+          name="description"
+          content="Manage your watch lists and track price changes on your favorite products"
+        />
+      </Helmet>
+
+      <div className="container mx-auto py-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">My Watchlists</h1>
@@ -1051,5 +1061,6 @@ export default function WatchListManager() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </>
   );
 }

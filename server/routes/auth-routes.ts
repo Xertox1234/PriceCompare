@@ -717,13 +717,37 @@ export function registerAuthRoutes(app: Express): void {
     // SECURITY: Include CSRF token in response for client convenience
     const csrfToken = generateCsrfToken(req);
 
+    // Return full profile data for profile page
+    // SECURITY: Never expose passwordHash - SafeUser type from findUserById guarantees this
     sendSuccess(res, {
+      // Core identity
       id: user.id,
       username: user.username,
       email: user.email,
       role: user.role || 'user',
-      reputation: user.reputation || 0,
       isActive: user.isActive !== false,
+
+      // Profile fields (may be null if not set)
+      avatarUrl: user.avatarUrl ?? null,
+      bio: user.bio ?? null,
+      location: user.location ?? null,
+      website: user.website ?? null,
+
+      // Community standing
+      reputation: user.reputation ?? 0,
+      trustLevel: user.trustLevel ?? 0,
+
+      // Activity stats
+      postCount: user.postCount ?? 0,
+      topicCount: user.topicCount ?? 0,
+      likesGiven: user.likesGiven ?? 0,
+      likesReceived: user.likesReceived ?? 0,
+      daysVisited: user.daysVisited ?? 0,
+
+      // Timestamps
+      lastSeenAt: user.lastSeenAt?.toISOString() ?? null,
+      createdAt: user.createdAt?.toISOString() ?? new Date().toISOString(),
+
       csrfToken, // Provide token for use in subsequent requests
     });
   });

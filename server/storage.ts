@@ -93,6 +93,7 @@ export interface IStorage {
   getAllRetailers(): Promise<Retailer[]>;
   getRetailerById(id: number): Promise<Retailer | null>;
   getRetailersByIds(ids: number[]): Promise<Array<{ id: number; name: string }>>;
+  getRetailersByCountry(countryCode: string): Promise<Retailer[]>; // TODO 251
   createRetailer(retailer: InsertRetailer): Promise<Retailer>;
   updateRetailer(id: number, updates: Partial<InsertRetailer>): Promise<Retailer | null>;
   deleteRetailer(id: number): Promise<Retailer | null>;
@@ -997,6 +998,8 @@ export class MemStorage implements IStorage {
         commissionRate: null,
         affiliateStatus: 'inactive',
         affiliateConfig: null,
+        countryCode: 'US',
+        currency: 'USD',
       });
     });
 
@@ -1203,6 +1206,8 @@ export class MemStorage implements IStorage {
       commissionRate: retailer.commissionRate ?? null,
       affiliateStatus: retailer.affiliateStatus ?? 'inactive',
       affiliateConfig: retailer.affiliateConfig ?? null,
+      countryCode: retailer.countryCode ?? 'US', // TODO 251
+      currency: retailer.currency ?? 'USD', // TODO 251
     };
     this.retailers.set(id, newRetailer);
     return newRetailer;
@@ -1757,6 +1762,13 @@ export class MemStorage implements IStorage {
 
   async getRetailerById(id: number): Promise<Retailer | null> {
     return this.retailers.get(id) ?? null;
+  }
+
+  async getRetailersByCountry(countryCode: string): Promise<Retailer[]> {
+    // Filter retailers by country code (TODO 251)
+    return Array.from(this.retailers.values()).filter(
+      (r) => r.countryCode === countryCode && r.isActive
+    );
   }
 
   async updateRetailer(_id: number, _updates: Partial<InsertRetailer>): Promise<Retailer | null> {
@@ -2989,6 +3001,10 @@ export class DatabaseStorage implements IStorage {
 
   async getRetailersByIds(ids: number[]): Promise<Array<{ id: number; name: string }>> {
     return this.retailerStorage.getRetailersByIds(ids);
+  }
+
+  async getRetailersByCountry(countryCode: string): Promise<Retailer[]> {
+    return this.retailerStorage.getRetailersByCountry(countryCode);
   }
 
   async createRetailer(retailer: InsertRetailer): Promise<Retailer> {

@@ -5,6 +5,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ThemeProvider } from '@/components/theme-provider';
+import { CountryProvider } from '@/context/country-context';
 import { SharedNavigation } from '@/components/shared-navigation';
 import { RateLimitBanner } from '@/components/RateLimitBanner';
 import { NewFooter } from '@/components/new-footer';
@@ -41,6 +42,7 @@ import {
   LazyWishlistPage,
   LazyComparePage,
   LazyHomeLegacy,
+  LazyProfilePage,
 } from '@/components/lazy';
 import { ErrorBoundary, RouteErrorBoundary } from '@/components/error-boundary';
 import { useRealtimeNotifications } from '@/hooks/useSmartNotifications';
@@ -205,6 +207,15 @@ function Router() {
                 </RouteErrorBoundary>
               </Route>
 
+              {/* User profile - Lazy loaded */}
+              <Route path="/profile">
+                <RouteErrorBoundary>
+                  <Suspense fallback={<PageLoadingFallback />}>
+                    <LazyProfilePage />
+                  </Suspense>
+                </RouteErrorBoundary>
+              </Route>
+
               {/* Watch lists - Lazy loaded */}
               <Route path="/watchlists">
                 <RouteErrorBoundary>
@@ -289,7 +300,9 @@ function App() {
       <HelmetProvider>
         <ThemeProvider defaultTheme="light" storageKey="pricecompare-theme">
           <QueryClientProvider client={queryClient}>
-            <AppContent />
+            <CountryProvider>
+              <AppContent />
+            </CountryProvider>
           </QueryClientProvider>
         </ThemeProvider>
       </HelmetProvider>

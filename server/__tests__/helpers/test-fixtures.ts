@@ -252,6 +252,8 @@ export function createTestRetailer(overrides?: Partial<Retailer>): Omit<Retailer
     commissionRate: null,
     affiliateStatus: 'inactive',
     affiliateConfig: null,
+    countryCode: 'US',
+    currency: 'USD',
     ...overrides,
   };
 }

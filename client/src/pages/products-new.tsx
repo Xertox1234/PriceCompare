@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useSearch } from 'wouter';
 import {
   ChevronRight,
@@ -575,8 +576,13 @@ function ProductsContent() {
   );
 
   return (
-    <div className="bg-background min-h-screen">
-      <TemplateHeader
+    <>
+      <Helmet>
+        <title>Shop Products | PriceCompare</title>
+        <meta name="description" content="Browse and compare prices on electronics, laptops, smartphones, and more." />
+      </Helmet>
+      <div className="bg-background min-h-screen">
+        <TemplateHeader
         onOpenCart={openCart}
         onOpenMobileMenu={() => setMobileMenuOpen(true)}
         onOpenCompare={() => setCompareOpen(true)}
@@ -944,6 +950,7 @@ function ProductsContent() {
         onClose={() => setQuickviewProduct(null)}
         product={quickviewProduct}
       />
+      </div>
 
       {/* Bulk Add to Watchlist Dialog */}
       <Dialog open={bulkAddDialogOpen} onOpenChange={setBulkAddDialogOpen}>
@@ -986,7 +993,7 @@ function ProductsContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
 

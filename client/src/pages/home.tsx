@@ -1,4 +1,5 @@
 import { useCallback, useState, useMemo } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { HeroSection } from '@/components/hero-section';
 import { FlashDealsSection } from '@/components/flash-deals-section';
 import { CategoryPillsBar } from '@/components/category-pills-bar';
@@ -83,7 +84,16 @@ export default function Home() {
   }, [topDeals]);
 
   return (
-    <div className="space-y-12 pb-12">
+    <>
+      <Helmet>
+        <title>PriceCompare - Compare Prices &amp; Find the Best Deals</title>
+        <meta
+          name="description"
+          content="Compare prices across top retailers and discover the best deals on electronics, fashion, home goods, and more. Save money with PriceCompare."
+        />
+      </Helmet>
+
+      <div className="space-y-12 pb-12">
       {/* 1. Hero Section - Main search and headline */}
       <HeroSection />
 
@@ -272,5 +282,6 @@ export default function Home() {
         <NewsletterBanner />
       </section>
     </div>
+    </>
   );
 }

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { useState } from 'react';
 import { useParams, Link } from 'wouter';
+import { Helmet } from 'react-helmet-async';
 import {
   Star,
   BarChart2,
@@ -169,7 +170,16 @@ function ProductDetailContent() {
   }));
 
   return (
-    <div className="bg-background min-h-screen">
+    <>
+      <Helmet>
+        <title>{product.title} | PriceCompare</title>
+        <meta
+          name="description"
+          content={`Compare prices for ${product.title}. Find the best deals from top retailers. ${product.category} - Starting at $${product.price}`}
+        />
+      </Helmet>
+
+      <div className="bg-background min-h-screen">
       <TemplateHeader onOpenCart={openCart} />
       <CartSidebar />
 
@@ -610,6 +620,7 @@ function ProductDetailContent() {
 
       <TemplateFooter />
     </div>
+    </>
   );
 }
 

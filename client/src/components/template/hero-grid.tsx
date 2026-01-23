@@ -15,14 +15,6 @@ interface HeroSlide {
 
 interface HeroGridProps {
   slides?: HeroSlide[];
-  dealCards?: Array<{
-    title: string;
-    subtitle: string;
-    discount: number;
-    image: string;
-    link: string;
-    category: string;
-  }>;
 }
 
 const defaultSlides: HeroSlide[] = [
@@ -66,28 +58,29 @@ const defaultSlides: HeroSlide[] = [
     discount: 10,
     link: '/product/4',
   },
-];
-
-const defaultDealCards = [
   {
-    title: 'CATCH BIG',
-    subtitle: 'DEALS',
-    discount: 70,
-    image: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=600&q=80',
-    link: '/shop?category=cameras',
-    category: 'ON THE CAMERAS',
+    id: 5,
+    name: 'iPad Pro 12.9"\nM2 Chip',
+    tagline: 'Your next computer is not a computer',
+    price: 999,
+    originalPrice: 1099,
+    image: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800&q=80',
+    discount: 9,
+    link: '/product/5',
   },
   {
-    title: 'CATCH BIG',
-    subtitle: 'DEALS',
-    discount: 70,
-    image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&q=80',
-    link: '/shop?category=audio',
-    category: 'ON THE AUDIO',
+    id: 6,
+    name: 'AirPods Pro\n2nd Generation',
+    tagline: 'Adaptive Audio. Now playing.',
+    price: 229,
+    originalPrice: 249,
+    image: 'https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=800&q=80',
+    discount: 8,
+    link: '/product/6',
   },
 ];
 
-export function HeroGrid({ slides = defaultSlides, dealCards = defaultDealCards }: HeroGridProps) {
+export function HeroGrid({ slides = defaultSlides }: HeroGridProps) {
   const sliderRef = React.useRef<HTMLDivElement>(null);
   const [isAnimating, setIsAnimating] = React.useState(false);
 
@@ -129,28 +122,16 @@ export function HeroGrid({ slides = defaultSlides, dealCards = defaultDealCards 
   };
 
   return (
-    <section className="py-5">
-      <div className="container mx-auto px-4">
-        {/* CSS Grid Layout matching template: bb bb aa / bb bb cc */}
+    <section className="py-5 overflow-x-clip">
+      <div className="container mx-auto px-4 overflow-visible">
+        {/* Full-width Hero Slider - overflow visible on right for partial thumbnail */}
         <div
-          className="grid gap-5"
-          style={{
-            gridTemplateColumns: '1fr 1fr 1fr',
-            gridTemplateAreas: `
-              "main main side1"
-              "main main side2"
-            `,
-          }}
+          className="relative rounded-[10px] overflow-visible"
         >
-          {/* Main Featured Banner with Slider - Takes 2x2 */}
-          <div
-            className="relative min-h-[550px] overflow-hidden rounded-[10px]"
-            style={{ gridArea: 'main' }}
-          >
             {/* Slider Container */}
             <div 
               ref={sliderRef} 
-              className="hero-slider absolute inset-0"
+              className="hero-slider"
               onClick={handleSlideClick}
             >
               {slides.map((slide) => (
@@ -184,7 +165,7 @@ export function HeroGrid({ slides = defaultSlides, dealCards = defaultDealCards 
             <div className="absolute bottom-6 left-10 z-10 flex gap-3">
               <button
                 type="button"
-                onClick={handlePrev}
+                onClick={handleNext}
                 className="flex h-9 w-10 items-center justify-center rounded-lg border-2 border-black/70 bg-white/60 transition-all hover:scale-110 hover:bg-white"
                 aria-label="Previous slide"
               >
@@ -192,7 +173,7 @@ export function HeroGrid({ slides = defaultSlides, dealCards = defaultDealCards 
               </button>
               <button
                 type="button"
-                onClick={handleNext}
+                onClick={handlePrev}
                 className="flex h-9 w-10 items-center justify-center rounded-lg border-2 border-black/70 bg-white/60 transition-all hover:scale-110 hover:bg-white"
                 aria-label="Next slide"
               >
@@ -200,68 +181,8 @@ export function HeroGrid({ slides = defaultSlides, dealCards = defaultDealCards 
               </button>
             </div>
           </div>
-
-          {/* Deal Card 1 - Top Right */}
-          <div style={{ gridArea: 'side1' }}>
-            <DealCard {...dealCards[0]} />
-          </div>
-
-          {/* Deal Card 2 - Bottom Right */}
-          <div style={{ gridArea: 'side2' }}>
-            <DealCard {...dealCards[1]} />
-          </div>
-        </div>
       </div>
     </section>
-  );
-}
-
-interface DealCardProps {
-  title: string;
-  subtitle: string;
-  discount: number;
-  image: string;
-  link: string;
-  category: string;
-}
-
-function DealCard({ title, subtitle, discount, image, link, category }: DealCardProps) {
-  return (
-    <Link href={link}>
-      <div className="group relative h-full min-h-[265px] cursor-pointer overflow-hidden rounded-[10px]">
-        {/* Background Image */}
-        <img
-          src={image}
-          alt={`${title} ${subtitle}`}
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-        />
-
-        {/* Dark Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-slate-900/40" />
-
-        {/* Content */}
-        <div className="absolute inset-0 flex flex-col justify-between p-6">
-          {/* Text Content - Top */}
-          <div>
-            <p className="text-sm tracking-wider text-slate-200 uppercase">{title}</p>
-            <p className="text-2xl font-bold text-white uppercase">{subtitle}</p>
-            <p className="text-sm text-slate-200 uppercase">{category}</p>
-          </div>
-
-          {/* CTA Button - Bottom */}
-          <button className="inline-flex w-fit items-center gap-2 rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700">
-            <span>Shop now</span>
-            <ArrowRight className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Sale Badge - Top Right */}
-        <div className="bg-secondary absolute top-6 right-6 min-w-[60px] rounded-lg px-3 py-2 text-center text-black">
-          <p className="text-2xs font-medium uppercase">Sale</p>
-          <p className="text-xl leading-tight font-bold">{discount}%</p>
-        </div>
-      </div>
-    </Link>
   );
 }
 

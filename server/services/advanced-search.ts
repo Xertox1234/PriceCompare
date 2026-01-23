@@ -124,6 +124,8 @@ export class AdvancedSearchService {
               commissionRate: null,
               affiliateStatus: 'inactive',
               affiliateConfig: null,
+              countryCode: 'US',
+              currency: 'USD',
             },
           };
         }),

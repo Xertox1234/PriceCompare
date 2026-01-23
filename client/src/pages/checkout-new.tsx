@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { Link, useLocation } from 'wouter';
 import {
   ChevronRight,
@@ -130,8 +131,13 @@ function CheckoutContent() {
   // Redirect to cart if empty
   if (cartItems.length === 0 && !isProcessing) {
     return (
-      <div className="bg-background min-h-screen">
-        <TemplateHeader
+      <>
+        <Helmet>
+          <title>Checkout | PriceCompare</title>
+          <meta name="description" content="Complete your purchase securely." />
+        </Helmet>
+        <div className="bg-background min-h-screen">
+          <TemplateHeader
           onOpenCart={openCart}
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
           onOpenCompare={() => setCompareOpen(true)}
@@ -145,22 +151,28 @@ function CheckoutContent() {
           <Link href="/shop">
             <Button>Continue Shopping</Button>
           </Link>
+          </div>
+          <TemplateFooter />
         </div>
-        <TemplateFooter />
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="bg-background min-h-screen">
-      <TemplateHeader
-        onOpenCart={openCart}
-        onOpenMobileMenu={() => setMobileMenuOpen(true)}
-        onOpenCompare={() => setCompareOpen(true)}
-        onOpenSearch={() => setSearchOpen(true)}
-      />
+    <>
+      <Helmet>
+        <title>Checkout | PriceCompare</title>
+        <meta name="description" content="Complete your purchase securely." />
+      </Helmet>
+      <div className="bg-background min-h-screen">
+        <TemplateHeader
+          onOpenCart={openCart}
+          onOpenMobileMenu={() => setMobileMenuOpen(true)}
+          onOpenCompare={() => setCompareOpen(true)}
+          onOpenSearch={() => setSearchOpen(true)}
+        />
 
-      {/* Breadcrumbs */}
+        {/* Breadcrumbs */}
       <div className="border-border border-b py-4">
         <div className="container mx-auto px-4">
           <nav className="flex items-center gap-2 text-sm">
@@ -764,7 +776,8 @@ function CheckoutContent() {
       <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
       <CompareModal isOpen={compareOpen} onClose={() => setCompareOpen(false)} />
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
-    </div>
+      </div>
+    </>
   );
 }
 

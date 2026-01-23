@@ -1,4 +1,5 @@
 import { useState, lazy, Suspense } from 'react';
+import { Helmet } from 'react-helmet-async';
 // ============================================
 // ABOVE THE FOLD - Eager loaded (critical for FCP)
 // ============================================
@@ -191,9 +192,14 @@ function HomeNewContent() {
   }
 
   return (
-    <div className="bg-background min-h-screen">
-      {/* Header - Eager loaded (above the fold) */}
-      <TemplateHeader
+    <>
+      <Helmet>
+        <title>PriceCompare - Compare Prices & Find the Best Deals</title>
+        <meta name="description" content="Compare prices across retailers, track price history, and never miss a deal." />
+      </Helmet>
+      <div className="bg-background min-h-screen">
+        {/* Header - Eager loaded (above the fold) */}
+        <TemplateHeader
         onOpenCart={() => setCartOpen(true)}
         onOpenMobileMenu={() => setMobileMenuOpen(true)}
         onOpenCompare={() => setCompareOpen(true)}
@@ -337,6 +343,7 @@ function HomeNewContent() {
         <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
       </Suspense>
     </div>
+    </>
   );
 }
 

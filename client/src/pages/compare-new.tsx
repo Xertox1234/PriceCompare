@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { Link } from 'wouter';
 import {
   ChevronRight,
@@ -73,9 +74,14 @@ function CompareContent() {
   const emptySlots = Math.max(0, 4 - compareItems.length);
 
   return (
-    <div className="bg-background min-h-screen">
-      <TemplateHeader
-        onOpenCart={openCart}
+    <>
+      <Helmet>
+        <title>Compare Products | PriceCompare</title>
+        <meta name="description" content="Compare products side by side. See specs, prices, and ratings to make the best choice." />
+      </Helmet>
+      <div className="bg-background min-h-screen">
+        <TemplateHeader
+          onOpenCart={openCart}
         onOpenMobileMenu={() => setMobileMenuOpen(true)}
         onOpenCompare={() => {}}
         onOpenSearch={() => setSearchOpen(true)}
@@ -421,7 +427,8 @@ function CompareContent() {
       <CartSidebar />
       <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
-    </div>
+      </div>
+    </>
   );
 }
 

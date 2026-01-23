@@ -148,6 +148,9 @@ export const retailers = pgTable('retailers', {
   commissionRate: decimal('commission_rate', { precision: 4, scale: 2 }),
   affiliateStatus: varchar('affiliate_status', { length: 20 }).default('inactive'),
   affiliateConfig: text('affiliate_config'), // JSON string for configuration
+  // Country/Region support for multi-country affiliate programs (TODO 251)
+  countryCode: varchar('country_code', { length: 2 }).notNull().default('US'), // ISO 3166-1 alpha-2
+  currency: varchar('currency', { length: 3 }).notNull().default('USD'), // ISO 4217
 });
 
 export const products = pgTable(

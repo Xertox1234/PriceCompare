@@ -10,12 +10,22 @@
  */
 
 import { db } from '../../db';
-import { eq, asc, sql, inArray } from 'drizzle-orm';
+import { eq, and, asc, sql, inArray } from 'drizzle-orm';
 import { BaseStorage } from '../base-storage';
 import { retailers, productOffers, type Retailer, type InsertRetailer } from '@shared/schema';
 import type { RetailerWithAffiliateStats, AffiliateConfig } from '../types';
 import { storageCache } from '../../services/storage-cache';
 import { safeJsonParse } from '../../utils/json-helpers';
+
+// Supported country codes (Phase 1: US, CA)
+const VALID_COUNTRY_CODES = ['US', 'CA'] as const;
+type CountryCode = (typeof VALID_COUNTRY_CODES)[number];
+
+// Currency mapping by country
+const COUNTRY_CURRENCIES: Record<CountryCode, string> = {
+  US: 'USD',
+  CA: 'CAD',
+};
 
 export class RetailerStorage extends BaseStorage {
   constructor(database: typeof db) {
@@ -97,6 +107,37 @@ export class RetailerStorage extends BaseStorage {
         throw new Error(`Invalid website URL: ${data.website}. Must be a valid URL.`);
       }
     }
+
+    // Validate country code if provided (TODO 251)
+    if (data.countryCode !== undefined && data.countryCode !== null) {
+      if (!VALID_COUNTRY_CODES.includes(data.countryCode as CountryCode)) {
+        throw new Error(
+          `Invalid country code: ${data.countryCode}. Must be one of: ${VALID_COUNTRY_CODES.join(', ')}`
+        );
+      }
+    }
+
+    // Validate currency if provided (TODO 251)
+    if (data.currency !== undefined && data.currency !== null) {
+      const validCurrencies = Object.values(COUNTRY_CURRENCIES);
+      if (!validCurrencies.includes(data.currency)) {
+        throw new Error(
+          `Invalid currency: ${data.currency}. Must be one of: ${validCurrencies.join(', ')}`
+        );
+      }
+    }
+  }
+
+  /**
+   * Validates country code parameter
+   * @param countryCode - ISO 3166-1 alpha-2 country code
+   */
+  private validateCountryCode(countryCode: string): asserts countryCode is CountryCode {
+    if (!VALID_COUNTRY_CODES.includes(countryCode as CountryCode)) {
+      throw new Error(
+        `Invalid country code: ${countryCode}. Must be one of: ${VALID_COUNTRY_CODES.join(', ')}`
+      );
+    }
   }
 
   // ============================================================================
@@ -134,6 +175,35 @@ export class RetailerStorage extends BaseStorage {
       return result;
     } catch (error) {
       this.handleError(error, 'getAllRetailers');
+    }
+  }
+
+  /**
+   * Get active retailers by country code (TODO 251)
+   * Used for: Filtering retailers by user's preferred country
+   *
+   * @param countryCode - ISO 3166-1 alpha-2 country code (US, CA)
+   * @returns Array of active retailers for the specified country
+   */
+  async getRetailersByCountry(countryCode: string): Promise<Retailer[]> {
+    this.validateCountryCode(countryCode);
+
+    try {
+      const result = await this.db
+        .select()
+        .from(retailers)
+        .where(
+          and(eq(retailers.countryCode, countryCode), eq(retailers.isActive, true))
+        )
+        .orderBy(asc(retailers.name));
+
+      this.logSuccess('getRetailersByCountry', {
+        countryCode,
+        count: result.length,
+      });
+      return result;
+    } catch (error) {
+      this.handleError(error, 'getRetailersByCountry');
     }
   }
 
@@ -378,6 +448,8 @@ export class RetailerStorage extends BaseStorage {
           commissionRate: retailers.commissionRate,
           affiliateStatus: retailers.affiliateStatus,
           affiliateConfig: retailers.affiliateConfig,
+          countryCode: retailers.countryCode,
+          currency: retailers.currency,
           totalOffers: sql<number>`count(${productOffers.id})::int`,
           offersWithAffiliateLinks: sql<number>`count(case when ${productOffers.affiliateUrl} is not null then 1 end)::int`,
           totalClicks: sql<number>`coalesce(sum(${productOffers.clickCount}), 0)::int`,
@@ -413,6 +485,8 @@ export class RetailerStorage extends BaseStorage {
           commissionRate: row.commissionRate,
           affiliateStatus: row.affiliateStatus,
           affiliateConfig: row.affiliateConfig,
+          countryCode: row.countryCode,
+          currency: row.currency,
           affiliateConfigParsed,
           stats: {
             totalOffers: row.totalOffers,

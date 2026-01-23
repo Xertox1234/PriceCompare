@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { EnhancedSearchHeader } from '@/components/enhanced-search-header';
 import { FilterSidebar } from '@/components/filter-sidebar';
 import { ProductGrid } from '@/components/product-grid';
@@ -182,8 +183,23 @@ export default function Products() {
     }
   }, [activeFilterSignature, currentPage, setPage]);
 
+  // Build page title based on search query and filters
+  const pageTitle = query
+    ? `${query} - Search Results | PriceCompare`
+    : filters.category
+      ? `${filters.category} Products | PriceCompare`
+      : 'All Products | PriceCompare';
+
   return (
     <>
+      <Helmet>
+        <title>{pageTitle}</title>
+        <meta
+          name="description"
+          content="Browse and compare products from top retailers. Find the best deals and lowest prices."
+        />
+      </Helmet>
+
       <EnhancedSearchHeader
         onSearch={handleSearch}
         searchQuery={query}

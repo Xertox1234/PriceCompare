@@ -19,6 +19,7 @@ import { useAuth, useLogout } from '@/hooks/use-auth';
 import { useState } from 'react';
 import { AuthModal } from './auth/auth-modal';
 import { ThemeToggle } from './theme-toggle';
+import { CountrySelector } from './country-selector';
 
 interface SharedNavigationProps {
   currentPage?: 'home' | 'admin' | 'price-watch';
@@ -76,6 +77,14 @@ export function SharedNavigation({ currentPage: _currentPage = 'home' }: SharedN
               Products
             </Button>
           </Link>
+
+          {/* Country Selector */}
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between p-2">
+              <span className="text-sm font-medium">Region</span>
+              <CountrySelector variant="compact" />
+            </div>
+          </div>
 
           {/* Theme Toggle */}
           <div className="border-t pt-4">
@@ -176,6 +185,7 @@ export function SharedNavigation({ currentPage: _currentPage = 'home' }: SharedN
           </Link>
         </Button>
 
+        <CountrySelector variant="compact" />
         <ThemeToggle />
 
         {user && (
@@ -203,12 +213,14 @@ export function SharedNavigation({ currentPage: _currentPage = 'home' }: SharedN
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end" forceMount>
-              <DropdownMenuItem disabled>
-                <User className="mr-2 h-4 w-4" />
-                <span>{user?.username || 'Unknown'}</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem disabled>
-                <span className="text-muted-foreground text-sm">{user?.email || 'No email'}</span>
+              <DropdownMenuItem asChild>
+                <Link href="/profile" className="flex w-full items-center">
+                  <User className="mr-2 h-4 w-4" />
+                  <div className="flex flex-col">
+                    <span>{user?.username || 'Unknown'}</span>
+                    <span className="text-muted-foreground text-xs">{user?.email || 'No email'}</span>
+                  </div>
+                </Link>
               </DropdownMenuItem>
               {user?.role === 'admin' && (
                 <DropdownMenuItem asChild>
@@ -259,8 +271,11 @@ export function SharedNavigation({ currentPage: _currentPage = 'home' }: SharedN
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="bg-card border-border w-48 shadow-lg" align="end">
-              <DropdownMenuItem disabled className="text-foreground">
-                <span className="text-foreground text-sm font-medium">{user.username}</span>
+              <DropdownMenuItem asChild className="text-foreground">
+                <Link href="/profile" className="flex w-full items-center">
+                  <User className="text-muted-foreground mr-2 h-4 w-4" />
+                  <span className="text-foreground text-sm font-medium">{user.username}</span>
+                </Link>
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={handleLogout}

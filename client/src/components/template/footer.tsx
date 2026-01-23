@@ -33,43 +33,6 @@ export function TemplateFooter() {
 
   return (
     <footer className="bg-foreground text-muted dark:bg-slate-950">
-      {/* Newsletter Section */}
-      <div className="bg-primary">
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex flex-col items-center justify-between gap-6 lg:flex-row">
-            <div className="flex items-center gap-4 text-white">
-              <div className="rounded-xl bg-white/10 p-3">
-                <Mail className="h-6 w-6" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold">10% Off Your First Order</h3>
-                <p className="text-sm text-white/80">
-                  Be the first to know about offers, new products and discounted products
-                </p>
-              </div>
-            </div>
-            <form onSubmit={handleSubscribe} className="flex w-full lg:w-auto">
-              <div className="relative flex-1 lg:flex-auto">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email address"
-                  className="w-full rounded-l-xl border border-white/20 bg-white/10 px-4 py-3 pr-12 text-white placeholder:text-white/60 focus:ring-2 focus:ring-white/30 focus:outline-none lg:w-80"
-                  required
-                />
-              </div>
-              <Button
-                type="submit"
-                className="text-primary h-auto rounded-r-xl bg-white px-6 py-3 font-semibold transition-colors hover:bg-white/90"
-              >
-                {subscribed ? 'Subscribed!' : 'Subscribe'}
-              </Button>
-            </form>
-          </div>
-        </div>
-      </div>
-
       {/* Main Footer */}
       <div className="container mx-auto px-4 py-12 lg:py-16">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-5 lg:gap-12">

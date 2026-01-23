@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { Link } from 'wouter';
 import {
   ChevronRight,
@@ -89,9 +90,14 @@ function CartContent() {
   };
 
   return (
-    <div className="bg-background min-h-screen">
-      <TemplateHeader
-        onOpenCart={openCart}
+    <>
+      <Helmet>
+        <title>Shopping Cart | PriceCompare</title>
+        <meta name="description" content="Review your cart items and proceed to checkout." />
+      </Helmet>
+      <div className="bg-background min-h-screen">
+        <TemplateHeader
+          onOpenCart={openCart}
         onOpenMobileMenu={() => setMobileMenuOpen(true)}
         onOpenCompare={() => setCompareOpen(true)}
         onOpenSearch={() => setSearchOpen(true)}
@@ -414,7 +420,8 @@ function CartContent() {
       <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
       <CompareModal isOpen={compareOpen} onClose={() => setCompareOpen(false)} />
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
-    </div>
+      </div>
+    </>
   );
 }
 

@@ -45,6 +45,8 @@ const mockProduct: ProductWithOffers = {
         commissionRate: null,
         affiliateStatus: null,
         affiliateConfig: null,
+        countryCode: 'US',
+        currency: 'USD',
       },
     },
   ],

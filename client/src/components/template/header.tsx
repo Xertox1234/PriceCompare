@@ -152,7 +152,7 @@ export function TemplateHeader({
               {/* Logo */}
               <Link href="/" className="flex shrink-0 items-center gap-2">
                 <div className="bg-primary flex h-10 w-10 items-center justify-center rounded-lg">
-                  <span className="text-xl font-bold text-white">P</span>
+                  <span className="text-xl font-bold text-primary-foreground">P</span>
                 </div>
                 <span className="text-foreground hidden text-xl font-bold sm:block">
                   Price<span className="text-primary">Compare</span>
@@ -235,17 +235,24 @@ export function TemplateHeader({
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild>
+                        <Link href="/profile">
+                          <User className="mr-2 h-4 w-4" />
+                          Your Profile
+                        </Link>
+                      </DropdownMenuItem>
                       {user.role === 'admin' && (
                         <>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem asChild>
                             <Link href="/admin">
                               <Settings className="mr-2 h-4 w-4" />
                               Admin Panel
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
                         </>
                       )}
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem
                         data-testid="sign-out-button"
                         onClick={handleLogout}
@@ -449,7 +456,7 @@ export function TemplateHeader({
             {/* Logo */}
             <Link href="/" className="flex shrink-0 items-center gap-2">
               <div className="bg-primary flex h-8 w-8 items-center justify-center rounded-lg">
-                <span className="text-lg font-bold text-white">P</span>
+                <span className="text-lg font-bold text-primary-foreground">P</span>
               </div>
               <span className="text-foreground hidden text-lg font-bold sm:block">
                 Price<span className="text-primary">Compare</span>
@@ -539,11 +546,11 @@ export function CompactHeader() {
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex shrink-0 items-center gap-2">
             <div className="bg-primary flex h-8 w-8 items-center justify-center rounded-lg">
-              <span className="text-lg font-bold text-white">P</span>
+              <span className="text-lg font-bold text-primary-foreground">P</span>
             </div>
-            <span className="text-foreground text-lg font-bold">
+            <span className="text-foreground text-lg font-bold whitespace-nowrap">
               Price<span className="text-primary">Compare</span>
             </span>
           </Link>

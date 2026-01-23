@@ -148,3 +148,8 @@ export const LazyCheckoutPage = lazy(() => import('@/pages/checkout-new'));
  * Legacy home page
  */
 export const LazyHomeLegacy = lazy(() => import('@/pages/home'));
+
+/**
+ * User profile page - Account info, reputation, activity
+ */
+export const LazyProfilePage = lazy(() => import('@/pages/profile'));
