@@ -25,6 +25,8 @@ import {
 
 // Import PASSWORD constants for consistency
 import { PASSWORD } from '../utils/constants';
+// Import country constants - single source of truth (TODO 262)
+import { VALID_COUNTRY_CODES, isValidCountryCode } from '@shared/country-constants';
 
 // Zod schemas for request validation
 const registerSchema = z.object({
@@ -828,9 +830,8 @@ export function registerAuthRoutes(app: Express): void {
 
       const { preferredCountry } = parseResult.data;
 
-      // Validate against supported countries (US, CA for Phase 1)
-      const VALID_COUNTRY_CODES = ['US', 'CA'];
-      if (preferredCountry && !VALID_COUNTRY_CODES.includes(preferredCountry)) {
+      // Validate against supported countries (uses shared/country-constants.ts)
+      if (preferredCountry && !isValidCountryCode(preferredCountry)) {
         sendError(res, `Invalid country code. Supported: ${VALID_COUNTRY_CODES.join(', ')}`, 400);
         return;
       }
