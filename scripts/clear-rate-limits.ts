@@ -1,6 +1,14 @@
 /**
  * DEV ONLY: Clear all rate limit keys from Redis
  */
+
+// Production safety guard
+if (process.env.NODE_ENV === 'production') {
+  console.error('❌ ERROR: This script cannot run in production');
+  console.error('   Set NODE_ENV to "development" or "test" to proceed');
+  process.exit(1);
+}
+
 import 'dotenv/config';
 import Redis from 'ioredis';
 

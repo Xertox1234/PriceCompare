@@ -87,6 +87,7 @@ passport.use(
             likesReceived: users.likesReceived,
             timeReadPosts: users.timeReadPosts,
             daysVisited: users.daysVisited,
+            preferredCountry: users.preferredCountry, // User preference (TODO 258)
             createdAt: users.createdAt,
             updatedAt: users.updatedAt,
           })
@@ -204,6 +205,7 @@ passport.deserializeUser(async (id: number, done) => {
         likesReceived: users.likesReceived,
         timeReadPosts: users.timeReadPosts,
         daysVisited: users.daysVisited,
+        preferredCountry: users.preferredCountry, // User preference (TODO 258)
         createdAt: users.createdAt,
         updatedAt: users.updatedAt,
       })
@@ -278,6 +280,7 @@ export async function createUser(userData: {
     likesReceived: user.likesReceived,
     timeReadPosts: user.timeReadPosts,
     daysVisited: user.daysVisited,
+    preferredCountry: user.preferredCountry, // User preference (TODO 258)
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
@@ -309,6 +312,7 @@ export async function findUserByEmail(email: string): Promise<SafeUser | null> {
       likesReceived: users.likesReceived,
       timeReadPosts: users.timeReadPosts,
       daysVisited: users.daysVisited,
+      preferredCountry: users.preferredCountry, // User preference (TODO 258)
       createdAt: users.createdAt,
       updatedAt: users.updatedAt,
     })
@@ -353,6 +357,7 @@ export async function findUserById(id: number): Promise<SafeUser | null> {
       likesReceived: users.likesReceived,
       timeReadPosts: users.timeReadPosts,
       daysVisited: users.daysVisited,
+      preferredCountry: users.preferredCountry, // User preference (TODO 258)
       createdAt: users.createdAt,
       updatedAt: users.updatedAt,
     })

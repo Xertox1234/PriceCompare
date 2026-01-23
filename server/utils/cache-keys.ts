@@ -87,6 +87,13 @@ export const CacheKeys = {
     ALL: () => `retailer:all:v${CACHE_VERSION}`,
 
     /**
+     * Retailers filtered by country code (used by getRetailersByCountry)
+     * @param countryCode - Country code (e.g., 'US', 'CA')
+     * @returns Versioned cache key: "retailer:country:v{version}:{countryCode}"
+     */
+    BY_COUNTRY: (countryCode: string) => `retailer:country:v${CACHE_VERSION}:${countryCode}`,
+
+    /**
      * Pattern for invalidating all retailer caches
      * @returns Versioned pattern: "retailer:*:v{version}*"
      */

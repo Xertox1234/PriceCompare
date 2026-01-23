@@ -342,6 +342,11 @@ export interface IStorage {
   getUserWithPassword(userId: number): Promise<{ id: number; email: string; username: string; passwordHash: string } | null>;
   invalidateUserSessions(userId: number, exceptSessionId?: string): Promise<void>;
 
+  // User Account Preferences (TODO 258: Agent-Native User Preferences API)
+  // Note: These are distinct from notification preferences (getUserPreferences/updateUserPreferences)
+  getUserAccountPreferences(userId: number): Promise<{ preferredCountry: string | null }>;
+  updateUserAccountPreferences(userId: number, preferences: { preferredCountry?: string | null }): Promise<void>;
+
   // Admin Analytics
   getAllUsers(): Promise<AdminUser[]>;
   getAdminAnalyticsOverview(): Promise<AdminAnalyticsOverview>;
@@ -1843,6 +1848,15 @@ export class MemStorage implements IStorage {
   }
 
   async invalidateUserSessions(_userId: number, _exceptSessionId?: string): Promise<void> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  // User Account Preferences (TODO 258)
+  async getUserAccountPreferences(_userId: number): Promise<{ preferredCountry: string | null }> {
+    return { preferredCountry: null };
+  }
+
+  async updateUserAccountPreferences(_userId: number, _preferences: { preferredCountry?: string | null }): Promise<void> {
     throw new Error('Not supported in memory storage');
   }
 
@@ -3617,6 +3631,15 @@ export class DatabaseStorage implements IStorage {
 
   async invalidateUserSessions(userId: number, exceptSessionId?: string): Promise<void> {
     return this.userStorage.invalidateUserSessions(userId, exceptSessionId);
+  }
+
+  // User Account Preferences (TODO 258: Agent-Native User Preferences API)
+  async getUserAccountPreferences(userId: number): Promise<{ preferredCountry: string | null }> {
+    return this.userStorage.getUserAccountPreferences(userId);
+  }
+
+  async updateUserAccountPreferences(userId: number, preferences: { preferredCountry?: string | null }): Promise<void> {
+    return this.userStorage.updateUserAccountPreferences(userId, preferences);
   }
 
   // Admin Analytics
@@ -6056,6 +6079,7 @@ export interface SafeUser {
   trustLevel: number | null;
   isActive: boolean | null;
   isSuspended: boolean | null;
+  preferredCountry: string | null; // User preference (TODO 258)
   createdAt: Date | null;
   updatedAt: Date | null;
 }

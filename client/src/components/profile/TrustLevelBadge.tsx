@@ -15,6 +15,18 @@ import {
  * - Level 2: Member - Active participant, can edit own posts
  * - Level 3: Regular - Trusted community member
  * - Level 4: Leader - Highly trusted, can moderate
+ *
+ * Trust Level Badge Colors
+ *
+ * NOTE: These colors are intentionally hardcoded rather than using design tokens.
+ * Trust levels represent distinct categorical data that requires visual differentiation
+ * similar to data visualization charts. This is an acceptable exception per
+ * docs/05_FRONTEND_PATTERNS.md (Acceptable Exceptions: Data visualization colors).
+ *
+ * Each level has carefully chosen colors that:
+ * 1. Provide clear visual hierarchy (gray -> blue -> green -> purple -> amber)
+ * 2. Support both light and dark modes
+ * 3. Maintain WCAG AA contrast ratios
  */
 const TRUST_LEVELS = [
   {
@@ -116,19 +128,4 @@ export function TrustLevelBadge({
       </TooltipContent>
     </Tooltip>
   );
-}
-
-/**
- * Get trust level name by number
- */
-export function getTrustLevelName(level: number): string {
-  const config = TRUST_LEVELS[Math.max(0, Math.min(4, level))];
-  return config.name;
-}
-
-/**
- * Get all trust levels for display (e.g., in admin settings)
- */
-export function getAllTrustLevels() {
-  return TRUST_LEVELS;
 }

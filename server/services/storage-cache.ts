@@ -396,6 +396,54 @@ export class StorageCacheService {
   }
 
   /**
+   * Get retailers filtered by country code with caching.
+   *
+   * Returns active retailers that operate in a specific country.
+   * Used by the country selector feature (TODO 251) to filter retailers
+   * based on user's country preference.
+   *
+   * Cache Strategy:
+   * - Key: `retailer:country:v{version}:{countryCode}` (per-country cache key)
+   * - TTL: 60 minutes (3600 seconds)
+   * - Tier: STATIC (retailers rarely change, highest L1 cache priority)
+   *
+   * Performance:
+   * - Cache hit (L1): ~1ms
+   * - Cache hit (L2): ~5ms
+   * - Cache miss: 20-50ms (database query with country filter)
+   * - Expected hit rate: 90%+ (only 2 countries supported initially: US, CA)
+   *
+   * Common Usage:
+   * - Country selector dropdown in header
+   * - Product search filtered by country
+   * - Price comparison within a country
+   *
+   * Invalidation:
+   * - Retailer update (name, logo, country list changes)
+   * - Retailer deletion
+   * - Related to cache keys: `retailer:all`, `retailer:single:{id}`
+   *
+   * @param countryCode - ISO 3166-1 alpha-2 country code (e.g., 'US', 'CA')
+   * @returns Promise<Retailer[]> - Array of retailers operating in the specified country
+   *
+   * @example
+   * ```typescript
+   * const usRetailers = await storageCache.getRetailersByCountry('US');
+   * // First call: cache MISS -> query DB -> store in L1 + L2
+   * // Next 60 minutes: cache HIT from L1 (~1ms)
+   * ```
+   */
+  async getRetailersByCountry(countryCode: string): Promise<Retailer[]> {
+    const cacheKey = CacheKeys.RETAILER.BY_COUNTRY(countryCode);
+
+    return this.cachedGet<Retailer[]>(
+      cacheKey,
+      () => storage.getRetailersByCountry(countryCode),
+      CacheTier.STATIC
+    );
+  }
+
+  /**
    * Get retailer by ID with caching.
    *
    * Individual retailer lookups are cached with a 60-minute TTL since retailer
@@ -733,6 +781,12 @@ export class StorageCacheService {
 
       // Invalidate all retailers list (retailer might be in the list)
       await this.cache.invalidate(CacheKeys.RETAILER.ALL());
+
+      // Invalidate country-specific retailer caches (TODO 261)
+      // Retailer's country list may have changed, so invalidate all country caches
+      // Currently supports US and CA - add more as countries are added
+      await this.cache.invalidate(CacheKeys.RETAILER.BY_COUNTRY('US'));
+      await this.cache.invalidate(CacheKeys.RETAILER.BY_COUNTRY('CA'));
 
       logger.debug('Retailer cache invalidated', { retailerId });
     } catch (error) {

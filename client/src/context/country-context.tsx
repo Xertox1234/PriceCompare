@@ -10,7 +10,7 @@
  * ```
  */
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 // Country type matching API response
@@ -138,7 +138,8 @@ export function CountryProvider({
     [currencySymbol]
   );
 
-  const value: CountryContextValue = {
+  // Memoize context value to prevent unnecessary re-renders (TODO 260)
+  const value = useMemo<CountryContextValue>(() => ({
     country,
     currency,
     currencySymbol,
@@ -147,7 +148,7 @@ export function CountryProvider({
     setCountry,
     isLoading,
     formatPrice,
-  };
+  }), [country, currency, currencySymbol, countryData, countries, setCountry, isLoading, formatPrice]);
 
   return <CountryContext.Provider value={value}>{children}</CountryContext.Provider>;
 }

@@ -12,6 +12,7 @@
  * ```
  */
 
+import React from 'react';
 import { useCountry } from '@/context/country-context';
 import { cn } from '@/lib/utils';
 
@@ -33,7 +34,8 @@ const sizeClasses = {
   xl: 'text-3xl',
 };
 
-export function Price({
+// Memoized to prevent unnecessary re-renders in product lists (TODO 260)
+function PriceComponent({
   value,
   className,
   strikethrough = false,
@@ -59,6 +61,9 @@ export function Price({
     </span>
   );
 }
+
+PriceComponent.displayName = 'Price';
+export const Price = React.memo(PriceComponent);
 
 /**
  * Price with discount display

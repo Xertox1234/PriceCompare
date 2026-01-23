@@ -1,14 +1,22 @@
 /**
  * DEV ONLY: Create a user directly in the database (bypasses rate limiting)
  */
+
+// Production safety guard
+if (process.env.NODE_ENV === 'production') {
+  console.error('❌ ERROR: This script cannot run in production');
+  console.error('   Set NODE_ENV to "development" or "test" to proceed');
+  process.exit(1);
+}
+
 import 'dotenv/config';
 import { db } from '../server/db';
 import { users } from '../shared/schema';
 import bcrypt from 'bcrypt';
 import { hashEmail } from '../server/utils/encryption';
 
-const USERNAME = 'william';
-const EMAIL = 'william.tower@gmail.com';
+const USERNAME = 'devuser';
+const EMAIL = 'dev@example.com';
 const PASSWORD = 'password123';
 const ROLE = 'admin'; // Give admin access for testing
 

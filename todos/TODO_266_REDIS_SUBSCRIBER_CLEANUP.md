@@ -53,8 +53,8 @@ await cacheInvalidationService.close();
 
 ## Acceptance Criteria
 
-- [ ] Store subscriber reference as class property
-- [ ] Add `close()` method that quits subscriber
+- [x] Store subscriber reference as class property
+- [x] Add `close()` method that quits subscriber
 - [ ] Register in graceful shutdown handler
 - [ ] Verify no connection leaks in dev mode with hot reload
 
@@ -69,6 +69,7 @@ await cacheInvalidationService.close();
 |------|--------|-------|
 | 2026-01-23 | Created | From code review - performance oracle agent |
 | 2026-01-23 | **APPROVED** | Triage session - ready to work on |
+| 2026-01-23 | **IMPLEMENTED** | Added subscriber property and close() method to CacheInvalidationService |
 
 ## Resources
 

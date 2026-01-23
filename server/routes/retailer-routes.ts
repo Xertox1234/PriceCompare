@@ -6,14 +6,7 @@ import { retailerCacheMiddleware } from '../middleware/redis-cache';
 import { sendSuccess, sendError, sendErrorFromException } from '../utils/api-response';
 import { parseIntSafe } from '../utils/validation-helpers';
 import { shouldSkipCache } from './helpers';
-
-// Supported countries for Phase 1 (TODO 251)
-const SUPPORTED_COUNTRIES = [
-  { code: 'US', name: 'United States', currency: 'USD', currencySymbol: '$' },
-  { code: 'CA', name: 'Canada', currency: 'CAD', currencySymbol: 'C$' },
-] as const;
-
-const VALID_COUNTRY_CODES = SUPPORTED_COUNTRIES.map((c) => c.code);
+import { COUNTRIES, VALID_COUNTRY_CODES } from '@shared/country-constants';
 
 /**
  * Retailer Routes
@@ -28,7 +21,7 @@ export function registerRetailerRoutes(app: Express): void {
   // Returns list of countries with their currencies for frontend dropdown
   app.get('/api/countries', (_req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24h (rarely changes)
-    sendSuccess(res, SUPPORTED_COUNTRIES);
+    sendSuccess(res, COUNTRIES);
   });
 
   // Get all retailers (with multi-tier caching)
@@ -56,8 +49,10 @@ export function registerRetailerRoutes(app: Express): void {
           );
           return;
         }
-        // Fetch retailers filtered by country (no cache layer for this yet)
-        const retailers = await storage.getRetailersByCountry(countryCode);
+        // Fetch retailers filtered by country with caching (TODO 261)
+        const retailers = skipCache
+          ? await storage.getRetailersByCountry(countryCode)
+          : await storageCache.getRetailersByCountry(countryCode);
         sendSuccess(res, retailers);
         return;
       }

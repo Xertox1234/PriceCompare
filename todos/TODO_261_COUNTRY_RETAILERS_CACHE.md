@@ -71,10 +71,10 @@ async onRetailerUpdate(retailerId: number): Promise<void> {
 
 ## Acceptance Criteria
 
-- [ ] `storageCache.getRetailersByCountry()` method added
-- [ ] Uses STATIC tier caching (1 hour TTL)
-- [ ] Route updated to use cached version
-- [ ] Cache invalidated on retailer update
+- [x] `storageCache.getRetailersByCountry()` method added
+- [x] Uses STATIC tier caching (1 hour TTL)
+- [x] Route updated to use cached version
+- [x] Cache invalidated on retailer update
 - [ ] Test: Second request for same country is cache hit
 
 ## Files to Modify
@@ -89,6 +89,7 @@ async onRetailerUpdate(retailerId: number): Promise<void> {
 |------|--------|-------|
 | 2026-01-23 | Created | From code review - architecture strategist |
 | 2026-01-23 | **APPROVED** | Triage session - ready to work on |
+| 2026-01-23 | **IMPLEMENTED** | Added caching for country-filtered retailers query |
 
 ## Resources
 

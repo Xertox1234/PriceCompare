@@ -278,6 +278,8 @@ export interface SafeUser {
   trustLevel: number | null;
   isActive: boolean | null;
   isSuspended: boolean | null;
+  // User preferences (TODO 258)
+  preferredCountry: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
 }

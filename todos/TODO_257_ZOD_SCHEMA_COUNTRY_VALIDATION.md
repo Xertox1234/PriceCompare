@@ -56,11 +56,11 @@ export const insertRetailerSchema = createInsertSchema(retailers)
 
 ## Acceptance Criteria
 
-- [ ] Schema validates `countryCode` as enum `['US', 'CA']`
-- [ ] Schema validates `currency` as enum `['USD', 'CAD']`
-- [ ] Schema enforces country/currency matching via `refine()`
-- [ ] Invalid combinations return clear error message
-- [ ] Defaults applied correctly (US/USD)
+- [x] Schema validates `countryCode` as enum `['US', 'CA']`
+- [x] Schema validates `currency` as enum `['USD', 'CAD']`
+- [x] Schema enforces country/currency matching via `refine()`
+- [x] Invalid combinations return clear error message
+- [x] Defaults applied correctly (US/USD)
 
 ## Files to Modify
 
@@ -85,6 +85,7 @@ insertRetailerSchema.parse({ name: 'Test', countryCode: 'US', currency: 'CAD' })
 |------|--------|-------|
 | 2026-01-23 | Created | From code review - data integrity guardian |
 | 2026-01-23 | **APPROVED** | Triage session - ready to work on |
+| 2026-01-23 | **IMPLEMENTED** | Added refine() validation for country/currency enum and cross-column matching |
 
 ## Resources
 

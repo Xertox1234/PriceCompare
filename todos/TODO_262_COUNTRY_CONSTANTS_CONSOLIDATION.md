@@ -82,12 +82,12 @@ export const COUNTRY_CURRENCIES: Record<CountryCode, CurrencyCode> =
 
 ## Acceptance Criteria
 
-- [ ] Single source of truth for country data in `shared/country-constants.ts`
-- [ ] Server imports from shared module
-- [ ] Client imports from shared module
-- [ ] Remove duplicate definitions
-- [ ] Document that database CHECK constraints must be updated separately
-- [ ] Add TODO comment near CHECK constraints referencing shared constants
+- [x] Single source of truth for country data in `shared/country-constants.ts`
+- [x] Server imports from shared module
+- [x] Client imports from shared module
+- [x] Remove duplicate definitions
+- [x] Document that database CHECK constraints must be updated separately
+- [x] Add TODO comment near CHECK constraints referencing shared constants
 
 ## Files to Modify
 
@@ -106,6 +106,7 @@ Database CHECK constraints (`migrations/0030`) cannot import from TypeScript fil
 |------|--------|-------|
 | 2026-01-23 | Created | From code review - pattern recognition specialist |
 | 2026-01-23 | **APPROVED** | Triage session - ready to work on |
+| 2026-01-23 | **IMPLEMENTED** | Created shared/country-constants.ts, updated retailer-storage.ts, retailer-routes.ts, country-selector.tsx, schema.ts, and migration file |
 
 ## Resources
 

@@ -144,6 +144,7 @@ describe('CSRF Protection', () => {
         likesReceived: 0,
         timeReadPosts: 0,
         daysVisited: 1,
+        preferredCountry: null, // User preference (TODO 258)
         createdAt: new Date(),
         updatedAt: new Date(),
       };

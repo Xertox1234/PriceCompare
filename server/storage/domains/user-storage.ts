@@ -130,6 +130,7 @@ export class UserStorage extends BaseStorage {
           trustLevel: users.trustLevel,
           isActive: users.isActive,
           isSuspended: users.isSuspended,
+          preferredCountry: users.preferredCountry, // User preference (TODO 258)
           createdAt: users.createdAt,
           updatedAt: users.updatedAt,
         })
@@ -178,6 +179,7 @@ export class UserStorage extends BaseStorage {
           likesReceived: users.likesReceived,
           timeReadPosts: users.timeReadPosts,
           daysVisited: users.daysVisited,
+          preferredCountry: users.preferredCountry, // User preference (TODO 258)
           createdAt: users.createdAt,
           updatedAt: users.updatedAt,
         })
@@ -256,6 +258,7 @@ export class UserStorage extends BaseStorage {
           trustLevel: users.trustLevel,
           isActive: users.isActive,
           isSuspended: users.isSuspended,
+          preferredCountry: users.preferredCountry, // User preference (TODO 258)
           createdAt: users.createdAt,
           updatedAt: users.updatedAt,
           // SECURITY: Never expose passwordHash
@@ -472,6 +475,7 @@ export class UserStorage extends BaseStorage {
                 trustLevel: newUserResult[0].trustLevel,
                 isActive: newUserResult[0].isActive,
                 isSuspended: newUserResult[0].isSuspended,
+                preferredCountry: newUserResult[0].preferredCountry, // User preference (TODO 258)
                 createdAt: newUserResult[0].createdAt,
                 updatedAt: newUserResult[0].updatedAt,
               };
@@ -893,6 +897,84 @@ export class UserStorage extends BaseStorage {
       return result.map((row) => ({ date: String(row.date), count: Number(row.count) }));
     } catch (error) {
       this.handleError(error, 'getUserGrowthData');
+    }
+  }
+
+  // ============================================================================
+  // User Account Preferences Operations (TODO 258: Agent-Native User Preferences API)
+  // ============================================================================
+
+  /**
+   * Get user account preferences (country preference, etc.)
+   * Returns user's stored account-level preferences for API/agent access
+   *
+   * NOTE: This is distinct from notification preferences (getUserPreferences in notification-storage.ts).
+   * Account preferences control regional settings, while notification preferences control alerts.
+   *
+   * @param userId - User ID (validated as positive integer)
+   * @returns User account preferences object with preferredCountry
+   */
+  async getUserAccountPreferences(userId: number): Promise<{ preferredCountry: string | null }> {
+    try {
+      this.validateUserId(userId);
+
+      const [result] = await this.db
+        .select({
+          preferredCountry: users.preferredCountry,
+        })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      return {
+        preferredCountry: result?.preferredCountry ?? null,
+      };
+    } catch (error) {
+      this.handleError(error, 'getUserAccountPreferences');
+    }
+  }
+
+  /**
+   * Update user account preferences
+   * Allows agents and users to update account-level preferences
+   *
+   * AGENT-NATIVE: This endpoint enables agents to set user preferences
+   * that were previously only accessible via localStorage in the browser.
+   *
+   * NOTE: This is distinct from notification preferences (updateUserPreferences in notification-storage.ts).
+   *
+   * @param userId - User ID (validated as positive integer)
+   * @param preferences - Preference fields to update
+   * @param preferences.preferredCountry - ISO 3166-1 alpha-2 country code (US, CA) or null to clear
+   */
+  async updateUserAccountPreferences(
+    userId: number,
+    preferences: { preferredCountry?: string | null }
+  ): Promise<void> {
+    try {
+      this.validateUserId(userId);
+
+      // Validate country code format if provided (2 uppercase letters)
+      if (preferences.preferredCountry !== undefined && preferences.preferredCountry !== null) {
+        if (!/^[A-Z]{2}$/.test(preferences.preferredCountry)) {
+          throw new Error('Invalid country code: must be 2 uppercase letters (ISO 3166-1 alpha-2)');
+        }
+      }
+
+      await this.db
+        .update(users)
+        .set({
+          preferredCountry: preferences.preferredCountry,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
+
+      // Invalidate user cache after successful update
+      await storageCache.invalidateUserCache(userId);
+
+      this.logSuccess('updateUserAccountPreferences', { userId, preferences });
+    } catch (error) {
+      this.handleError(error, 'updateUserAccountPreferences');
     }
   }
 }

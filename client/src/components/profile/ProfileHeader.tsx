@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TrustLevelBadge } from './TrustLevelBadge';
 import { MapPin, Link as LinkIcon, Calendar, Clock } from 'lucide-react';
+import { sanitizeUrl } from '@/utils/sanitize';
 import { formatDistanceToNow } from 'date-fns';
 
 /**
@@ -75,7 +76,7 @@ export function ProfileHeader({ user, isLoading }: ProfileHeaderProps) {
           {/* Avatar */}
           <Avatar className="h-24 w-24 border-4 border-background shadow-lg">
             {user.avatarUrl ? (
-              <AvatarImage src={user.avatarUrl} alt={user.username} />
+              <AvatarImage src={sanitizeUrl(user.avatarUrl) || ''} alt={user.username} />
             ) : null}
             <AvatarFallback className="bg-primary text-primary-foreground text-3xl font-bold">
               {user.username.charAt(0).toUpperCase()}
@@ -115,9 +116,11 @@ export function ProfileHeader({ user, isLoading }: ProfileHeaderProps) {
               {user.website && (
                 <a
                   href={
-                    user.website.startsWith('http')
-                      ? user.website
-                      : `https://${user.website}`
+                    sanitizeUrl(
+                      user.website.startsWith('http')
+                        ? user.website
+                        : `https://${user.website}`
+                    ) || '#'
                   }
                   target="_blank"
                   rel="noopener noreferrer"

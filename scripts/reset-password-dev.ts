@@ -2,6 +2,14 @@
  * DEV ONLY: Reset a user's password directly in the database
  * Usage: npx tsx scripts/reset-password-dev.ts
  */
+
+// Production safety guard
+if (process.env.NODE_ENV === 'production') {
+  console.error('❌ ERROR: This script cannot run in production');
+  console.error('   Set NODE_ENV to "development" or "test" to proceed');
+  process.exit(1);
+}
+
 import 'dotenv/config';
 import { db } from '../server/db';
 import { users } from '../shared/schema';
@@ -9,7 +17,7 @@ import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { hashEmail } from '../server/utils/encryption';
 
-const EMAIL = 'william.tower@gmail.com';
+const EMAIL = 'dev@example.com';
 const NEW_PASSWORD = 'password123'; // Change this to your desired password
 
 async function resetPassword() {

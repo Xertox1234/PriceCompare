@@ -16,7 +16,7 @@ import {
   resetPasswordAtomic,
 } from '../services/password-reset-service';
 import { emailService } from '../services/email-service';
-import { isAuthenticated } from './helpers';
+import { isAuthenticated, withAuth } from './helpers';
 import {
   passwordResetLimiter,
   loginLimiter,
@@ -57,6 +57,13 @@ const changePasswordSchema = z.object({
     .string()
     .min(PASSWORD.MIN_LENGTH, `Password must be at least ${PASSWORD.MIN_LENGTH} characters`)
     .max(PASSWORD.MAX_LENGTH, `Password must be less than ${PASSWORD.MAX_LENGTH} characters`),
+});
+
+const updateProfileSchema = z.object({
+  bio: z.string().max(500).optional(),
+  location: z.string().max(100).optional(),
+  website: z.string().url().max(255).optional().or(z.literal('')),
+  avatarUrl: z.string().url().max(500).optional().or(z.literal('')),
 });
 
 /**
@@ -751,4 +758,92 @@ export function registerAuthRoutes(app: Express): void {
       csrfToken, // Provide token for use in subsequent requests
     });
   });
+
+  // Update user profile
+  app.patch('/api/user/profile', csrfProtection, withAuth(async (req, res) => {
+    try {
+      const data = updateProfileSchema.parse(req.body);
+      await storage.updateUserProfile(req.user.id, data);
+      const updatedUser = await storage.getUserByIdSafe(req.user.id);
+      sendSuccess(res, updatedUser);
+    } catch (error) {
+      sendErrorFromException(res, error, 'UpdateProfile');
+    }
+  }));
+
+  // ============================================================================
+  // User Preferences Routes (TODO 258: Agent-Native User Preferences API)
+  // ============================================================================
+
+  /**
+   * GET /api/user/preferences
+   * Get user preferences including country preference
+   *
+   * AGENT-NATIVE: Enables agents to read user preferences that were
+   * previously only available in localStorage.
+   *
+   * Response: { preferredCountry: "US" | "CA" | null }
+   * Default: Returns "US" if no preference is set
+   */
+  app.get('/api/user/preferences', withAuth(async (req, res) => {
+    try {
+      const preferences = await storage.getUserAccountPreferences(req.user.id);
+
+      // Return with default fallback for preferredCountry
+      sendSuccess(res, {
+        preferredCountry: preferences.preferredCountry || 'US',
+      });
+    } catch (error) {
+      sendErrorFromException(res, error, 'GetUserPreferences');
+    }
+  }));
+
+  /**
+   * PUT /api/user/preferences
+   * Update user preferences
+   *
+   * AGENT-NATIVE: Enables agents to set user preferences that were
+   * previously only settable via browser localStorage.
+   *
+   * Request body: { preferredCountry?: "US" | "CA" }
+   * CSRF protection required for mutation.
+   */
+  app.put('/api/user/preferences', csrfProtection, withAuth(async (req, res) => {
+    try {
+      // Validate request body
+      const updatePreferencesSchema = z.object({
+        preferredCountry: z
+          .string()
+          .length(2, 'Country code must be 2 characters')
+          .regex(/^[A-Z]{2}$/, 'Country code must be uppercase ISO 3166-1 alpha-2')
+          .optional()
+          .nullable(),
+      });
+
+      const parseResult = updatePreferencesSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        sendError(res, 'Invalid request body', 400, parseResult.error.flatten().fieldErrors);
+        return;
+      }
+
+      const { preferredCountry } = parseResult.data;
+
+      // Validate against supported countries (US, CA for Phase 1)
+      const VALID_COUNTRY_CODES = ['US', 'CA'];
+      if (preferredCountry && !VALID_COUNTRY_CODES.includes(preferredCountry)) {
+        sendError(res, `Invalid country code. Supported: ${VALID_COUNTRY_CODES.join(', ')}`, 400);
+        return;
+      }
+
+      // Update preferences in storage
+      await storage.updateUserAccountPreferences(req.user.id, { preferredCountry });
+
+      // Return updated preferences
+      sendSuccess(res, {
+        preferredCountry: preferredCountry || 'US',
+      });
+    } catch (error) {
+      sendErrorFromException(res, error, 'UpdateUserPreferences');
+    }
+  }));
 }

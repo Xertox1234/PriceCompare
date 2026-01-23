@@ -63,8 +63,8 @@ END $$;
 
 ## Acceptance Criteria
 
-- [ ] Cross-column constraint added to migration
-- [ ] Constraint is idempotent (IF NOT EXISTS pattern)
+- [x] Cross-column constraint added to migration
+- [x] Constraint is idempotent (IF NOT EXISTS pattern)
 - [ ] Test: INSERT with US/CAD fails
 - [ ] Test: INSERT with CA/USD fails
 - [ ] Test: INSERT with US/USD succeeds
@@ -89,6 +89,7 @@ VALUES ('Test', 'US', 'CAD', true);
 |------|--------|-------|
 | 2026-01-23 | Created | From code review - data integrity guardian |
 | 2026-01-23 | **APPROVED** | Triage session - ready to work on |
+| 2026-01-23 | **IMPLEMENTED** | Added chk_retailers_country_currency_match constraint with idempotent pattern |
 
 ## Resources
 

@@ -248,30 +248,14 @@ export class PriceStorage extends BaseStorage {
       const oneYearAgo = new Date(now);
       oneYearAgo.setFullYear(now.getFullYear() - 1);
 
-      const recentRaw = await this.getRawPriceHistoryNormalized(
-        productId,
-        thirtyDaysAgo,
-        now,
-        retailerId
-      );
-      const dailyAgg = await this.getDailyAggregatesNormalized(
-        productId,
-        ninetyDaysAgo,
-        thirtyDaysAgo,
-        retailerId
-      );
-      const weeklyAgg = await this.getWeeklyAggregatesNormalized(
-        productId,
-        oneYearAgo,
-        ninetyDaysAgo,
-        retailerId
-      );
-      const monthlyAgg = await this.getMonthlyAggregatesNormalized(
-        productId,
-        startDate,
-        oneYearAgo,
-        retailerId
-      );
+      // Run independent queries in parallel for better performance
+      // Each query covers a different time range with no dependencies between them
+      const [recentRaw, dailyAgg, weeklyAgg, monthlyAgg] = await Promise.all([
+        this.getRawPriceHistoryNormalized(productId, thirtyDaysAgo, now, retailerId),
+        this.getDailyAggregatesNormalized(productId, ninetyDaysAgo, thirtyDaysAgo, retailerId),
+        this.getWeeklyAggregatesNormalized(productId, oneYearAgo, ninetyDaysAgo, retailerId),
+        this.getMonthlyAggregatesNormalized(productId, startDate, oneYearAgo, retailerId),
+      ]);
 
       return [...monthlyAgg, ...weeklyAgg, ...dailyAgg, ...recentRaw];
     } catch (error) {

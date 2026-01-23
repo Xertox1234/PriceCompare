@@ -126,16 +126,6 @@ export default function ProfilePage() {
                 />
               </CardContent>
             </Card>
-
-            {/* Coming Soon: Profile Editing */}
-            <Alert>
-              <Settings className="h-4 w-4" />
-              <AlertTitle>Profile Editing Coming Soon</AlertTitle>
-              <AlertDescription>
-                The ability to edit your profile picture, bio, location, and
-                website will be available in a future update.
-              </AlertDescription>
-            </Alert>
           </div>
         )}
       </div>

@@ -16,16 +16,12 @@ import { retailers, productOffers, type Retailer, type InsertRetailer } from '@s
 import type { RetailerWithAffiliateStats, AffiliateConfig } from '../types';
 import { storageCache } from '../../services/storage-cache';
 import { safeJsonParse } from '../../utils/json-helpers';
-
-// Supported country codes (Phase 1: US, CA)
-const VALID_COUNTRY_CODES = ['US', 'CA'] as const;
-type CountryCode = (typeof VALID_COUNTRY_CODES)[number];
-
-// Currency mapping by country
-const COUNTRY_CURRENCIES: Record<CountryCode, string> = {
-  US: 'USD',
-  CA: 'CAD',
-};
+import {
+  type CountryCode,
+  VALID_COUNTRY_CODES,
+  VALID_CURRENCIES,
+  isValidCurrency,
+} from '@shared/country-constants';
 
 export class RetailerStorage extends BaseStorage {
   constructor(database: typeof db) {
@@ -119,10 +115,9 @@ export class RetailerStorage extends BaseStorage {
 
     // Validate currency if provided (TODO 251)
     if (data.currency !== undefined && data.currency !== null) {
-      const validCurrencies = Object.values(COUNTRY_CURRENCIES);
-      if (!validCurrencies.includes(data.currency)) {
+      if (!isValidCurrency(data.currency)) {
         throw new Error(
-          `Invalid currency: ${data.currency}. Must be one of: ${validCurrencies.join(', ')}`
+          `Invalid currency: ${data.currency}. Must be one of: ${VALID_CURRENCIES.join(', ')}`
         );
       }
     }

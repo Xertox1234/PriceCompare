@@ -8,6 +8,7 @@
  * - Batch invalidation for efficiency
  */
 
+import type { Redis } from 'ioredis';
 import { advancedCache, CachePrefix } from './advanced-cache';
 import { logger } from '../utils/logger';
 import { getRedisClient } from '../config/redis';
@@ -76,6 +77,7 @@ export interface InvalidationPayload {
  */
 export class CacheInvalidationService {
   private readonly INVALIDATION_CHANNEL = 'cache:invalidation:events';
+  private subscriber: Redis | null = null;
 
   constructor() {
     // Subscribe to invalidation events
@@ -103,9 +105,9 @@ export class CacheInvalidationService {
         // Analytics cache (trends, volatility, etc.)
         invalidateProductAnalytics(productId),
 
-        // Search results that might include this product
-        // Note: We invalidate all search results as they might include this product
-        advancedCache.invalidatePrefix(CachePrefix.PRODUCT_SEARCH),
+        // Search cache invalidation removed - using short TTL (10 min) instead
+        // This prevents cache over-invalidation during price scraping
+        // See TODO_256 for rationale
       ]);
 
       // Publish invalidation event
@@ -133,7 +135,9 @@ export class CacheInvalidationService {
       await Promise.all([
         advancedCache.invalidatePattern(`${CachePrefix.PRODUCT_DETAIL}:${productId}*`),
         advancedCache.invalidatePattern(`${CachePrefix.PRODUCT_OFFERS}:${productId}*`),
-        advancedCache.invalidatePrefix(CachePrefix.PRODUCT_SEARCH),
+        // Search cache invalidation removed - using short TTL (10 min) instead
+        // This prevents cache over-invalidation during price scraping
+        // See TODO_256 for rationale
       ]);
 
       await this.publishInvalidationEvent({
@@ -186,7 +190,9 @@ export class CacheInvalidationService {
       await Promise.all([
         advancedCache.invalidatePattern(`${CachePrefix.PRODUCT_DETAIL}:${productId}*`),
         advancedCache.invalidatePattern(`${CachePrefix.PRODUCT_OFFERS}:${productId}*`),
-        advancedCache.invalidatePrefix(CachePrefix.PRODUCT_SEARCH),
+        // Search cache invalidation removed - using short TTL (10 min) instead
+        // This prevents cache over-invalidation during price scraping
+        // See TODO_256 for rationale
       ]);
 
       await this.publishInvalidationEvent({
@@ -212,6 +218,10 @@ export class CacheInvalidationService {
         advancedCache.invalidatePattern(`${CachePrefix.RETAILER}:${retailerId}*`),
         advancedCache.invalidatePattern(`${CachePrefix.RETAILER}:list*`),
         advancedCache.invalidatePrefix(CachePrefix.PRODUCT_SEARCH),
+        // Invalidate country-specific retailer caches (TODO 261)
+        // Retailer's country list may have changed, so invalidate all country caches
+        advancedCache.invalidate('retailer:country:v1:US'),
+        advancedCache.invalidate('retailer:country:v1:CA'),
       ]);
 
       await this.publishInvalidationEvent({
@@ -290,9 +300,9 @@ export class CacheInvalidationService {
       logger.warn('Redis not available, skipping invalidation event subscription');
       return;
     }
-    const subscriber = redisClient.duplicate();
+    this.subscriber = redisClient.duplicate();
 
-    void subscriber.subscribe(this.INVALIDATION_CHANNEL, (err) => {
+    void this.subscriber.subscribe(this.INVALIDATION_CHANNEL, (err) => {
       if (err) {
         logger.error('Failed to subscribe to invalidation events:', { error: err.message });
       } else {
@@ -300,7 +310,7 @@ export class CacheInvalidationService {
       }
     });
 
-    subscriber.on('message', (channel, message) => {
+    this.subscriber.on('message', (channel, message) => {
       if (channel === this.INVALIDATION_CHANNEL) {
         try {
           const parseResult = safeJsonParse<InvalidationPayload>(
@@ -337,6 +347,24 @@ export class CacheInvalidationService {
       cacheStats,
       invalidationChannel: this.INVALIDATION_CHANNEL,
     };
+  }
+
+  /**
+   * Cleanup Redis subscriber connection
+   * Should be called during graceful shutdown
+   */
+  async close(): Promise<void> {
+    if (this.subscriber) {
+      try {
+        await this.subscriber.quit();
+        logger.info('CacheInvalidationService subscriber closed');
+      } catch (error) {
+        logger.error('Error closing CacheInvalidationService subscriber:', {
+          error: getErrorMessage(error),
+        });
+      }
+      this.subscriber = null;
+    }
   }
 }
 

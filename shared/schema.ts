@@ -14,6 +14,11 @@ import {
 } from 'drizzle-orm/pg-core';
 import { createInsertSchema } from 'drizzle-zod';
 import { z } from 'zod';
+import {
+  VALID_COUNTRY_CODES,
+  VALID_CURRENCIES,
+  isValidCountryCurrencyPair,
+} from './country-constants';
 import { createRequire } from 'module';
 
 // Custom vector type for pgvector extension
@@ -294,6 +299,8 @@ export const users = pgTable('users', {
   likesReceived: integer('likes_received').default(0),
   timeReadPosts: integer('time_read_posts').default(0), // in seconds
   daysVisited: integer('days_visited').default(0),
+  // User preferences (TODO 258: Agent-Native User Preferences API)
+  preferredCountry: varchar('preferred_country', { length: 2 }), // ISO 3166-1 alpha-2 (US, CA). NULL defaults to US.
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -757,9 +764,27 @@ export const postRevisions = pgTable(
   })
 );
 
-export const insertRetailerSchema = createInsertSchema(retailers).omit({
-  id: true,
-});
+// Country/currency validation for retailer schema
+// Uses shared/country-constants.ts as single source of truth
+export const insertRetailerSchema = createInsertSchema(retailers)
+  .omit({ id: true })
+  .refine(
+    (data) => {
+      const countryCode = data.countryCode ?? 'US';
+      const currency = data.currency ?? 'USD';
+      // Validate country code enum (uses VALID_COUNTRY_CODES from shared constants)
+      if (!VALID_COUNTRY_CODES.includes(countryCode as (typeof VALID_COUNTRY_CODES)[number])) {
+        return false;
+      }
+      // Validate currency enum (uses VALID_CURRENCIES from shared constants)
+      if (!VALID_CURRENCIES.includes(currency as (typeof VALID_CURRENCIES)[number])) {
+        return false;
+      }
+      // Validate cross-column match (uses isValidCountryCurrencyPair from shared constants)
+      return isValidCountryCurrencyPair(countryCode, currency);
+    },
+    { message: 'Invalid country/currency: must be US/USD or CA/CAD' }
+  );
 
 export const insertProductSchema = createInsertSchema(products)
   .omit({

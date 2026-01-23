@@ -16,6 +16,7 @@ import {
 import { useCountry } from '@/context/country-context';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { COUNTRY_INFO, type CountryCode } from '@shared/country-constants';
 
 interface CountrySelectorProps {
   /** Additional CSS classes */
@@ -26,13 +27,11 @@ interface CountrySelectorProps {
   showCurrency?: boolean;
 }
 
-// Country code to flag emoji mapping
-const countryFlags: Record<string, string> = {
-  US: '🇺🇸',
-  CA: '🇨🇦',
-  MX: '🇲🇽',
-  GB: '🇬🇧',
-};
+// Get flag from shared constants, with fallback for unsupported codes
+function getCountryFlag(code: string): string {
+  const info = COUNTRY_INFO[code as CountryCode];
+  return info?.flag ?? '🌍';
+}
 
 export function CountrySelector({
   className,
@@ -46,7 +45,7 @@ export function CountrySelector({
   }
 
   const currentCountry = countries.find((c) => c.code === country);
-  const flag = countryFlags[country] || '🌍';
+  const flag = getCountryFlag(country);
 
   return (
     <Select value={country} onValueChange={setCountry}>
@@ -79,7 +78,7 @@ export function CountrySelector({
         {countries.map((c) => (
           <SelectItem key={c.code} value={c.code}>
             <span className="flex items-center gap-2">
-              <span>{countryFlags[c.code] || '🌍'}</span>
+              <span>{getCountryFlag(c.code)}</span>
               <span>{c.name}</span>
               {showCurrency && <span className="text-muted-foreground">({c.currency})</span>}
             </span>
