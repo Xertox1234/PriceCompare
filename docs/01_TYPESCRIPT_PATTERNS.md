@@ -1,8 +1,10 @@
 # TypeScript Patterns & Anti-Patterns
 
-**Version:** 2.10
-**Last Updated:** 2026-01-20
+**Version:** 2.11
+**Last Updated:** 2026-01-23
 **Domain:** TypeScript, Type Safety, Async/Await, Zod Validation
+**Changelog:**
+- 2.11 (2026-01-23): Added Shared Constants Pattern with Type Guards (from TODO 262 code review)
 **Migrated From:**
 - docs/TYPESCRIPT_PATTERNS.md (v1.0)
 - docs/PHASE1_WATCHLIST_PATTERNS.md (Pattern 9: ESLint compliance)
@@ -4804,6 +4806,299 @@ When creating/updating a synchronized list:
 
 *Source: TODO_012 - EXPECTED_TABLES had 27/41 tables due to missing maintenance documentation*
 *Added: 2026-01-06*
+
+---
+
+## Shared Constants Pattern with Type Guards (NEW - 2026-01-23)
+
+**Context:** Domain constants (countries, currencies, feature flags, etc.) that are used across server and client code need a single source of truth with type-safe validation helpers.
+
+**Problem:** Without a shared constants module, teams duplicate constant definitions across files, leading to:
+- Inconsistent validation (different files check different values)
+- Type drift (server allows "MX" but client doesn't)
+- Update fragility (adding new country requires changing 4+ files)
+- No compile-time guarantees across boundaries
+
+**Real-World Example (TODO 262):**
+
+Before consolidation, country codes were duplicated in 4+ files:
+- `client/src/context/country-context.tsx` - Had `['US', 'CA']`
+- `server/routes/auth-routes.ts` - Had `VALID_COUNTRY_CODES = ['US', 'CA']`
+- `server/storage/domains/retailer-storage.ts` - Hardcoded `'US'` and `'CA'`
+- `migrations/0030_add_retailer_country_support.sql` - CHECK constraints with `('US', 'CA')`
+
+Adding Mexico support would require updating all 4 locations. Missing one creates silent validation gaps.
+
+**✅ Preferred Approach - Shared Constants Module:**
+
+```typescript
+// shared/country-constants.ts - SINGLE SOURCE OF TRUTH
+
+/**
+ * Country/Currency Constants
+ *
+ * IMPORTANT: Database CHECK constraints (migrations/0030_*.sql)
+ * cannot import TypeScript. When adding new countries, you MUST ALSO update:
+ * - chk_retailers_country_code
+ * - chk_retailers_currency
+ * - chk_retailers_country_currency_match
+ */
+
+export const COUNTRIES = [
+  {
+    code: 'US',
+    name: 'United States',
+    currency: 'USD',
+    currencySymbol: '$',
+    flag: '🇺🇸',
+    locale: 'en-US',
+  },
+  {
+    code: 'CA',
+    name: 'Canada',
+    currency: 'CAD',
+    currencySymbol: 'C$',
+    flag: '🇨🇦',
+    locale: 'en-CA',
+  },
+] as const;
+
+// Type-safe derived types (auto-updated when COUNTRIES changes)
+export type CountryCode = (typeof COUNTRIES)[number]['code'];
+export type CurrencyCode = (typeof COUNTRIES)[number]['currency'];
+
+// Derived validation arrays
+export const VALID_COUNTRY_CODES = COUNTRIES.map((c) => c.code);
+export const VALID_CURRENCIES = COUNTRIES.map((c) => c.currency);
+
+// Country code to currency mapping
+export const COUNTRY_CURRENCIES: Record<CountryCode, CurrencyCode> = Object.fromEntries(
+  COUNTRIES.map((c) => [c.code, c.currency])
+) as Record<CountryCode, CurrencyCode>;
+
+// Country code to full info mapping
+export const COUNTRY_INFO: Record<CountryCode, (typeof COUNTRIES)[number]> = Object.fromEntries(
+  COUNTRIES.map((c) => [c.code, c])
+) as Record<CountryCode, (typeof COUNTRIES)[number]>;
+
+// ============================================================================
+// Type Guards - TYPE-SAFE VALIDATION
+// ============================================================================
+
+/**
+ * Type guard for country code validation
+ * @returns true if code is a valid CountryCode (US, CA)
+ */
+export function isValidCountryCode(code: string): code is CountryCode {
+  return VALID_COUNTRY_CODES.includes(code as CountryCode);
+}
+
+/**
+ * Type guard for currency validation
+ * @returns true if currency is a valid CurrencyCode (USD, CAD)
+ */
+export function isValidCurrency(currency: string): currency is CurrencyCode {
+  return VALID_CURRENCIES.includes(currency as CurrencyCode);
+}
+
+/**
+ * Validate country/currency pair matches expected mapping
+ * @example isValidCountryCurrencyPair('US', 'USD') → true
+ * @example isValidCountryCurrencyPair('US', 'CAD') → false
+ */
+export function isValidCountryCurrencyPair(countryCode: string, currency: string): boolean {
+  if (!isValidCountryCode(countryCode)) return false;
+  return COUNTRY_CURRENCIES[countryCode] === currency;
+}
+
+/**
+ * Get country info by code
+ * @returns Country object or undefined if not found
+ */
+export function getCountryByCode(code: string): (typeof COUNTRIES)[number] | undefined {
+  return COUNTRIES.find((c) => c.code === code);
+}
+```
+
+**Usage Across Codebase:**
+
+```typescript
+// ✅ Server - auth-routes.ts
+import { isValidCountryCode } from '@shared/country-constants';
+
+app.post('/api/register', csrfProtection, async (req, res) => {
+  const { country } = req.body;
+
+  if (!isValidCountryCode(country)) {
+    return sendError(res, 'Invalid country code', 400);
+  }
+
+  // TypeScript knows country is CountryCode here (type narrowing)
+  await storage.createUser({ ...data, preferredCountry: country });
+});
+
+// ✅ Client - country-context.tsx
+import { COUNTRIES, type CountryCode } from '@shared/country-constants';
+
+export function CountryProvider({ children }: { children: ReactNode }) {
+  const [country, setCountry] = useState<CountryCode>('US');
+
+  return (
+    <select value={country} onChange={(e) => setCountry(e.target.value as CountryCode)}>
+      {COUNTRIES.map((c) => (
+        <option key={c.code} value={c.code}>
+          {c.flag} {c.name}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+// ✅ Storage layer - retailer-storage.ts
+import { VALID_COUNTRY_CODES, isValidCountryCode } from '@shared/country-constants';
+
+async getRetailersByCountry(countryCode: string): Promise<Retailer[]> {
+  if (!isValidCountryCode(countryCode)) {
+    throw new Error(`Invalid country code: ${countryCode}. Supported: ${VALID_COUNTRY_CODES.join(', ')}`);
+  }
+
+  return db.select().from(retailers).where(eq(retailers.countryCode, countryCode));
+}
+
+// ✅ Zod schema validation - schema.ts
+import { VALID_COUNTRY_CODES, isValidCountryCurrencyPair } from '@shared/country-constants';
+
+export const insertRetailerSchema = z.object({
+  countryCode: z.enum(VALID_COUNTRY_CODES as [string, ...string[]]),
+  currency: z.string(),
+  // ... other fields
+}).refine(
+  (data) => isValidCountryCurrencyPair(data.countryCode, data.currency),
+  { message: 'Country and currency must match (US→USD, CA→CAD)' }
+);
+```
+
+**❌ Anti-Pattern (Avoid):**
+
+```typescript
+// ❌ WRONG - Duplicated constants in every file
+// server/routes/auth-routes.ts
+const VALID_COUNTRY_CODES = ['US', 'CA'];
+
+// client/src/context/country-context.tsx
+const countries = [
+  { code: 'US', name: 'United States', currency: 'USD' },
+  { code: 'CA', name: 'Canada', currency: 'CAD' },
+];
+
+// server/storage/domains/retailer-storage.ts
+async getRetailersByCountry(countryCode: string) {
+  if (countryCode !== 'US' && countryCode !== 'CA') {  // Hardcoded validation!
+    throw new Error('Invalid country');
+  }
+  // ...
+}
+
+// ❌ WRONG - Adding Mexico requires 4+ file changes, easy to miss one
+```
+
+**Rationale:**
+
+1. **Single Source of Truth**: Add new country once, all validation updates automatically
+2. **Type Safety**: `CountryCode` type auto-updates when COUNTRIES array changes
+3. **DRY Principle**: Eliminates duplicate definitions across 4+ files
+4. **Compile-Time Checks**: TypeScript catches invalid country codes at build time
+5. **Runtime Validation**: Type guards provide runtime safety with type narrowing
+6. **Maintainability**: Clear documentation of what MUST stay in sync (SQL constraints)
+7. **Discoverability**: Developers know exactly where to find/update country logic
+
+**Key Design Principles:**
+
+1. **`as const` for Type Derivation**: Enables TypeScript to extract literal types
+   ```typescript
+   export const COUNTRIES = [...] as const;
+   type CountryCode = (typeof COUNTRIES)[number]['code'];  // 'US' | 'CA'
+   ```
+
+2. **Type Guards for Runtime Safety**: Enable type narrowing for validation
+   ```typescript
+   if (isValidCountryCode(input)) {
+     // TypeScript knows input is CountryCode here
+   }
+   ```
+
+3. **Derived Constants for Validation**: Auto-update when source changes
+   ```typescript
+   export const VALID_COUNTRY_CODES = COUNTRIES.map((c) => c.code);
+   // Add country to COUNTRIES → VALID_COUNTRY_CODES updates automatically
+   ```
+
+4. **Migration Sync Documentation**: CRITICAL comment explaining SQL constraint sync
+   ```typescript
+   /**
+    * IMPORTANT: Database CHECK constraints cannot import TypeScript.
+    * When adding countries, ALSO update migrations/0030_*.sql
+    */
+   ```
+
+**Database Constraint Sync (CRITICAL):**
+
+SQL CHECK constraints can't import TypeScript, so they MUST be manually updated:
+
+```sql
+-- migrations/0030_add_retailer_country_support.sql
+ALTER TABLE retailers
+ADD CONSTRAINT chk_retailers_country_code
+CHECK (country_code IN ('US', 'CA'));  -- ⚠️ Must stay in sync with COUNTRIES
+
+-- When adding Mexico to shared/country-constants.ts:
+-- 1. Add { code: 'MX', ... } to COUNTRIES array
+-- 2. Create new migration to update CHECK constraint:
+ALTER TABLE retailers
+DROP CONSTRAINT chk_retailers_country_code;
+
+ALTER TABLE retailers
+ADD CONSTRAINT chk_retailers_country_code
+CHECK (country_code IN ('US', 'CA', 'MX'));  -- Updated!
+```
+
+**When This Pattern Applies:**
+
+- ✅ Domain constants used in BOTH server and client
+- ✅ Enums with associated metadata (code, name, symbol, etc.)
+- ✅ Validation rules that must stay synchronized
+- ✅ Configuration that needs type-safe access
+- ✅ Feature flags with cross-boundary usage
+
+**When NOT to Use:**
+
+- ❌ Environment-specific values (use `.env`)
+- ❌ Values that differ between server/client (use separate constants)
+- ❌ Secrets or sensitive data (use secret management)
+- ❌ Single-file constants (can stay local)
+
+**Migration Checklist (Adding New Shared Constants):**
+
+1. ✅ Create `shared/[domain]-constants.ts` file
+2. ✅ Define source array with `as const`
+3. ✅ Export derived types (`type Code = (typeof ARRAY)[number]['code']`)
+4. ✅ Export validation arrays (`VALID_CODES = ARRAY.map(...)`)
+5. ✅ Create type guard functions (`isValidCode(x): x is Code`)
+6. ✅ Document SQL constraint sync requirements (if applicable)
+7. ✅ Replace all duplicate definitions with imports
+8. ✅ Update Zod schemas to use exported constants
+9. ✅ Run `npm run check` to verify type safety
+10. ✅ Add tests for type guards
+
+**Related Patterns:**
+
+- [Type Guards & Narrowing](#type-guards--narrowing) - Type guard implementation patterns
+- [Maintenance Documentation for Synchronized Lists](#maintenance-documentation-for-synchronized-lists-new---2026-01-06) - SQL constraint sync documentation
+- [02_DATABASE_PATTERNS.md: Migration Idempotency](#) - Database constraint updates
+- [Zod Schema Patterns](#zod-schema-patterns) - Using shared constants in validation
+
+*Source: TODO 262 - Found country constants duplicated in 4+ files (auth-routes, country-context, retailer-storage, migrations)*
+*Added: 2026-01-23*
 
 ---
 

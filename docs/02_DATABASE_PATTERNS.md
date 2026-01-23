@@ -1,8 +1,9 @@
 # Database Patterns & Anti-Patterns
 
-**Version:** 2.15
-**Last Updated:** 2026-01-17
+**Version:** 2.16
+**Last Updated:** 2026-01-23
 **Changelog:**
+- 2.16 (2026-01-23): Added Migration Idempotency Pattern and Cross-Column CHECK Constraints (from TODO 253-254 code review)
 - 2.15 (2026-01-17): Added Drizzle ORM Timestamp Interpretation Mismatch pattern (setHours vs setUTCHours for timestamp columns - from notification daily limit debugging)
 - 2.14 (2026-01-07): Added Correlated Subqueries for N+1 Prevention pattern (from TODO_018 price alert checker - 100x performance improvement)
 - 2.13 (2026-01-04): Added SQL conditional aggregation pattern (COUNT CASE WHEN), deterministic ordering pattern, and WithStats method preference pattern (from TODO 003 - highPriorityCount calculation)
@@ -4726,6 +4727,271 @@ migrations/
 **References**:
 - `migrations/README.md` - Migration management guide
 - `docs/learnings/database/LEARNINGS_TODO_009_MIGRATION_ROLLBACK_INCIDENT.md` - Full incident report
+
+### 8.4 Migration Idempotency Pattern (NEW - 2026-01-23)
+
+**Context:** When adding CHECK constraints, indexes, or other schema modifications to existing tables, migrations should be idempotent to allow safe re-execution.
+
+**Problem:** Non-idempotent migrations fail on re-execution with errors like:
+```
+ERROR: constraint "chk_retailers_country_code" already exists
+ERROR: index "idx_retailers_country" already exists
+```
+
+This blocks:
+- Re-running migrations after rollback
+- Applying migrations to databases in unknown state
+- Development environment resets
+- Emergency production fixes
+
+**Real-World Example (TODO 253):**
+
+Migration 0030 added CHECK constraints for country codes. Initial implementation:
+
+```sql
+-- ❌ NON-IDEMPOTENT - Fails if constraint already exists
+ALTER TABLE retailers
+ADD CONSTRAINT chk_retailers_country_code
+CHECK (country_code IN ('US', 'CA'));
+-- ERROR if run twice: constraint already exists
+```
+
+If migration failed halfway through (network issue, server crash), re-running it would fail at the already-applied constraint.
+
+**✅ CORRECT PATTERN - DO $$ BEGIN Block with NOT EXISTS Check:**
+
+```sql
+-- migrations/0030_add_retailer_country_support.sql
+
+-- ============================================================================
+-- Step 4: Add CHECK constraint for valid country codes
+-- Idempotent: Only adds constraint if it doesn't already exist
+-- ============================================================================
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'chk_retailers_country_code'
+  ) THEN
+    ALTER TABLE retailers
+    ADD CONSTRAINT chk_retailers_country_code
+    CHECK (country_code IN ('US', 'CA'));
+  END IF;
+END $$;
+
+-- ============================================================================
+-- Step 5: Add CHECK constraint for valid currency codes
+-- Idempotent: Only adds constraint if it doesn't already exist
+-- ============================================================================
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'chk_retailers_currency'
+  ) THEN
+    ALTER TABLE retailers
+    ADD CONSTRAINT chk_retailers_currency
+    CHECK (currency IN ('USD', 'CAD'));
+  END IF;
+END $$;
+
+-- ============================================================================
+-- Step 6: Add cross-column CHECK for country/currency logical match
+-- Prevents: US/CAD or CA/USD (invalid combinations)
+-- Allows: US/USD, CA/CAD (valid combinations)
+-- Idempotent: Only adds constraint if it doesn't already exist
+-- ============================================================================
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'chk_retailers_country_currency_match'
+  ) THEN
+    ALTER TABLE retailers
+    ADD CONSTRAINT chk_retailers_country_currency_match
+    CHECK (
+      (country_code = 'US' AND currency = 'USD') OR
+      (country_code = 'CA' AND currency = 'CAD')
+    );
+  END IF;
+END $$;
+```
+
+**❌ Anti-Pattern (Avoid):**
+
+```sql
+-- ❌ WRONG - Not idempotent
+ALTER TABLE retailers
+ADD CONSTRAINT chk_retailers_country_code
+CHECK (country_code IN ('US', 'CA'));
+-- Fails on second run: ERROR: constraint "chk_retailers_country_code" already exists
+
+-- ❌ WRONG - IF NOT EXISTS not supported for ADD CONSTRAINT
+ALTER TABLE retailers
+ADD CONSTRAINT IF NOT EXISTS chk_retailers_country_code  -- NOT VALID SYNTAX
+CHECK (country_code IN ('US', 'CA'));
+
+-- ❌ WRONG - DROP then ADD (loses existing data validation)
+ALTER TABLE retailers DROP CONSTRAINT IF EXISTS chk_retailers_country_code;
+ALTER TABLE retailers ADD CONSTRAINT chk_retailers_country_code
+CHECK (country_code IN ('US', 'CA'));
+-- PROBLEM: Window between DROP and ADD where invalid data could be inserted
+```
+
+**Idempotency Patterns by Operation:**
+
+| Operation | Idempotent Pattern |
+|-----------|-------------------|
+| **CHECK Constraint** | `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'name') THEN ALTER TABLE ADD CONSTRAINT ... END IF; END $$;` |
+| **Index** | `CREATE INDEX IF NOT EXISTS idx_name ON table (column);` |
+| **Column** | `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='table' AND column_name='col') THEN ALTER TABLE ADD COLUMN col type; END IF; END $$;` |
+| **Table** | `CREATE TABLE IF NOT EXISTS table_name (...);` |
+| **Trigger** | `DROP TRIGGER IF EXISTS trigger_name ON table; CREATE TRIGGER trigger_name ...` |
+| **Function** | `CREATE OR REPLACE FUNCTION func_name() ...` |
+
+**Cross-Column CHECK Constraints (TODO 254):**
+
+Beyond single-column validation, use CHECK constraints to enforce logical relationships between columns:
+
+```sql
+-- ✅ CORRECT - Cross-column validation
+ALTER TABLE retailers
+ADD CONSTRAINT chk_retailers_country_currency_match
+CHECK (
+  (country_code = 'US' AND currency = 'USD') OR
+  (country_code = 'CA' AND currency = 'CAD') OR
+  (country_code = 'MX' AND currency = 'MXN')
+);
+
+-- Prevents invalid combinations:
+-- ❌ INSERT INTO retailers (country_code, currency) VALUES ('US', 'CAD');  -- BLOCKED
+-- ❌ INSERT INTO retailers (country_code, currency) VALUES ('CA', 'USD');  -- BLOCKED
+
+-- Allows valid combinations:
+-- ✅ INSERT INTO retailers (country_code, currency) VALUES ('US', 'USD');  -- OK
+-- ✅ INSERT INTO retailers (country_code, currency) VALUES ('CA', 'CAD');  -- OK
+```
+
+**Why Cross-Column Checks Matter:**
+
+1. **Data Integrity**: Database enforces business rules, not just application
+2. **Defense in Depth**: Prevents invalid data from SQL console, legacy apps, batch imports
+3. **Documentation**: Constraint names and conditions document business rules
+4. **Performance**: Database-level validation faster than application-level
+5. **Consistency**: All applications (current and future) must follow same rules
+
+**Common Cross-Column Patterns:**
+
+```sql
+-- Date range validation
+CHECK (start_date < end_date)
+
+-- Mutual exclusivity (exactly one must be set)
+CHECK ((column_a IS NULL AND column_b IS NOT NULL) OR (column_a IS NOT NULL AND column_b IS NULL))
+
+-- Conditional requirement (if A then B must be set)
+CHECK (status != 'SHIPPED' OR tracking_number IS NOT NULL)
+
+-- Numeric range consistency
+CHECK (min_price <= max_price)
+
+-- Enum-based field dependency
+CHECK (
+  (product_type = 'PHYSICAL' AND weight_kg IS NOT NULL) OR
+  (product_type = 'DIGITAL' AND download_url IS NOT NULL)
+)
+```
+
+**Rationale:**
+
+1. **Safe Re-Execution**: Migration can run multiple times without errors
+2. **Recovery**: If migration fails halfway, can be safely retried
+3. **State Independence**: Works regardless of current database state
+4. **Development Workflow**: Developers can reset databases freely
+5. **Production Safety**: Emergency re-runs don't break production
+6. **Data Integrity**: Cross-column checks prevent logically invalid combinations
+
+**Migration Template (Copy-Paste Ready):**
+
+```sql
+-- migrations/NNNN_description.sql
+BEGIN;
+
+-- ============================================================================
+-- [Step description]
+-- Idempotent: [How this is made idempotent]
+-- ============================================================================
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'constraint_name'
+  ) THEN
+    ALTER TABLE table_name
+    ADD CONSTRAINT constraint_name
+    CHECK (column_name IN ('value1', 'value2'));
+  END IF;
+END $$;
+
+-- ============================================================================
+-- [Cross-column validation description]
+-- Prevents: [Invalid combinations]
+-- Allows: [Valid combinations]
+-- ============================================================================
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'cross_column_check_name'
+  ) THEN
+    ALTER TABLE table_name
+    ADD CONSTRAINT cross_column_check_name
+    CHECK (
+      (column_a = 'value1' AND column_b = 'matching_value1') OR
+      (column_a = 'value2' AND column_b = 'matching_value2')
+    );
+  END IF;
+END $$;
+
+COMMIT;
+
+-- ============================================================================
+-- ROLLBACK SCRIPT (save in migrations/rollbacks/)
+-- ============================================================================
+-- BEGIN;
+-- ALTER TABLE table_name DROP CONSTRAINT IF EXISTS constraint_name;
+-- ALTER TABLE table_name DROP CONSTRAINT IF EXISTS cross_column_check_name;
+-- COMMIT;
+```
+
+**Testing Idempotency:**
+
+```bash
+# Run migration twice - second run should succeed with no changes
+psql -d pricecompare_dev -f migrations/0030_add_retailer_country_support.sql
+psql -d pricecompare_dev -f migrations/0030_add_retailer_country_support.sql
+
+# Verify constraints exist
+psql -d pricecompare_dev -c "SELECT conname FROM pg_constraint WHERE conrelid = 'retailers'::regclass;"
+
+# Test constraint enforcement
+psql -d pricecompare_dev -c "INSERT INTO retailers (country_code, currency) VALUES ('US', 'CAD');"
+# Should fail: ERROR: new row violates check constraint "chk_retailers_country_currency_match"
+```
+
+**When This Pattern Applies:**
+
+- ✅ Adding CHECK constraints to existing tables
+- ✅ Adding indexes (use `CREATE INDEX IF NOT EXISTS`)
+- ✅ Adding columns to existing tables
+- ✅ Schema modifications in production environments
+- ✅ Migrations that may need to be re-run
+
+**When NOT to Use:**
+
+- ❌ Initial table creation (use `CREATE TABLE IF NOT EXISTS` instead)
+- ❌ Data migrations (different idempotency strategy needed)
+- ❌ Constraint modifications (use DROP then ADD in same transaction)
+
+**Related Patterns:**
+
+- [Migration File Organization](#83-migration-file-organization-mandatory) - Rollback script placement
+- [Schema Design Patterns](#5-schema-design-patterns) - When to use CHECK constraints
+- [01_TYPESCRIPT_PATTERNS.md: Shared Constants Pattern](#) - Keeping SQL constraints in sync with TypeScript constants
+- [Test Schema Synchronization (CLAUDE.md)](#) - E2E test database setup
+
+*Source: TODO 253-254 - Migration 0030 added non-idempotent CHECK constraints that failed on re-execution*
+*Added: 2026-01-23*
 
 ---
 

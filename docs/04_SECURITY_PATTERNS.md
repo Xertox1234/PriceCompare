@@ -1,9 +1,11 @@
 ---
 Pattern: Security Patterns & Anti-Patterns
-Version: 2.8
-Last Updated: 2026-01-17
+Version: 2.9
+Last Updated: 2026-01-23
 Maintainer: Claude Code / Development Team
 Status: Active - SINGLE SOURCE OF TRUTH
+Changelog:
+- 2.9 (2026-01-23): Added Production Environment Guards for Dev Scripts pattern (from TODO 252 code review)
 Migrated From:
   - docs/SECURITY_PATTERNS.md (1,511 lines)
   - docs/VALIDATION_PATTERNS.md (520 lines)
@@ -4195,6 +4197,113 @@ DATABASE_URL=postgresql://user:pass@localhost/pricecompare
 REDIS_URL=redis://localhost:6379
 ```
 
+### Production Environment Guards for Dev Scripts (NEW - 2026-01-23)
+
+**Context:** Development scripts (user creation, password resets, rate limit clearing) often bypass security controls and should NEVER run in production environments.
+
+**Problem:** Without environment guards, developers can accidentally:
+- Run dev scripts against production database (wrong DATABASE_URL)
+- Create test users with weak passwords in production
+- Clear production rate limits, exposing site to abuse
+- Reset production user passwords without proper audit trail
+
+**Real-World Example (TODO 252):**
+
+Scripts like `scripts/create-user-dev.ts` bypass rate limiting and validation to speed up local development. Running these in production would create security vulnerabilities.
+
+**✅ CORRECT PATTERN - Environment Guard at Top of File:**
+
+```typescript
+// scripts/create-user-dev.ts
+
+/**
+ * DEV ONLY: Create a user directly in the database (bypasses rate limiting)
+ *
+ * SECURITY: This script MUST NOT run in production environments.
+ * It bypasses security controls and uses weak test passwords.
+ */
+
+// ============================================================================
+// PRODUCTION SAFETY GUARD - MUST BE FIRST (before any imports)
+// ============================================================================
+if (process.env.NODE_ENV === 'production') {
+  console.error('❌ ERROR: This script cannot run in production');
+  console.error('   Set NODE_ENV to "development" or "test" to proceed');
+  process.exit(1);
+}
+
+// Now safe to import and run
+import 'dotenv/config';
+import { db } from '../server/db';
+import { users } from '../shared/schema';
+import bcrypt from 'bcrypt';
+
+const USERNAME = 'devuser';
+const EMAIL = 'dev@example.com';
+const PASSWORD = 'password123';  // ⚠️ WEAK PASSWORD - OK for dev only
+
+async function createDevUser() {
+  const passwordHash = await bcrypt.hash(PASSWORD, 10);
+  const [user] = await db.insert(users).values({
+    username: USERNAME,
+    email: EMAIL,
+    passwordHash,
+    role: 'admin',  // Granting admin - OK for dev only
+  }).returning();
+
+  console.log('✅ Created dev user:', user.username);
+}
+
+createDevUser().catch(console.error);
+```
+
+**❌ Anti-Pattern (Avoid):**
+
+```typescript
+// ❌ WRONG - No production guard
+import { db } from '../server/db';
+
+async function createDevUser() {
+  // Runs in ANY environment, including production!
+  await db.insert(users).values({ ...weakPasswordData });
+}
+
+// ❌ WRONG - Guard after imports (imports may have side effects)
+import 'dotenv/config';
+import { db } from '../server/db';  // Already connected to database!
+
+if (process.env.NODE_ENV === 'production') {
+  process.exit(1);  // Too late, database already accessed
+}
+
+// ❌ WRONG - Silent guard (logs but doesn't exit)
+if (process.env.NODE_ENV === 'production') {
+  console.error('This should not run in production');
+  // Script continues executing! Must use process.exit(1)
+}
+```
+
+**Rationale:**
+
+1. **Fail-Fast**: Exit BEFORE any database connections or imports
+2. **Clear Error Messages**: Developers understand WHY script failed
+3. **Explicit Intent**: Code self-documents that it's dev-only
+4. **Accident Prevention**: Impossible to accidentally run in production
+5. **Security Audit**: Easy to grep for dev scripts: `grep -r "NODE_ENV === 'production'" scripts/`
+
+**When This Pattern Applies:**
+
+- ✅ All scripts in `scripts/` directory that bypass security
+- ✅ Dev tools that bypass rate limiting or validation
+- ✅ Database seeding scripts with test data
+- ✅ Scripts that expose sensitive data (list users)
+- ✅ Admin utilities that skip proper audit trail
+
+*Source: TODO 252 - Dev scripts lacked production guards, creating risk of accidental production execution*
+*Added: 2026-01-23*
+
+---
+
 ### Development Workflow
 
 1. **Start Redis** (optional but recommended):
@@ -4204,8 +4313,8 @@ REDIS_URL=redis://localhost:6379
 
 2. **Clear development data** if needed:
    ```bash
-   # Clear rate limits
-   redis-cli DEL "ratelimit:127.0.0.1"
+   # Clear rate limits (uses scripts/clear-rate-limits.ts with production guard)
+   npm run clear-rate-limits
 
    # Clear sessions
    redis-cli KEYS "sess:*" | xargs redis-cli DEL

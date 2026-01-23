@@ -1,8 +1,9 @@
 # Frontend Patterns
 
-**Version:** 2.11
-**Last Updated:** 2026-01-18
+**Version:** 2.12
+**Last Updated:** 2026-01-23
 **Changelog:**
+- 2.12 (2026-01-23): Added Context Value Memoization Pattern and Component Memoization for Lists (from TODO 260 code review)
 - 2.11 (2026-01-18): Added URL Query Parameter Sync with Component State pattern - documents useEffect-based sync for wouter client-side navigation, preventing stale state when URL changes via Link components (from header navigation fix)
 - 2.10 (2026-01-16): Added Toast Notifications: WCAG Compliance pattern - documents Radix Toast type prop mapping for proper ARIA live region announcements (aria-live="assertive" for destructive, aria-live="polite" for default), WCAG AA color contrast verification, and E2E testing strategy (from TODO_231 Phase 6)
 - 2.9 (2026-01-06): Added Authentication Guards for React Query Hooks pattern - documents `enabled: !!user` requirement for authenticated endpoints, HTTP Basic Auth popup prevention, middleware-based classification, compound conditions, and audit methodology (15 hooks fixed across 4 files from TODO_014 follow-up)
@@ -3225,6 +3226,63 @@ test('below-the-fold sections lazy load correctly', async ({ page }) => {
 - `docs/08_TESTING_PATTERNS.md` - E2E Environment-Specific Configuration pattern
 - `docs/LEARNINGS_BUNDLE_OPTIMIZATION_E2E_TEST_FIX.md` - Investigation details
 - `todos/002-completed-frontend-bundle-size-optimization.md` - Full implementation details
+
+---
+
+### Context Value Memoization Pattern (NEW - 2026-01-23)
+
+**Context:** React Context providers that compute context values on every render can cause unnecessary re-renders of all consuming components.
+
+**Problem:** Without memoization, context value object is recreated on every render, triggering re-renders in all child components.
+
+**✅ CORRECT PATTERN - useMemo for Context Value:**
+
+```typescript
+export function CountryProvider({ children }: { children: ReactNode }) {
+  const [country, setCountry] = useState<string>('US');
+  const [currency, setCurrency] = useState<string>('USD');
+
+  const formatPrice = useCallback((value: string | number): string => {
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    return `${currencySymbol}${numValue.toFixed(2)}`;
+  }, [currencySymbol]);
+
+  // ✅ CRITICAL - Memoize context value to prevent unnecessary re-renders
+  const value = useMemo<CountryContextValue>(() => ({
+    country,
+    currency,
+    setCountry,
+    formatPrice,
+  }), [country, currency, setCountry, formatPrice]);
+
+  return <CountryContext.Provider value={value}>{children}</CountryContext.Provider>;
+}
+```
+
+**Component Memoization for Lists:**
+
+```typescript
+// Define component first
+function PriceComponent({ value }: { value: string | number }) {
+  const { formatPrice } = useCountry();
+  return <span>{formatPrice(value)}</span>;
+}
+
+// ✅ Memoize to prevent re-renders in product lists
+export const Price = React.memo(PriceComponent);
+```
+
+**Combined Effect:**
+- Without: Parent re-renders → 50 Price components re-render
+- With both: Parent re-renders → Price components skip re-render ✅
+
+**When to Use:**
+- ✅ Context consumed by many components (especially in lists)
+- ✅ Parent components re-render frequently
+- ✅ Context value rarely changes
+
+*Source: TODO 260 - CountryProvider caused unnecessary re-renders in product lists*
+*Added: 2026-01-23*
 
 ---
 
