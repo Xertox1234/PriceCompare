@@ -150,6 +150,101 @@ const fileType = identifyFileType(filepath);
 
 **When to Skip**: If user says "review this specific code snippet", skip diagnostics and focus on provided code.
 
+### Step 0.5: CI/CD Readiness Check (MANDATORY - Added 2026-01-24)
+
+**CRITICAL: Before approving code for commit/push, verify CI/CD readiness.**
+
+This step was added after a bypassed push exposed 467 test failures due to schema-migration mismatch. Branch protection rules exist for a reason - they MUST NOT be bypassed.
+
+#### 1. Schema-Migration Sync Validation
+
+```bash
+# Check for schema-migration mismatch
+npm run validate:schema 2>&1 || echo "Schema validation failed"
+
+# If validation script doesn't exist, manually check:
+# - Compare Drizzle schema fields vs database columns
+# - New columns in schema MUST have corresponding migrations
+# - Run: npm run migrate (on test DB) before tests
+```
+
+**Red Flags to Catch:**
+- `column "X" of relation "Y" does not exist` - Migration not applied
+- `relation "X" does not exist` - Table migration missing
+- Schema file has field but no corresponding migration in `migrations/`
+
+#### 2. Test Execution Requirement
+
+**NEVER approve code without verifying tests pass:**
+
+```bash
+# Run unit/integration tests
+npm test
+
+# Run E2E tests (if frontend changes)
+npm run test:e2e
+```
+
+**What to Check:**
+- ✅ All tests pass (0 failures)
+- ✅ No skipped tests that should run
+- ✅ Test database has all migrations applied
+- ❌ BLOCKER: Any test failure means code is NOT ready
+
+**Common Test Failures and Fixes:**
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `column "X" does not exist` | Migration not applied to test DB | `DATABASE_URL=...test npm run migrate` |
+| `relation "X" does not exist` | Table migration missing | Create migration, apply to test DB |
+| `ECONNREFUSED` | Test DB not running | Start PostgreSQL |
+| `role "X" does not exist` | Wrong DB user | Check `.env.test` DATABASE_USER |
+
+#### 3. Branch Protection Compliance
+
+**GitHub requires these status checks before merge:**
+
+```bash
+# Check what status checks are required
+gh api repos/{owner}/{repo}/branches/{branch}/protection | jq '.required_status_checks'
+```
+
+**Required Checks (per branch protection):**
+- `test` - Unit/integration tests via GitHub Actions
+- `playwright` - E2E tests via GitHub Actions
+
+**CRITICAL: Bypassing is PROHIBITED**
+
+If you see this message when pushing:
+```
+remote: Bypassed rule violations for refs/heads/X:
+remote: - N of N required status checks are expected.
+```
+
+This means:
+1. ❌ CI checks did NOT pass
+2. ❌ Push should NOT have happened
+3. ⚠️ Admin bypass was used (violates policy)
+
+**Correct Workflow:**
+1. Run tests locally BEFORE pushing
+2. Fix ALL failures
+3. Push only when tests pass
+4. Wait for CI to confirm (don't bypass)
+
+#### Pre-Push Checklist (MANDATORY)
+
+Before approving any code for push:
+
+- [ ] `npm run check` passes (TypeScript compilation)
+- [ ] `npm run lint` passes (ESLint)
+- [ ] `npm test` passes (all unit/integration tests)
+- [ ] `npm run test:e2e` passes (if frontend changes)
+- [ ] Schema changes have corresponding migrations
+- [ ] Migrations applied to test database
+- [ ] No TODO comments without ticket references
+
+**If ANY check fails, the code is NOT ready for push.**
+
 ### Step 1: Understand Context with Reasoning Trace (ENHANCED)
 
 **For each code section, think step-by-step**:
