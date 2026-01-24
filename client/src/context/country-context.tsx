@@ -12,6 +12,8 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/use-auth';
+import { apiRequest } from '@/lib/queryClient';
 
 // Country type matching API response
 export interface Country {
@@ -19,6 +21,11 @@ export interface Country {
   name: string;
   currency: string;
   currencySymbol: string;
+}
+
+// User preferences type from server
+interface UserPreferences {
+  preferredCountry: string;
 }
 
 // Context value type
@@ -120,6 +127,44 @@ export function CountryProvider({
       }
     }
   }, [countries, country, defaultCountry, setCountry]);
+
+  const { data: user } = useAuth();
+
+  // Fetch server preference when user logs in
+  useEffect(() => {
+    if (!user) return;
+
+    apiRequest<UserPreferences>('/api/user/preferences')
+      .then((prefs) => {
+        if (prefs?.preferredCountry) {
+          setCountryState(prefs.preferredCountry);
+          try {
+            localStorage.setItem(STORAGE_KEY, prefs.preferredCountry);
+          } catch {
+            // Ignore localStorage errors
+          }
+        }
+      })
+      .catch(() => {
+        // Silent fail - localStorage value persists as fallback
+      });
+  }, [user?.id]);
+
+  // Sync to server when country changes (debounced)
+  useEffect(() => {
+    if (!user) return;
+
+    const timeoutId = setTimeout(() => {
+      apiRequest('/api/user/preferences', {
+        method: 'PUT',
+        body: JSON.stringify({ preferredCountry: country }),
+      }).catch(() => {
+        // Silent fail - localStorage is the backup
+      });
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [country, user?.id]);
 
   // Format price with currency symbol
   const formatPrice = useCallback(
