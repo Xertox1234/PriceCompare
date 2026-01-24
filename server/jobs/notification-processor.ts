@@ -1,7 +1,5 @@
 import Queue from 'bull';
 import cron from 'node-cron';
-import { db } from '../db';
-import { productWatches } from '../../shared/schema';
 import { storage } from '../storage';
 import { createLogger } from '../utils/logger';
 import { jobLockService } from '../services/job-lock-service';
@@ -48,10 +46,9 @@ async function processWatchedProducts(): Promise<{ processed: number; notified: 
 
   try {
     // Get all users with watched products (batch by user)
-    // PERFORMANCE: Use GROUP BY to avoid N+1 query
-    const usersWithWatches = await db
-      .selectDistinct({ userId: productWatches.userId })
-      .from(productWatches);
+    // PERFORMANCE: Use storage layer method (TODO 270: Fix storage layer violation)
+    const userIds = await storage.getUserIdsWithWatchedProducts();
+    const usersWithWatches = userIds.map((userId) => ({ userId }));
 
     log.info(`Processing notifications for ${usersWithWatches.length} users with watched products`);
 

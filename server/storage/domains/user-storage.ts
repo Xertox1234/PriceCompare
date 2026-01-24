@@ -28,6 +28,8 @@ import { retryWithBackoff, isTransientDatabaseError } from '../../utils/retry-wi
 import { USER_CONSTANTS } from '../../utils/constants';
 import { logger } from '../../utils/logger';
 import { storageCache } from '../../services/storage-cache';
+// Country validation - single source of truth (TODO 267)
+import { isValidCountryCode, VALID_COUNTRY_CODES } from '@shared/country-constants';
 import { hashEmail } from '../../utils/encryption';
 
 /**
@@ -954,10 +956,12 @@ export class UserStorage extends BaseStorage {
     try {
       this.validateUserId(userId);
 
-      // Validate country code format if provided (2 uppercase letters)
+      // Validate country code against supported values (TODO 267: Use shared constants)
       if (preferences.preferredCountry !== undefined && preferences.preferredCountry !== null) {
-        if (!/^[A-Z]{2}$/.test(preferences.preferredCountry)) {
-          throw new Error('Invalid country code: must be 2 uppercase letters (ISO 3166-1 alpha-2)');
+        if (!isValidCountryCode(preferences.preferredCountry)) {
+          throw new Error(
+            `Invalid country code: ${preferences.preferredCountry}. Must be one of: ${VALID_COUNTRY_CODES.join(', ')}`
+          );
         }
       }
 

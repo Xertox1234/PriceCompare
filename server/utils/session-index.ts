@@ -262,37 +262,5 @@ export async function cleanupStaleSessionsFromIndex(userId: number): Promise<num
   }
 }
 
-/**
- * Refresh TTL for user's session index
- *
- * Called when a session is touched (user activity).
- * Ensures the index TTL stays synchronized with the longest-lived session.
- *
- * @param userId - User ID
- * @returns true if TTL refreshed successfully, false if Redis unavailable
- */
-export async function refreshUserSessionIndexTTL(userId: number): Promise<boolean> {
-  const redisClient = getRedisSessionClient();
-  if (!redisClient) {
-    return false;
-  }
-
-  try {
-    const key = getUserSessionsKey(userId);
-
-    // Refresh TTL to match session TTL
-    const exists = await redisClient.exists(key);
-    if (exists) {
-      await redisClient.expire(key, SESSION_TTL_SECONDS);
-      logger.debug('[SessionIndex] Refreshed TTL for user sessions', { userId });
-    }
-
-    return true;
-  } catch (error) {
-    logger.error('[SessionIndex] Failed to refresh TTL', {
-      userId,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return false;
-  }
-}
+// NOTE: refreshUserSessionIndexTTL was removed in TODO 276 (2026-01-24)
+// TTL is automatically refreshed in addSessionToUserIndex() at line 69

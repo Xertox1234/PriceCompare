@@ -2,6 +2,18 @@ import cron, { type ScheduledTask } from 'node-cron';
 import { jobLockService } from '../services/job-lock-service';
 import { checkPriceAlertsForDrop } from '../services/price-drop-detection';
 import { logger } from '../utils/logger';
+/**
+ * STORAGE LAYER EXCEPTION (like price-aggregation-service.ts)
+ *
+ * This file uses direct `db` access instead of the storage layer because:
+ * 1. Complex aggregation query with JOINs, GROUP BY, and correlated subqueries
+ * 2. Performance-critical batch operation (runs every 30 minutes)
+ * 3. Query is tightly coupled to specific join conditions and aggregation logic
+ * 4. Creating a storage method would duplicate complexity without benefit
+ *
+ * See: CLAUDE.md "Database Layer Pattern" exception for price-aggregation-service.ts
+ * TODO 270: Documented as justified exception on 2026-01-24
+ */
 import { db } from '../db';
 import { priceAlerts, products, productOffers } from '@shared/schema';
 import { eq, and, sql } from 'drizzle-orm';

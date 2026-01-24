@@ -12,9 +12,8 @@
 
 import { Router } from 'express';
 import type { Request, Response } from 'express';
-import { db } from '../db';
+import { storage } from '../storage';
 import { getRedisClient } from '../config/redis';
-import { sql } from 'drizzle-orm';
 
 export const healthRouter = Router();
 
@@ -89,14 +88,17 @@ healthRouter.get('/health/ready', async (_req: Request, res: Response): Promise<
     },
   };
 
-  // Check PostgreSQL connectivity
+  // Check PostgreSQL connectivity via storage layer (TODO 270: Use storage, not direct db)
   try {
     const dbStart = Date.now();
-    await db.execute(sql`SELECT 1`);
+    const healthy = await storage.checkDatabaseHealth();
     health.checks.database = {
-      status: 'pass',
+      status: healthy ? 'pass' : 'fail',
       latencyMs: Date.now() - dbStart,
     };
+    if (!healthy) {
+      health.status = 'unhealthy';
+    }
   } catch (error) {
     health.checks.database = {
       status: 'fail',

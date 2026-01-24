@@ -214,6 +214,7 @@ export interface IStorage {
     isPublic: boolean
   ): Promise<{ isPublic: boolean; publicShareToken: string | null }>;
   getPublicWatchListByToken(token: string): Promise<WatchListWithProducts | null>;
+  getUserIdsWithWatchedProducts(): Promise<number[]>;
 
   // Users - Basic operations
   getUserCount(): Promise<number>;
@@ -1758,6 +1759,10 @@ export class MemStorage implements IStorage {
 
   async getPublicWatchListByToken(_token: string): Promise<WatchListWithProducts | null> {
     return null;
+  }
+
+  async getUserIdsWithWatchedProducts(): Promise<number[]> {
+    return [];
   }
 
   // Additional stub implementations for MemStorage
@@ -3460,6 +3465,14 @@ export class DatabaseStorage implements IStorage {
 
   async getPublicWatchListByToken(token: string): Promise<WatchListWithProducts | null> {
     return this.watchListStorage.getPublicWatchListByToken(token);
+  }
+
+  /**
+   * Get distinct user IDs who have watched products
+   * Used for: Notification processor batch processing (TODO 270)
+   */
+  async getUserIdsWithWatchedProducts(): Promise<number[]> {
+    return this.watchListStorage.getUserIdsWithWatchedProducts();
   }
 
   // Admin Product/Retailer Management

@@ -1,5 +1,5 @@
 import { BaseAgent } from './base-agent';
-import { chromium, type Browser, type Page } from 'playwright';
+import { chromium, type Page } from 'playwright';
 import type { ExtractedProductData, ExtractionTask } from './types';
 import { logger } from '../utils/logger';
 import { storage } from '../storage';
@@ -58,7 +58,8 @@ interface ExtractionStrategy {
  * - CLAUDE.md: Playwright EXCLUSIVELY for browser automation
  */
 export class DataExtractionAgent extends BaseAgent {
-  private browser: Browser | null = null;
+  // NOTE: Browser is now a local variable in extractProductData (TODO 268 fix)
+  // Removed: private browser: Browser | null = null;
   private extractionStrategies: Map<string, ExtractionStrategy> = new Map();
 
   constructor() {
@@ -250,119 +251,125 @@ export class DataExtractionAgent extends BaseAgent {
     }
 
     // SIMPLE: Launch new browser per request (optimize later if needed)
-    this.browser = await chromium.launch({
+    // TODO 268 FIX: Use local variable + nested try-finally to prevent memory leaks
+    // if context creation fails after browser launch
+    const browser = await chromium.launch({
       headless: true,
       args: [...SCRAPER.BROWSER_ARGS],
     });
 
-    const context = await this.browser.newContext({
-      // Playwright native stealth mode
-      userAgent:
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      viewport: { width: 1920, height: 1080 },
-      locale: 'en-US',
-      timezoneId: 'America/New_York',
-      // Additional headers for realism
-      extraHTTPHeaders: {
-        'Accept-Language': 'en-US,en;q=0.9',
-        Accept:
-          'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-      },
-    });
-
-    const page = await context.newPage();
-
     try {
-      // Navigate and wait for content
-      await page.goto(validatedUrl.toString(), {
-        waitUntil: 'domcontentloaded',
-        timeout: SCRAPER.NAVIGATION_TIMEOUT_MS,
+      const context = await browser.newContext({
+        // Playwright native stealth mode
+        userAgent:
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        viewport: { width: 1920, height: 1080 },
+        locale: 'en-US',
+        timezoneId: 'America/New_York',
+        // Additional headers for realism
+        extraHTTPHeaders: {
+          'Accept-Language': 'en-US,en;q=0.9',
+          Accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        },
       });
 
-      // ANTI-BOT DETECTION: Check for Cloudflare, CAPTCHA, rate limiting, etc.
-      const antiBotResult = await detectAntiBot(page);
-
-      if (antiBotResult.detected) {
-        const backoffMs = getAntiBotBackoffMs(antiBotResult.type, 0);
-        const backoffDuration = formatBackoffDuration(backoffMs);
-
-        logger.warn('Anti-bot measures detected', {
-          url,
-          type: antiBotResult.type,
-          message: antiBotResult.message,
-          retailer: retailerDomain,
-          suggestedBackoff: backoffDuration,
-        });
-
-        throw new Error(
-          `Anti-bot detected (${antiBotResult.type}): ${antiBotResult.message}. Suggested backoff: ${backoffDuration}`
-        );
-      }
-
-      // Get extraction strategy for retailer
-      const strategy = this.extractionStrategies.get(retailerDomain) || this.getGenericStrategy();
-
-      // Wait for price element (indicates page loaded)
-      // This is KEY DIFFERENCE from axios+cheerio: we wait for JavaScript to render
       try {
-        await page.waitForSelector(strategy.priceSelectors[0], {
-          timeout: SCRAPER.SELECTOR_TIMEOUT_MS,
-          state: 'visible',
+        const page = await context.newPage();
+
+        // Navigate and wait for content
+        await page.goto(validatedUrl.toString(), {
+          waitUntil: 'domcontentloaded',
+          timeout: SCRAPER.NAVIGATION_TIMEOUT_MS,
         });
-      } catch (selectorError) {
-        logger.warn(
-          `Price selector not found immediately for ${retailerDomain}, attempting extraction anyway`,
-          {
-            error: selectorError instanceof Error ? selectorError.message : String(selectorError),
-            selector: strategy.priceSelectors[0],
+
+        // ANTI-BOT DETECTION: Check for Cloudflare, CAPTCHA, rate limiting, etc.
+        const antiBotResult = await detectAntiBot(page);
+
+        if (antiBotResult.detected) {
+          const backoffMs = getAntiBotBackoffMs(antiBotResult.type, 0);
+          const backoffDuration = formatBackoffDuration(backoffMs);
+
+          logger.warn('Anti-bot measures detected', {
             url,
-          }
-        );
-        // Fallback: wait for network to be idle (indicates AJAX/dynamic content loaded)
-        try {
-          await page.waitForLoadState('networkidle', { timeout: SCRAPER.NETWORK_IDLE_TIMEOUT_MS });
-        } catch (networkError) {
-          logger.warn('Network idle wait failed, falling back to DOM load', {
-            error: networkError instanceof Error ? networkError.message : String(networkError),
-            retailerDomain,
+            type: antiBotResult.type,
+            message: antiBotResult.message,
+            retailer: retailerDomain,
+            suggestedBackoff: backoffDuration,
           });
-          // If networkidle also fails, try waiting for DOM to be fully loaded
-          await page.waitForLoadState('load', { timeout: SCRAPER.NETWORK_IDLE_TIMEOUT_MS });
+
+          throw new Error(
+            `Anti-bot detected (${antiBotResult.type}): ${antiBotResult.message}. Suggested backoff: ${backoffDuration}`
+          );
         }
+
+        // Get extraction strategy for retailer
+        const strategy = this.extractionStrategies.get(retailerDomain) || this.getGenericStrategy();
+
+        // Wait for price element (indicates page loaded)
+        // This is KEY DIFFERENCE from axios+cheerio: we wait for JavaScript to render
+        try {
+          await page.waitForSelector(strategy.priceSelectors[0], {
+            timeout: SCRAPER.SELECTOR_TIMEOUT_MS,
+            state: 'visible',
+          });
+        } catch (selectorError) {
+          logger.warn(
+            `Price selector not found immediately for ${retailerDomain}, attempting extraction anyway`,
+            {
+              error: selectorError instanceof Error ? selectorError.message : String(selectorError),
+              selector: strategy.priceSelectors[0],
+              url,
+            }
+          );
+          // Fallback: wait for network to be idle (indicates AJAX/dynamic content loaded)
+          try {
+            await page.waitForLoadState('networkidle', { timeout: SCRAPER.NETWORK_IDLE_TIMEOUT_MS });
+          } catch (networkError) {
+            logger.warn('Network idle wait failed, falling back to DOM load', {
+              error: networkError instanceof Error ? networkError.message : String(networkError),
+              retailerDomain,
+            });
+            // If networkidle also fails, try waiting for DOM to be fully loaded
+            await page.waitForLoadState('load', { timeout: SCRAPER.NETWORK_IDLE_TIMEOUT_MS });
+          }
+        }
+
+        // Extract data AFTER JavaScript execution
+        const title = await this.extractText(page, strategy.titleSelectors);
+        const price = await this.extractPrice(page, strategy.priceSelectors);
+        const availability = await this.extractAvailability(page, strategy.availabilitySelectors);
+        const imageUrl = await this.extractImageUrl(page, strategy.imageSelectors);
+        const rating = strategy.ratingSelectors
+          ? await this.extractRating(page, strategy.ratingSelectors)
+          : undefined;
+        const description = strategy.descriptionSelectors
+          ? await this.extractText(page, strategy.descriptionSelectors)
+          : undefined;
+        const brand = strategy.brandSelectors
+          ? await this.extractText(page, strategy.brandSelectors)
+          : undefined;
+
+        const extractedData: ExtractedProductData = {
+          title: this.cleanText(title) || '',
+          price,
+          currency: 'USD', // Default to USD, could be enhanced to detect currency
+          availability,
+          description: this.cleanText(description),
+          imageUrl: imageUrl || undefined,
+          rating,
+          brand: brand || '',
+        };
+
+        return extractedData;
+      } finally {
+        // ALWAYS cleanup context (inner finally)
+        await context.close();
       }
-
-      // Extract data AFTER JavaScript execution
-      const title = await this.extractText(page, strategy.titleSelectors);
-      const price = await this.extractPrice(page, strategy.priceSelectors);
-      const availability = await this.extractAvailability(page, strategy.availabilitySelectors);
-      const imageUrl = await this.extractImageUrl(page, strategy.imageSelectors);
-      const rating = strategy.ratingSelectors
-        ? await this.extractRating(page, strategy.ratingSelectors)
-        : undefined;
-      const description = strategy.descriptionSelectors
-        ? await this.extractText(page, strategy.descriptionSelectors)
-        : undefined;
-      const brand = strategy.brandSelectors
-        ? await this.extractText(page, strategy.brandSelectors)
-        : undefined;
-
-      const extractedData: ExtractedProductData = {
-        title: this.cleanText(title) || '',
-        price,
-        currency: 'USD', // Default to USD, could be enhanced to detect currency
-        availability,
-        description: this.cleanText(description),
-        imageUrl: imageUrl || undefined,
-        rating,
-        brand: brand || '',
-      };
-
-      return extractedData;
     } finally {
-      // ALWAYS cleanup (prevent memory leaks)
-      await context.close();
-      await this.browser.close();
-      this.browser = null;
+      // ALWAYS cleanup browser (outer finally - runs even if context creation fails)
+      // TODO 268 FIX: Browser always closed, preventing memory leaks
+      await browser.close();
     }
   }
 

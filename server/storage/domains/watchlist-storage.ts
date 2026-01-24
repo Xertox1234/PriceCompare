@@ -2220,4 +2220,23 @@ export class WatchListStorage extends BaseStorage {
       this.handleError(error, 'getUsersWatchingProduct');
     }
   }
+
+  /**
+   * Get distinct user IDs who have watched products
+   * Used for: Notification processor batch processing
+   * DATABASE AGGREGATION: Uses DISTINCT to avoid duplicates
+   *
+   * TODO 270: Added to replace direct db access in notification-processor.ts
+   */
+  async getUserIdsWithWatchedProducts(): Promise<number[]> {
+    try {
+      const result = await this.db
+        .selectDistinct({ userId: productWatches.userId })
+        .from(productWatches);
+
+      return result.map((r) => r.userId);
+    } catch (error) {
+      this.handleError(error, 'getUserIdsWithWatchedProducts');
+    }
+  }
 }

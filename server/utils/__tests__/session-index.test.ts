@@ -11,7 +11,6 @@ import {
   removeSessionFromUserIndex,
   getUserSessionIds,
   cleanupStaleSessionsFromIndex,
-  refreshUserSessionIndexTTL,
 } from '../session-index';
 
 // Mock Redis client functions
@@ -292,41 +291,6 @@ describe('Session Index Operations', () => {
       // Verify only stale sessions removed
       expect(result).toBe(2); // session-1 and session-3 removed
       expect(mockSRem).toHaveBeenCalledWith('user_sessions:123', ['session-1', 'session-3']);
-    });
-  });
-
-  describe('refreshUserSessionIndexTTL', () => {
-    it('should refresh TTL when index exists', async () => {
-      const userId = 123;
-
-      mockExists.mockResolvedValue(1); // Key exists
-      vi.mocked(mockExpire).mockResolvedValue(true);
-
-      const result = await refreshUserSessionIndexTTL(userId);
-
-      expect(result).toBe(true);
-      expect(mockExpire).toHaveBeenCalledWith('user_sessions:123', 86400);
-    });
-
-    it('should not refresh TTL when index does not exist', async () => {
-      const userId = 123;
-
-      mockExists.mockResolvedValue(0); // Key doesn't exist
-
-      const result = await refreshUserSessionIndexTTL(userId);
-
-      expect(result).toBe(true);
-      expect(mockExpire).not.toHaveBeenCalled();
-    });
-
-    it('should handle Redis errors gracefully', async () => {
-      const userId = 123;
-
-      mockExists.mockRejectedValue(new Error('Redis error'));
-
-      const result = await refreshUserSessionIndexTTL(userId);
-
-      expect(result).toBe(false);
     });
   });
 

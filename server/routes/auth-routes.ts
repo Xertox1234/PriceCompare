@@ -154,14 +154,8 @@ export function registerAuthRoutes(app: Express): void {
       // Validate input with Zod schema
       const { username, email, password } = registerSchema.parse(req.body);
 
-      // VALIDATION: Explicit email format validation before encryption (defense-in-depth)
-      // Even though Zod validates email format, explicit check ensures valid emails before encryption
-      // Invalid emails would be stored encrypted and only discovered during password reset/notifications
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        sendError(res, 'Invalid email format', 400);
-        return;
-      }
+      // NOTE: Email format validation is already handled by Zod schema (.email())
+      // at line 37 via registerSchema.parse() above. Redundant regex removed (TODO 277)
 
       // Validate password strength using shared validation
       const passwordValidation = validatePassword(password);

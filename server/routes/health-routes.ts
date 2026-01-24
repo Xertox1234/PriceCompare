@@ -33,17 +33,9 @@ interface CspReportRequest {
  * Provides health and readiness endpoints for monitoring.
  */
 export function registerHealthRoutes(app: Express): void {
-  // Basic health check (infrastructure endpoint)
-  // NOTE: This endpoint uses raw JSON format (not standardized envelope)
-  // for compatibility with orchestration systems (Kubernetes, Docker, load balancers)
-  // that expect simple { status: "ok" } responses
-  app.get('/health', (req, res) => {
-    res.status(200).json({
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-    });
-  });
+  // NOTE: Basic /health endpoint is provided by healthRouter (health.ts)
+  // which is mounted earlier in the middleware chain for infrastructure probes.
+  // This file provides /api/health (detailed) and /api/csp-violation-report.
 
   // Detailed health check with database and Redis connectivity
   app.get('/api/health', async (req, res) => {

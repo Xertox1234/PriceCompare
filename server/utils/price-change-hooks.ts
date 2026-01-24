@@ -1,8 +1,5 @@
 import { recordPriceChange } from '../services/price-history-service';
 import { processPriceChange } from '../services/price-drop-detection';
-import { db } from '../db';
-import { productOffers, priceAlerts, users, notifications } from '@shared/schema';
-import { eq, and, lte, inArray } from 'drizzle-orm';
 import { createLogger } from './logger';
 
 const log = createLogger('PriceChangeHooks');
@@ -65,78 +62,6 @@ export async function onProductOfferPriceChange(
     log.error('Error in price change hook:', { error });
     // Don't throw error to prevent blocking the main operation
     return { recorded: false, error: (error as Error).message };
-  }
-}
-
-/**
- * Check if any price alerts should be triggered for this price change
- *
- * @param productOfferId - ID of the product offer
- * @param newPrice - The new price
- */
-async function _checkAndNotifyPriceAlerts(productOfferId: number, newPrice: number): Promise<void> {
-  try {
-    // Get the product ID from the offer
-    const [offer] = await db
-      .select({ productId: productOffers.productId })
-      .from(productOffers)
-      .where(eq(productOffers.id, productOfferId))
-      .limit(1);
-
-    if (!offer) {
-      return;
-    }
-
-    // Find active price alerts where target price >= new price
-    const alerts = await db
-      .select({
-        alertId: priceAlerts.id,
-        userId: priceAlerts.userId,
-        targetPrice: priceAlerts.targetPrice,
-        notifyForum: priceAlerts.notifyForum,
-        username: users.username,
-        email: users.email,
-      })
-      .from(priceAlerts)
-      .innerJoin(users, eq(priceAlerts.userId, users.id))
-      .where(
-        and(
-          eq(priceAlerts.productId, offer.productId),
-          eq(priceAlerts.isActive, true),
-          lte(priceAlerts.targetPrice, newPrice.toString())
-        )
-      );
-
-    if (alerts.length === 0) {
-      return;
-    }
-
-    const alertIds = alerts.map((a) => a.alertId);
-    const notificationRows = alerts.map((alert) => ({
-      userId: alert.userId,
-      type: 'price_alert' as const,
-      title: 'Price Alert Triggered!',
-      content: `The price has dropped to $${newPrice.toFixed(2)}, meeting your target of $${parseFloat(alert.targetPrice).toFixed(2)}`,
-      relatedPostId: null,
-      relatedTopicId: null,
-      isRead: false,
-    }));
-
-    await db.transaction(async (tx) => {
-      await tx.insert(notifications).values(notificationRows);
-      // One-time notification behavior: deactivate all triggered alerts.
-      await tx
-        .update(priceAlerts)
-        .set({ isActive: false })
-        .where(inArray(priceAlerts.id, alertIds));
-    });
-
-    log.info('Price alert notifications sent', {
-      productId: offer.productId,
-      alertCount: alerts.length,
-    });
-  } catch (error) {
-    log.error('Error checking price alerts:', { error });
   }
 }
 

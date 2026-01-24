@@ -1054,10 +1054,8 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
   });
 
   afterEach(async () => {
-    // Ensure browser cleanup
-    if (playwrightAgent['browser']) {
-      await playwrightAgent['browser'].close();
-    }
+    // Browser cleanup is now automatic via nested try-finally (TODO 268 fix)
+    // No need to manually check/close browser property
     vi.restoreAllMocks();
   });
 
@@ -1151,7 +1149,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
       expect(result.success).toBe(true);
       expect(mockContext.close).toHaveBeenCalled();
       expect(mockBrowser.close).toHaveBeenCalled();
-      expect(playwrightAgent['browser']).toBeNull();
+      // NOTE: Browser is now a local variable (TODO 268 fix), no class property to check
     });
 
     it('closes browser context on error', async () => {
@@ -1168,7 +1166,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
       // Verify cleanup happened despite error
       expect(mockContext.close).toHaveBeenCalled();
       expect(mockBrowser.close).toHaveBeenCalled();
-      expect(playwrightAgent['browser']).toBeNull();
+      // NOTE: Browser is now a local variable (TODO 268 fix), no class property to check
     });
 
     it('launches new browser for each request (no pooling)', async () => {
