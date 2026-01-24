@@ -1,18 +1,17 @@
 import { useParams, Link } from 'wouter';
 import { TemplateHeader } from '@/components/template/header';
 import { TemplateFooter } from '@/components/template/footer';
-import { ShopProvider, useShop } from '@/context/shop-context';
+import { ShopProvider } from '@/context/shop-context';
 import { usePublicWatchList } from '@/hooks/use-community';
 
 function PublicWatchlistContent() {
   const { token } = useParams<{ token: string }>();
-  const { openCart } = useShop();
 
   const { data, isLoading, error } = usePublicWatchList(token ?? null);
 
   return (
     <div className="bg-background min-h-screen">
-      <TemplateHeader onOpenCart={openCart} />
+      <TemplateHeader />
 
       <main className="container mx-auto px-4 py-8">
         <div className="mb-6 flex items-center justify-between">

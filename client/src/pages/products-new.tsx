@@ -21,7 +21,7 @@ import {
   SearchModal,
   QuickviewModal,
 } from '@/components/template/modals';
-import { CartSidebar } from '@/components/template/cart-sidebar';
+// NOTE: CartSidebar removed - not applicable for price comparison platform (TODO 269)
 import { ShopProvider, useShop } from '@/context/shop-context';
 import { cn } from '@/lib/utils';
 import { useProducts } from '@/hooks/use-products';
@@ -89,9 +89,6 @@ function ProductsContent() {
     toggleWishlist,
     isInWishlist,
     toggleCompare,
-    openCart,
-    isCartOpen: _isCartOpen,
-    closeCart: _closeCart,
   } = useShop();
 
   const { data: watchlistsData } = useWatchLists();
@@ -583,7 +580,6 @@ function ProductsContent() {
       </Helmet>
       <div className="bg-background min-h-screen">
         <TemplateHeader
-        onOpenCart={openCart}
         onOpenMobileMenu={() => setMobileMenuOpen(true)}
         onOpenCompare={() => setCompareOpen(true)}
         onOpenSearch={() => setSearchOpen(true)}
@@ -941,7 +937,6 @@ function ProductsContent() {
       </div>
 
       {/* Modals */}
-      <CartSidebar />
       <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
       <CompareModal isOpen={compareOpen} onClose={() => setCompareOpen(false)} />
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />

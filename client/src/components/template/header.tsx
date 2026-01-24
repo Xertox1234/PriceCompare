@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'wouter';
 import {
   Search,
-  ShoppingCart,
   Heart,
   User,
   Menu,
@@ -14,6 +13,7 @@ import {
   LogOut,
   Settings,
 } from 'lucide-react';
+// NOTE: ShoppingCart icon removed - not applicable for price comparison platform (TODO 269)
 import { cn } from '@/lib/utils';
 import { useShop } from '@/context/shop-context';
 import { useTheme } from '@/components/theme-provider';
@@ -67,14 +67,12 @@ function useScrollDirection() {
 }
 
 interface TemplateHeaderProps {
-  onOpenCart?: () => void;
   onOpenMobileMenu?: () => void;
   onOpenSearch?: () => void;
   onOpenCompare?: () => void;
 }
 
 export function TemplateHeader({
-  onOpenCart,
   onOpenMobileMenu,
   onOpenSearch,
   onOpenCompare,
@@ -83,7 +81,7 @@ export function TemplateHeader({
   const MEGA_MENU_CLOSE_DELAY_MS = 150;
 
   const [searchQuery, setSearchQuery] = useState('');
-  const { getCartItemCount, wishlist, compare } = useShop();
+  const { wishlist, compare } = useShop();
   const { theme, setTheme, contrastMode, setContrastMode } = useTheme();
   const { scrollDirection, scrollY } = useScrollDirection();
   const { data: user } = useAuth();
@@ -102,7 +100,6 @@ export function TemplateHeader({
     };
   }, []);
 
-  const cartCount = getCartItemCount();
   const wishlistCount = wishlist.length;
   const compareCount = compare.length;
 
@@ -310,19 +307,6 @@ export function TemplateHeader({
                   )}
                 </Link>
 
-                {/* Cart */}
-                <button
-                  onClick={onOpenCart}
-                  className="text-muted-foreground hover:text-foreground relative p-2 transition-colors"
-                >
-                  <ShoppingCart className="h-6 w-6" />
-                  {cartCount > 0 && (
-                    <span className="bg-primary absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium text-white">
-                      {cartCount}
-                    </span>
-                  )}
-                </button>
-
                 {/* Mobile Menu Toggle */}
                 <button
                   className="text-muted-foreground hover:text-foreground p-2 transition-colors lg:hidden"
@@ -493,19 +477,6 @@ export function TemplateHeader({
 
             {/* Quick Actions */}
             <div className="flex items-center gap-2">
-              {/* Cart */}
-              <button
-                onClick={onOpenCart}
-                className="text-muted-foreground hover:text-foreground relative p-2 transition-colors"
-              >
-                <ShoppingCart className="h-5 w-5" />
-                {cartCount > 0 && (
-                  <span className="bg-primary text-2xs absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full font-medium text-white">
-                    {cartCount}
-                  </span>
-                )}
-              </button>
-
               {/* Wishlist */}
               <Link
                 href="/wishlist"
@@ -536,9 +507,8 @@ export function TemplateHeader({
 // Compact header variant for inner pages
 export function CompactHeader() {
   const [searchQuery, setSearchQuery] = useState('');
-  const { getCartItemCount, wishlist } = useShop();
+  const { wishlist } = useShop();
 
-  const cartCount = getCartItemCount();
   const wishlistCount = wishlist.length;
 
   return (
@@ -582,14 +552,6 @@ export function CompactHeader() {
                 </span>
               )}
             </Link>
-            <button className="text-muted-foreground hover:text-foreground relative p-2 transition-colors">
-              <ShoppingCart className="h-5 w-5" />
-              {cartCount > 0 && (
-                <span className="bg-primary absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-xs text-white">
-                  {cartCount}
-                </span>
-              )}
-            </button>
           </div>
         </div>
       </div>

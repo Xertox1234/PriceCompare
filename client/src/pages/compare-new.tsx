@@ -4,7 +4,6 @@ import { Link } from 'wouter';
 import {
   ChevronRight,
   X,
-  ShoppingCart,
   BarChart2,
   Check,
   Star,
@@ -15,12 +14,12 @@ import {
 } from 'lucide-react';
 import { TemplateHeader } from '@/components/template/header';
 import { TemplateFooter } from '@/components/template/footer';
-import { CartSidebar } from '@/components/template/cart-sidebar';
+// NOTE: CartSidebar removed - not applicable for price comparison platform (TODO 269)
 import { MobileMenu, SearchModal } from '@/components/template/modals';
 import { ShopProvider, useShop } from '@/context/shop-context';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { allProducts, type TemplateProduct } from '@/data/template-data';
+import { allProducts } from '@/data/template-data';
 
 /**
  * Creates a typed array of undefined values for iteration purposes.
@@ -50,7 +49,7 @@ const mockSpecs: Record<number, Record<string, string>> = {
 };
 
 function CompareContent() {
-  const { compare, toggleCompare, clearCompare, addSimpleToCart, openCart, isInCart } = useShop();
+  const { compare, toggleCompare, clearCompare } = useShop();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -59,17 +58,6 @@ function CompareContent() {
   const compareItems = useMemo(() => {
     return allProducts.filter((p) => compare.includes(p.id));
   }, [compare]);
-
-  const handleAddToCart = (product: TemplateProduct) => {
-    addSimpleToCart({
-      id: product.id,
-      name: product.title,
-      price: product.price,
-      image: product.imgSrc,
-      quantity: 1,
-    });
-    openCart();
-  };
 
   const emptySlots = Math.max(0, 4 - compareItems.length);
 
@@ -81,7 +69,6 @@ function CompareContent() {
       </Helmet>
       <div className="bg-background min-h-screen">
         <TemplateHeader
-          onOpenCart={openCart}
         onOpenMobileMenu={() => setMobileMenuOpen(true)}
         onOpenCompare={() => {}}
         onOpenSearch={() => setSearchOpen(true)}
@@ -329,35 +316,18 @@ function CompareContent() {
                     <td className="bg-muted/50 sticky left-0 z-10 w-40 p-4 text-sm font-semibold">
                       Action
                     </td>
-                    {compareItems.map((product) => {
-                      const inCart = isInCart(product.id);
-                      return (
+                    {compareItems.map((product) => (
                         <td key={product.id} className="p-4 text-center">
-                          <Button
-                            onClick={() => handleAddToCart(product)}
-                            className={cn(
-                              'w-full max-w-[180px]',
-                              inCart
-                                ? 'bg-success hover:bg-success/90'
-                                : 'bg-primary hover:bg-primary-hover'
-                            )}
-                            disabled={product.inStock === false}
-                          >
-                            {inCart ? (
-                              <>
-                                <Check className="mr-2 h-4 w-4" />
-                                Added
-                              </>
-                            ) : (
-                              <>
-                                <ShoppingCart className="mr-2 h-4 w-4" />
-                                Add to Cart
-                              </>
-                            )}
-                          </Button>
+                          <Link href={`/product/${product.id}`}>
+                            <Button
+                              className="bg-primary hover:bg-primary-hover w-full max-w-[180px]"
+                            >
+                              <ExternalLink className="mr-2 h-4 w-4" />
+                              View Details
+                            </Button>
+                          </Link>
                         </td>
-                      );
-                    })}
+                    ))}
                     {createFillerArray(emptySlots).map((_, i) => (
                       <td key={`empty-action-${i}`} className="p-4 text-center">
                         <Link href="/shop">
@@ -424,7 +394,6 @@ function CompareContent() {
       <TemplateFooter />
 
       {/* Modals */}
-      <CartSidebar />
       <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
       </div>

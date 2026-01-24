@@ -4,7 +4,6 @@ import { Link } from 'wouter';
 import {
   ChevronRight,
   X,
-  ShoppingCart,
   Check,
   Heart,
   Bell,
@@ -14,21 +13,16 @@ import {
 } from 'lucide-react';
 import { TemplateHeader } from '@/components/template/header';
 import { TemplateFooter } from '@/components/template/footer';
-import { CartSidebar } from '@/components/template/cart-sidebar';
+// NOTE: CartSidebar removed - not applicable for price comparison platform (TODO 269)
 import { MobileMenu, CompareModal, SearchModal } from '@/components/template/modals';
 import { ShopProvider, useShop } from '@/context/shop-context';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { allProducts, type TemplateProduct } from '@/data/template-data';
+import { allProducts } from '@/data/template-data';
 
 function WishlistContent() {
   const {
     wishlist,
     toggleWishlist,
-    addSimpleToCart,
-    openCart,
-    isCartOpen: _isCartOpen,
-    isInCart,
   } = useShop();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -40,32 +34,6 @@ function WishlistContent() {
     return allProducts.filter((p) => wishlist.includes(p.id));
   }, [wishlist]);
 
-  const handleAddToCart = (product: TemplateProduct) => {
-    addSimpleToCart({
-      id: product.id,
-      name: product.title,
-      price: product.price,
-      image: product.imgSrc,
-      quantity: 1,
-    });
-    openCart();
-  };
-
-  const handleAddAllToCart = () => {
-    wishlistItems.forEach((product) => {
-      if (!isInCart(product.id)) {
-        addSimpleToCart({
-          id: product.id,
-          name: product.title,
-          price: product.price,
-          image: product.imgSrc,
-          quantity: 1,
-        });
-      }
-    });
-    openCart();
-  };
-
   return (
     <>
       <Helmet>
@@ -74,7 +42,6 @@ function WishlistContent() {
       </Helmet>
       <div className="bg-background min-h-screen">
         <TemplateHeader
-          onOpenCart={openCart}
         onOpenMobileMenu={() => setMobileMenuOpen(true)}
         onOpenCompare={() => setCompareOpen(true)}
         onOpenSearch={() => setSearchOpen(true)}
@@ -105,12 +72,6 @@ function WishlistContent() {
               {wishlistItems.length} {wishlistItems.length === 1 ? 'item' : 'items'} saved
             </p>
           </div>
-          {wishlistItems.length > 0 && (
-            <Button onClick={handleAddAllToCart} className="bg-primary hover:bg-primary-hover">
-              <ShoppingCart className="mr-2 h-4 w-4" />
-              Add All to Cart
-            </Button>
-          )}
         </div>
 
         {wishlistItems.length > 0 ? (
@@ -131,7 +92,6 @@ function WishlistContent() {
                 </thead>
                 <tbody>
                   {wishlistItems.map((product) => {
-                    const inCart = isInCart(product.id);
                     const hasPriceDrop = product.oldPrice && product.price < product.oldPrice;
                     const priceChangePercent = product.oldPrice
                       ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
@@ -223,28 +183,12 @@ function WishlistContent() {
 
                         {/* Action */}
                         <td className="p-4 text-center">
-                          <Button
-                            onClick={() => handleAddToCart(product)}
-                            className={cn(
-                              'w-full',
-                              inCart
-                                ? 'bg-success hover:bg-success/90'
-                                : 'bg-primary hover:bg-primary-hover'
-                            )}
-                            disabled={product.inStock === false}
-                          >
-                            {inCart ? (
-                              <>
-                                <Check className="mr-2 h-4 w-4" />
-                                Added
-                              </>
-                            ) : (
-                              <>
-                                <ShoppingCart className="mr-2 h-4 w-4" />
-                                Add to Cart
-                              </>
-                            )}
-                          </Button>
+                          <Link href={`/product/${product.id}`}>
+                            <Button className="bg-primary hover:bg-primary-hover w-full">
+                              <ExternalLink className="mr-2 h-4 w-4" />
+                              Compare Prices
+                            </Button>
+                          </Link>
                         </td>
                       </tr>
                     );
@@ -256,7 +200,6 @@ function WishlistContent() {
             {/* Mobile Cards */}
             <div className="divide-border divide-y md:hidden">
               {wishlistItems.map((product) => {
-                const inCart = isInCart(product.id);
                 const hasPriceDrop = product.oldPrice && product.price < product.oldPrice;
                 const priceChangePercent = product.oldPrice
                   ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
@@ -315,29 +258,15 @@ function WishlistContent() {
                       </div>
                     </div>
 
-                    <Button
-                      onClick={() => handleAddToCart(product)}
-                      className={cn(
-                        'mt-3 w-full',
-                        inCart
-                          ? 'bg-success hover:bg-success/90'
-                          : 'bg-primary hover:bg-primary-hover'
-                      )}
-                      size="sm"
-                      disabled={product.inStock === false}
-                    >
-                      {inCart ? (
-                        <>
-                          <Check className="mr-2 h-4 w-4" />
-                          Added to Cart
-                        </>
-                      ) : (
-                        <>
-                          <ShoppingCart className="mr-2 h-4 w-4" />
-                          Add to Cart
-                        </>
-                      )}
-                    </Button>
+                    <Link href={`/product/${product.id}`}>
+                      <Button
+                        className="bg-primary hover:bg-primary-hover mt-3 w-full"
+                        size="sm"
+                      >
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        Compare Prices
+                      </Button>
+                    </Link>
                   </div>
                 );
               })}
@@ -391,7 +320,6 @@ function WishlistContent() {
       <TemplateFooter />
 
       {/* Modals */}
-      <CartSidebar />
       <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
       <CompareModal isOpen={compareOpen} onClose={() => setCompareOpen(false)} />
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />

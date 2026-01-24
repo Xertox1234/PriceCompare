@@ -56,10 +56,8 @@ const DualBannerCarousel = lazy(() =>
 // ============================================
 // MODALS - Lazy loaded (only opened on user interaction)
 // Saves ~30KB by not loading until needed
+// NOTE: CartModal removed - not applicable for price comparison platform (TODO 269)
 // ============================================
-const CartModal = lazy(() =>
-  import('@/components/template/modals').then((m) => ({ default: m.CartModal }))
-);
 const QuickviewModal = lazy(() =>
   import('@/components/template/modals').then((m) => ({ default: m.QuickviewModal }))
 );
@@ -130,8 +128,7 @@ const categories = [
 ];
 
 function HomeNewContent() {
-  const { toggleWishlist, isInWishlist, toggleCompare, addSimpleToCart } = useShop();
-  const [cartOpen, setCartOpen] = useState(false);
+  const { toggleWishlist, isInWishlist, toggleCompare } = useShop();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [compareOpen, setCompareOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -178,7 +175,6 @@ function HomeNewContent() {
     return (
       <div className="bg-background min-h-screen">
         <TemplateHeader
-          onOpenCart={() => setCartOpen(true)}
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
           onOpenCompare={() => setCompareOpen(true)}
           onOpenSearch={() => setSearchOpen(true)}
@@ -200,7 +196,6 @@ function HomeNewContent() {
       <div className="bg-background min-h-screen">
         {/* Header - Eager loaded (above the fold) */}
         <TemplateHeader
-        onOpenCart={() => setCartOpen(true)}
         onOpenMobileMenu={() => setMobileMenuOpen(true)}
         onOpenCompare={() => setCompareOpen(true)}
         onOpenSearch={() => setSearchOpen(true)}
@@ -224,16 +219,6 @@ function HomeNewContent() {
               onWatchlist={handleWatchlist}
               onCompare={handleCompare}
               onQuickView={handleQuickView}
-              onAddToCart={(product) => {
-                addSimpleToCart({
-                  id: product.id,
-                  name: product.name,
-                  price: product.price,
-                  image: product.image,
-                  quantity: 1,
-                });
-                setCartOpen(true);
-              }}
             />
           )}
 
@@ -274,16 +259,6 @@ function HomeNewContent() {
             products={smartHome}
             onWatchlist={handleWatchlist}
             onCompare={handleCompare}
-            onAddToCart={(product) => {
-              addSimpleToCart({
-                id: product.id,
-                name: product.name,
-                price: product.price,
-                image: product.image,
-                quantity: 1,
-              });
-              setCartOpen(true);
-            }}
           />
 
           {/* Best Sellers */}
@@ -331,8 +306,8 @@ function HomeNewContent() {
       </Suspense>
 
       {/* Modals - Lazy loaded (only when opened) */}
+      {/* NOTE: CartModal removed - not applicable for price comparison platform (TODO 269) */}
       <Suspense fallback={null}>
-        <CartModal isOpen={cartOpen} onClose={() => setCartOpen(false)} />
         <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
         <CompareModal isOpen={compareOpen} onClose={() => setCompareOpen(false)} />
         <QuickviewModal

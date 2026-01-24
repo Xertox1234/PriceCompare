@@ -10,19 +10,18 @@ import {
   ShieldCheck,
   RefreshCw,
   ChevronRight,
-  Minus,
-  Plus,
-  ShoppingCart,
   Check,
   TrendingDown,
   Bell,
   Store,
   Package,
+  ExternalLink,
 } from 'lucide-react';
 import { TemplateHeader } from '@/components/template/header';
 import { TemplateFooter } from '@/components/template/footer';
 import { ProductCard } from '@/components/template/TemplateProductCard';
-import { CartSidebar } from '@/components/template/cart-sidebar';
+// NOTE: Cart functionality removed - PriceCompare is a price comparison platform (TODO 269)
+// Users click through to retailers to purchase
 import { ShopProvider } from '@/context/shop-context';
 import { useShop } from '@/hooks/use-shop';
 import { cn } from '@/lib/utils';
@@ -131,29 +130,20 @@ function ProductDetailContent() {
   const product = getProductById(productId);
 
   const [selectedImage, setSelectedImage] = useState(0);
-  const [quantity, setQuantity] = useState(1);
   const [selectedColor, setSelectedColor] = useState(0);
   const [selectedSize, setSelectedSize] = useState(1);
   const [activeTab, setActiveTab] = useState<'description' | 'specs' | 'reviews' | 'prices'>(
     'description'
   );
 
-  const { addSimpleToCart, isInCart, toggleCompare, openCart } = useShop();
+  const { toggleCompare } = useShop();
 
   const discountPercent = product.oldPrice
     ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
     : 0;
 
-  const handleAddToCart = () => {
-    addSimpleToCart({
-      id: product.id,
-      name: product.title,
-      price: product.price,
-      image: product.images[0],
-      quantity,
-    });
-    openCart();
-  };
+  // Get the best price retailer for the CTA
+  const bestRetailer = product.retailers[0];
 
   // Related products
   const relatedProducts = bestSellerProducts.slice(0, 4).map((p) => ({
@@ -180,8 +170,7 @@ function ProductDetailContent() {
       </Helmet>
 
       <div className="bg-background min-h-screen">
-      <TemplateHeader onOpenCart={openCart} />
-      <CartSidebar />
+      <TemplateHeader />
 
       {/* Breadcrumb */}
       <div className="border-border border-b">
@@ -359,54 +348,29 @@ function ProductDetailContent() {
                 </div>
               )}
 
-              {/* Quantity & Add to Cart */}
+              {/* Best Price CTA */}
               <div className="flex flex-col gap-4 sm:flex-row">
-                {/* Quantity */}
-                <div className="border-border flex items-center rounded-lg border">
-                  <button
-                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    className="hover:bg-muted p-3 transition-colors"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </button>
-                  <span className="w-12 text-center font-medium">{quantity}</span>
-                  <button
-                    onClick={() => setQuantity((q) => q + 1)}
-                    className="hover:bg-muted p-3 transition-colors"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </div>
-
-                {/* Add to Cart Button */}
-                <button
-                  onClick={handleAddToCart}
-                  className={cn(
-                    'flex flex-1 items-center justify-center gap-2 rounded-lg px-6 py-3 font-semibold transition-all',
-                    isInCart(product.id)
-                      ? 'bg-success text-white'
-                      : 'bg-primary hover:bg-primary-hover text-white'
-                  )}
+                {/* View Best Price Button */}
+                <a
+                  href="#price-comparison"
+                  className="bg-primary hover:bg-primary-hover flex flex-1 items-center justify-center gap-2 rounded-lg px-6 py-3 font-semibold text-white transition-all"
                 >
-                  {isInCart(product.id) ? (
-                    <>
-                      <Check className="h-5 w-5" />
-                      Added to Cart
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingCart className="h-5 w-5" />
-                      Add to Cart
-                    </>
-                  )}
-                </button>
+                  <TrendingDown className="h-5 w-5" />
+                  Compare Prices Below
+                </a>
 
-                {/* Buy Now */}
-                <Link href="/checkout">
-                  <button className="rounded-lg bg-slate-800 px-6 py-3 font-semibold text-white transition-all hover:bg-slate-700">
-                    Buy Now
-                  </button>
-                </Link>
+                {/* Go to Best Retailer */}
+                {bestRetailer && (
+                  <a
+                    href={bestRetailer.logo}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 rounded-lg bg-slate-800 px-6 py-3 font-semibold text-white transition-all hover:bg-slate-700"
+                  >
+                    <ExternalLink className="h-5 w-5" />
+                    ${bestRetailer.price} at {bestRetailer.name}
+                  </a>
+                )}
               </div>
 
               {/* Action Buttons */}
@@ -460,7 +424,7 @@ function ProductDetailContent() {
       </section>
 
       {/* Price Comparison Section */}
-      <section className="bg-muted/30 py-8">
+      <section id="price-comparison" className="bg-muted/30 py-8 scroll-mt-4">
         <div className="container mx-auto px-4">
           <h2 className="text-foreground mb-6 flex items-center gap-2 text-xl font-bold">
             <Store className="text-primary h-5 w-5" />

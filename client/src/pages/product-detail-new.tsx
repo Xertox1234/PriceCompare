@@ -17,7 +17,7 @@ import {
   Bell,
 } from 'lucide-react';
 import { TemplateHeader, TemplateFooter, ProductSection } from '@/components/template';
-import { CartSidebar } from '@/components/template/cart-sidebar';
+// NOTE: CartSidebar removed - not applicable for price comparison platform (TODO 269)
 import { MobileMenu, CompareModal, SearchModal } from '@/components/template/modals';
 import { ShopProvider, useShop } from '@/context/shop-context';
 import { addToRecentlyViewed } from '@/components/template/recently-viewed';
@@ -68,7 +68,7 @@ function ProductDetailContent() {
   const params = useParams<{ id: string }>();
   const productId = parseIntSafe(params.id, 'productId', { min: 1 });
 
-  const { toggleWishlist, isInWishlist, toggleCompare, openCart } = useShop();
+  const { toggleWishlist, isInWishlist, toggleCompare } = useShop();
   const { toast } = useToast();
 
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -267,7 +267,6 @@ function ProductDetailContent() {
       </Helmet>
       <div className="bg-background min-h-screen">
         <TemplateHeader
-          onOpenCart={openCart}
         onOpenMobileMenu={() => setMobileMenuOpen(true)}
         onOpenCompare={() => setCompareOpen(true)}
         onOpenSearch={() => setSearchOpen(true)}
@@ -686,7 +685,6 @@ function ProductDetailContent() {
       <TemplateFooter />
 
       {/* Modals */}
-      <CartSidebar />
       <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
       <CompareModal isOpen={compareOpen} onClose={() => setCompareOpen(false)} />
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />

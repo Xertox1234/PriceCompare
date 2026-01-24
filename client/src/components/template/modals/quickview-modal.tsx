@@ -3,10 +3,7 @@ import {
   X,
   Heart,
   BarChart2,
-  Minus,
-  Plus,
   Star,
-  ShoppingCart,
   ExternalLink,
   TrendingDown,
   Check,
@@ -41,15 +38,13 @@ const mockAboutItems = [
 ];
 
 export function QuickviewModal({ isOpen, onClose, product }: QuickviewModalProps) {
-  const { addSimpleToCart, toggleWishlist, isInWishlist, toggleCompare, openCart, isInCart } =
-    useShop();
-  const [quantity, setQuantity] = useState(1);
+  // NOTE: Cart functionality removed - PriceCompare is a price comparison platform (TODO 269)
+  const { toggleWishlist, isInWishlist, toggleCompare } = useShop();
   const [currentImage, setCurrentImage] = useState(0);
 
   if (!product) return null;
 
   const inWishlist = isInWishlist(product.id);
-  const inCart = isInCart(product.id);
   const discountPercent = product.originalPrice
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : product.discount;
@@ -60,18 +55,6 @@ export function QuickviewModal({ isOpen, onClose, product }: QuickviewModalProps
     product.hoverImage || product.image,
     product.image, // Repeat for demo
   ].filter(Boolean);
-
-  const handleAddToCart = () => {
-    addSimpleToCart({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      image: product.image,
-      quantity,
-    });
-    openCart();
-    onClose();
-  };
 
   const nextImage = () => {
     setCurrentImage((prev) => (prev + 1) % images.length);
@@ -267,44 +250,14 @@ export function QuickviewModal({ isOpen, onClose, product }: QuickviewModalProps
               </ul>
             </div>
 
-            {/* Quantity & Add to Cart */}
-            <div className="border-border mt-auto mb-4 flex items-center gap-4 border-t pt-4">
-              <div className="border-border bg-background flex items-center rounded-lg border">
-                <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="hover:bg-muted p-3 transition-colors"
-                  disabled={quantity <= 1}
-                >
-                  <Minus className="h-4 w-4" />
-                </button>
-                <span className="min-w-[3rem] px-4 text-center font-medium">{quantity}</span>
-                <button
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="hover:bg-muted p-3 transition-colors"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
-
-              <Button
-                className={cn(
-                  'h-12 flex-1',
-                  inCart ? 'bg-success hover:bg-success/90' : 'bg-primary hover:bg-primary-hover'
-                )}
-                onClick={handleAddToCart}
-              >
-                {inCart ? (
-                  <>
-                    <Check className="mr-2 h-5 w-5" />
-                    Added to Cart
-                  </>
-                ) : (
-                  <>
-                    <ShoppingCart className="mr-2 h-5 w-5" />
-                    Add to Cart
-                  </>
-                )}
-              </Button>
+            {/* Compare Prices CTA */}
+            <div className="border-border mt-auto mb-4 border-t pt-4">
+              <Link href={`/product/${product.id}`} onClick={onClose}>
+                <Button className="bg-primary hover:bg-primary-hover h-12 w-full">
+                  <TrendingDown className="mr-2 h-5 w-5" />
+                  Compare Prices
+                </Button>
+              </Link>
             </div>
 
             {/* Action Buttons */}

@@ -134,15 +134,8 @@ export const LazyWishlistPage = lazy(() => import('@/pages/wishlist-new'));
  */
 export const LazyComparePage = lazy(() => import('@/pages/compare-new'));
 
-/**
- * Cart page - Shopping cart
- */
-export const LazyCartPage = lazy(() => import('@/pages/cart-new'));
-
-/**
- * Checkout page - Order checkout
- */
-export const LazyCheckoutPage = lazy(() => import('@/pages/checkout-new'));
+// NOTE: Cart and Checkout pages removed - not applicable for price comparison platform
+// See TODO 269 resolution (2026-01-24)
 
 /**
  * Legacy home page
