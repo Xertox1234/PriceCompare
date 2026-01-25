@@ -4,34 +4,19 @@ This folder contains TODO items for the PriceCompare project. Completed TODOs ar
 
 ## Active TODOs
 
-Currently, there are **12 numbered active TODOs** (from frontend code review 2026-01-25).
+Currently, there are **2 numbered active TODOs** (require backend work).
 
-### 🔴 P1 - Critical (Blocks Quality)
+### 🟡 P2 - Important (Requires Backend)
 
-| TODO | Title | Impact |
-|------|-------|--------|
-| **283** | Duplicate WebSocket Connections | 2x server resources |
-| **284** | ShopProvider Not in App Hierarchy | State lost on navigation |
-| **285** | Direct fetch() Missing CSRF Tokens | Security vulnerability |
+| TODO | Title | Impact | Blocker |
+|------|-------|--------|---------|
+| **290** | Comparison List Persistence | Data loss on refresh | Needs backend API |
 
-### 🟡 P2 - Important (Should Fix)
+### 🔵 P3 - Nice-to-Have (Requires Backend)
 
-| TODO | Title | Impact |
-|------|-------|--------|
-| **286** | Delete Orphaned Pages | 743 lines dead code |
-| **287** | Memoization Breaking Patterns | Unnecessary re-renders |
-| **288** | Duplicate Hooks Consolidation | 19 lines duplicate |
-| **289** | Wishlist Set Optimization | O(n) → O(1) lookups |
-| **290** | Comparison List Persistence | Data loss on refresh |
-| **291** | Toggle Wishlist Race Condition | Data integrity risk |
-
-### 🔵 P3 - Nice-to-Have
-
-| TODO | Title | Impact |
-|------|-------|--------|
-| **292** | Naming Convention Consistency | 7 files to rename |
-| **293** | Agent-Native Accessibility Gaps | 3 features missing API |
-| **294** | Input Validation Consistency | Zod standardization |
+| TODO | Title | Impact | Blocker |
+|------|-------|--------|---------|
+| **293** | Agent-Native Accessibility Gaps | 3 features missing API | Needs newsletter API, theme API |
 
 ### 📝 Documentation Tasks
 - **TODO_MISSING_GUIDES** - P4 (Low), Documentation
@@ -43,7 +28,28 @@ Currently, there are **12 numbered active TODOs** (from frontend code review 202
 
 ## Recently Completed (2026-01-25)
 
-### Parallel Agent Resolution Session
+### Frontend Code Review Parallel Resolution
+**10 TODOs resolved** via parallel agent execution:
+
+| TODO | Priority | Resolution | Category |
+|------|----------|------------|----------|
+| **283** | P1 | WebSocket Singleton - Refactored to shared client | Architecture |
+| **284** | P1 | ShopProvider Hierarchy - Added to App.tsx providers | Architecture |
+| **285** | P1 | CSRF Token Fix - Replaced 15 fetch() with apiRequest() | Security |
+| **286** | P2 | Orphaned Pages - Deleted 742 lines dead code | Cleanup |
+| **287** | P2 | Memoization Fixes - useCallback/useMemo in home-new.tsx | Performance |
+| **288** | P2 | Duplicate Hooks - Deleted use-mobile.tsx duplicate | Cleanup |
+| **289** | P2 | Wishlist Set Optimization - O(n) → O(1) lookups | Performance |
+| **291** | P2 | Race Condition Mutex - pendingToggles ref pattern | Data Integrity |
+| **292** | P3 | Naming Convention - Renamed 7 hooks to kebab-case | Consistency |
+| **294** | P3 | Zod Validation - Created shared/auth-schema.ts | Type Safety |
+
+**Commits**:
+- `bc6cb8c` - fix: resolve 10 frontend TODOs via parallel agent execution
+
+---
+
+### Backend Parallel Agent Resolution Session (Earlier)
 **9 TODOs resolved** via parallel agent execution:
 
 | TODO | Priority | Resolution | Time |
