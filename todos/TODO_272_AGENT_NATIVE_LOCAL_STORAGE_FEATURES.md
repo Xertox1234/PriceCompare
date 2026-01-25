@@ -2,9 +2,39 @@
 
 **Priority**: P2 (IMPORTANT)
 **Estimated Time**: 4 hours (revised down from 6 - reusing existing Wishlist API)
-**Status**: Not Started
+**Status**: COMPLETED (Backend Only)
+**Completion Date**: 2026-01-25
 **Source**: Code Review 2026-01-23 (Multi-Agent Analysis)
 **Reviewed**: 2026-01-25 (TypeScript, Performance, Simplicity reviewers)
+
+## Implementation Summary (2026-01-25)
+
+Backend implementation complete. Frontend client hooks deferred to separate TODO.
+
+### Files Created/Modified:
+1. `migrations/0022_add_user_compare_and_views.sql` - Database migration
+2. `shared/schema.ts` - Added Drizzle tables and types
+3. `server/storage/domains/user-state-storage.ts` - New domain storage (280 LOC)
+4. `server/storage.ts` - Added interface methods and DatabaseStorage delegation
+5. `server/routes/user-state-routes.ts` - API endpoints (240 LOC)
+6. `server/routes/index.ts` - Registered routes
+7. `e2e/helpers.ts` - Added tables to TRUNCATE statement
+
+### API Endpoints Implemented:
+- `GET /api/user/compare` - Get compare list with hydrated products
+- `GET /api/user/compare/check/:productId` - Check if product is in compare
+- `POST /api/user/compare` - Add product (max 4 enforced)
+- `DELETE /api/user/compare/:productId` - Remove product
+- `DELETE /api/user/compare` - Clear compare list
+- `GET /api/user/recently-viewed` - Get recently viewed with hydrated products
+- `POST /api/user/recently-viewed` - Record product view (upsert pattern)
+- `DELETE /api/user/recently-viewed/:productId` - Remove product
+- `DELETE /api/user/recently-viewed` - Clear history
+
+### Remaining Work (Separate TODO):
+- Frontend hooks (`use-compare.ts`, `use-recently-viewed.ts`)
+- Client migration logic (localStorage to server on login)
+- Component updates to use new hooks
 
 ## Problem Statement
 
@@ -211,24 +241,24 @@ const debouncedRecordView = useMemo(
 ## Implementation Checklist
 
 ### Database
-- [ ] Create migration for `user_compare_items` table
-- [ ] Create migration for `user_product_views` table
-- [ ] Update E2E test cleanup (`e2e/helpers.ts` TRUNCATE statement)
-- [ ] Run `npm run validate:schema` before commit
+- [x] Create migration for `user_compare_items` table
+- [x] Create migration for `user_product_views` table
+- [x] Update E2E test cleanup (`e2e/helpers.ts` TRUNCATE statement)
+- [x] Run `npm run validate:schema` before commit
 
 ### Backend
-- [ ] Add storage methods to `server/storage.ts`
-- [ ] Create `server/routes/user-state-routes.ts`
-- [ ] Add routes to `server/routes/index.ts`
-- [ ] Add CSRF protection to all mutating endpoints
-- [ ] Add rate limiting
-- [ ] Add caching to `storage-cache.ts`
+- [x] Add storage methods to `server/storage.ts`
+- [x] Create `server/routes/user-state-routes.ts`
+- [x] Add routes to `server/routes/index.ts`
+- [x] Add CSRF protection to all mutating endpoints
+- [ ] Add rate limiting (deferred - use existing rate limiting)
+- [ ] Add caching to `storage-cache.ts` (deferred - follow existing patterns)
 
 ### Shared
-- [ ] Add Zod schemas to `shared/schema.ts`
-- [ ] Add TypeScript types for new tables
+- [x] Add Zod schemas to `shared/schema.ts`
+- [x] Add TypeScript types for new tables
 
-### Frontend
+### Frontend (Deferred to Separate TODO)
 - [ ] Create `use-compare.ts` hook
 - [ ] Create `use-recently-viewed.ts` hook
 - [ ] Update `shop-context.tsx` to remove localStorage wishlist

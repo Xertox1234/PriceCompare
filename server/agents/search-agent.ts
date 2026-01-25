@@ -22,7 +22,8 @@ interface RetailerConfig {
 }
 
 export class SearchOrchestrationAgent extends BaseAgent {
-  private openai: OpenAI;
+  private openai: OpenAI | null = null;
+  private isAIEnabled = false;
   private retailers: Map<string, RetailerConfig>;
   private queryGenerationCache: Map<string, string[]>;
 
@@ -37,9 +38,15 @@ export class SearchOrchestrationAgent extends BaseAgent {
 
     super(config);
 
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    // Only initialize OpenAI if API key is available (graceful degradation)
+    if (process.env.OPENAI_API_KEY) {
+      this.openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+      this.isAIEnabled = true;
+    } else {
+      logger.warn('OpenAI API key not configured - AI search query generation disabled');
+    }
 
     this.queryGenerationCache = new Map();
 
@@ -139,6 +146,31 @@ export class SearchOrchestrationAgent extends BaseAgent {
     return this.rankSearchResults(searchResults);
   }
 
+  /**
+   * Generate basic search queries without AI (fallback when OpenAI unavailable)
+   */
+  private generateBasicQueries(productName: string, category?: string): string[] {
+    const queries = [
+      productName,
+      `${productName} price`,
+      `buy ${productName}`,
+    ];
+
+    // Add category-specific query if available
+    if (category) {
+      queries.push(`${productName} ${category}`);
+    }
+
+    // Add common variations
+    const words = productName.split(' ');
+    if (words.length > 1) {
+      // Add first word (likely brand) + "products"
+      queries.push(`${words[0]} products`);
+    }
+
+    return queries.slice(0, 5); // Limit to 5 queries
+  }
+
   private async generateSearchQueries(productName: string, category?: string): Promise<string[]> {
     // Check Redis cache first (7 day TTL)
     const cacheKey = `${productName}:${category || 'none'}`;
@@ -147,6 +179,12 @@ export class SearchOrchestrationAgent extends BaseAgent {
     if (cached) {
       logger.debug('Query cache hit', { productName, category });
       return cached;
+    }
+
+    // If AI is not enabled, use basic query generation
+    if (!this.isAIEnabled || !this.openai) {
+      logger.debug('AI disabled, using basic query generation', { productName, category });
+      return this.generateBasicQueries(productName, category);
     }
 
     logger.debug('Query cache miss, generating with AI', { productName, category });

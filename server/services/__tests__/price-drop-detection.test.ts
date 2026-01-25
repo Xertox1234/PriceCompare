@@ -74,6 +74,9 @@ describe.sequential('Price Drop Detection - Email Integration', () => {
     prefs: { priceAlertEnabled: boolean; emailEnabled: boolean; inAppEnabled: boolean }
   ): Promise<void> {
     const { eq } = await import('drizzle-orm');
+    // NOTE: db.delete() with WHERE clause is intentional - deleting trigger-created
+    // notification preferences to test specific user scenarios (not using TRUNCATE
+    // because we need to preserve other test data)
     await db.delete(notificationPreferences).where(eq(notificationPreferences.userId, userId));
     await db.insert(notificationPreferences).values({
       userId,
@@ -374,7 +377,9 @@ describe.sequential('Price Drop Detection - Email Integration', () => {
         isActive: true,
       });
 
-      // Delete trigger-created preferences to simulate no preferences
+      // NOTE: db.delete() with WHERE clause is intentional - deleting trigger-created
+      // notification preferences to simulate "no preferences" scenario for testing
+      // (not using TRUNCATE because we need to preserve other test data)
       const { eq } = await import('drizzle-orm');
       await db.delete(notificationPreferences).where(eq(notificationPreferences.userId, testUser1Id));
 
@@ -403,7 +408,9 @@ describe.sequential('Price Drop Detection - Email Integration', () => {
         inAppEnabled: true,
       });
 
-      // Delete all users to simulate missing email
+      // NOTE: db.delete() without WHERE is intentional for this edge case test -
+      // simulating missing user email scenario (full table delete acceptable in
+      // isolated test that runs after beforeEach creates fresh test data)
       await db.delete(users);
 
       // Trigger price drop

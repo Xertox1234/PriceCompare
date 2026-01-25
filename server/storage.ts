@@ -61,6 +61,10 @@ import {
   type TrendingProduct,
   type InsertTrendingProduct,
   type InsertSearchQuery,
+  type UserCompareItem,
+  type UserProductView,
+  type UserCompareItemWithProduct,
+  type UserProductViewWithProduct,
 } from '@shared/schema';
 import type {
   WatchListImportData,
@@ -86,6 +90,7 @@ import { RetailerStorage } from './storage/domains/retailer-storage';
 import { JobLockStorage } from './storage/domains/job-lock-storage';
 import { NotificationStorage } from './storage/domains/notification-storage';
 import { AgentStorage } from './storage/domains/agent-storage';
+import { UserStateStorage } from './storage/domains/user-state-storage';
 
 export interface IStorage {
   // Retailers
@@ -913,6 +918,86 @@ export interface IStorage {
    * @param embedding - Vector embedding array to store
    */
   updateProductEmbedding(productId: number, embedding: number[]): Promise<void>;
+
+  // ============================================================================
+  // User State Operations (TODO 272: Agent-Native APIs)
+  // Compare List and Recently Viewed
+  // ============================================================================
+
+  /**
+   * Get user's compare list with hydrated product data
+   * @param userId - User ID
+   * @returns Array of compare items with product data
+   */
+  getUserCompareItems(userId: number): Promise<UserCompareItemWithProduct[]>;
+
+  /**
+   * Get count of items in user's compare list
+   * @param userId - User ID
+   * @returns Number of items
+   */
+  getCompareCount(userId: number): Promise<number>;
+
+  /**
+   * Add product to compare list (max 4 items enforced)
+   * @param userId - User ID
+   * @param productId - Product ID to add
+   * @throws Error if compare list is full
+   */
+  addToCompare(userId: number, productId: number): Promise<UserCompareItem>;
+
+  /**
+   * Remove product from compare list
+   * @param userId - User ID
+   * @param productId - Product ID to remove
+   * @returns true if removed
+   */
+  removeFromCompare(userId: number, productId: number): Promise<boolean>;
+
+  /**
+   * Clear user's compare list
+   * @param userId - User ID
+   * @returns Number of items removed
+   */
+  clearCompare(userId: number): Promise<number>;
+
+  /**
+   * Check if product is in user's compare list
+   * @param userId - User ID
+   * @param productId - Product ID
+   * @returns true if in compare list
+   */
+  isInCompare(userId: number, productId: number): Promise<boolean>;
+
+  /**
+   * Get user's recently viewed products with hydrated product data
+   * @param userId - User ID
+   * @param limit - Maximum items to return (default 50)
+   * @returns Array of view records with product data
+   */
+  getUserRecentlyViewed(userId: number, limit?: number): Promise<UserProductViewWithProduct[]>;
+
+  /**
+   * Record a product view (upsert pattern, max 50 items with FIFO eviction)
+   * @param userId - User ID
+   * @param productId - Product ID viewed
+   */
+  recordProductView(userId: number, productId: number): Promise<UserProductView>;
+
+  /**
+   * Remove product from recently viewed
+   * @param userId - User ID
+   * @param productId - Product ID to remove
+   * @returns true if removed
+   */
+  removeFromRecentlyViewed(userId: number, productId: number): Promise<boolean>;
+
+  /**
+   * Clear user's recently viewed history
+   * @param userId - User ID
+   * @returns Number of items removed
+   */
+  clearRecentlyViewed(userId: number): Promise<number>;
 }
 
 /**
@@ -2806,6 +2891,54 @@ export class MemStorage implements IStorage {
   > {
     return []; // Stub implementation for testing
   }
+
+  // ============================================================================
+  // User State Methods (TODO 272: Agent-Native APIs) - Stub implementations
+  // Compare List and Recently Viewed
+  // ============================================================================
+
+  async getUserCompareItems(_userId: number): Promise<UserCompareItemWithProduct[]> {
+    return []; // Stub implementation for testing
+  }
+
+  async getCompareCount(_userId: number): Promise<number> {
+    return 0; // Stub implementation for testing
+  }
+
+  async addToCompare(_userId: number, _productId: number): Promise<UserCompareItem> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async removeFromCompare(_userId: number, _productId: number): Promise<boolean> {
+    return false; // Stub implementation for testing
+  }
+
+  async clearCompare(_userId: number): Promise<number> {
+    return 0; // Stub implementation for testing
+  }
+
+  async isInCompare(_userId: number, _productId: number): Promise<boolean> {
+    return false; // Stub implementation for testing
+  }
+
+  async getUserRecentlyViewed(
+    _userId: number,
+    _limit?: number
+  ): Promise<UserProductViewWithProduct[]> {
+    return []; // Stub implementation for testing
+  }
+
+  async recordProductView(_userId: number, _productId: number): Promise<UserProductView> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async removeFromRecentlyViewed(_userId: number, _productId: number): Promise<boolean> {
+    return false; // Stub implementation for testing
+  }
+
+  async clearRecentlyViewed(_userId: number): Promise<number> {
+    return 0; // Stub implementation for testing
+  }
 }
 
 /**
@@ -2984,6 +3117,7 @@ export class DatabaseStorage implements IStorage {
   private jobLockStorage: JobLockStorage;
   private notificationStorage: NotificationStorage;
   private agentStorage: AgentStorage;
+  private userStateStorage: UserStateStorage;
 
   constructor() {
     this.userStorage = new UserStorage(db);
@@ -2994,6 +3128,7 @@ export class DatabaseStorage implements IStorage {
     this.retailerStorage = new RetailerStorage(db);
     this.jobLockStorage = new JobLockStorage(db);
     this.notificationStorage = new NotificationStorage(db);
+    this.userStateStorage = new UserStateStorage(db);
 
     // Wire up cross-domain dependencies (avoids circular imports)
     // PriceStorage needs ProductStorage.getProductOffers for trend analysis
@@ -5923,6 +6058,54 @@ export class DatabaseStorage implements IStorage {
       .update(products)
       .set({ embedding: sql`${embeddingString}::vector` })
       .where(eq(products.id, productId));
+  }
+
+  // ============================================================================
+  // User State Methods (TODO 272: Agent-Native APIs)
+  // Compare List and Recently Viewed - Delegated to UserStateStorage
+  // ============================================================================
+
+  async getUserCompareItems(userId: number): Promise<UserCompareItemWithProduct[]> {
+    return this.userStateStorage.getUserCompareItems(userId);
+  }
+
+  async getCompareCount(userId: number): Promise<number> {
+    return this.userStateStorage.getCompareCount(userId);
+  }
+
+  async addToCompare(userId: number, productId: number): Promise<UserCompareItem> {
+    return this.userStateStorage.addToCompare(userId, productId);
+  }
+
+  async removeFromCompare(userId: number, productId: number): Promise<boolean> {
+    return this.userStateStorage.removeFromCompare(userId, productId);
+  }
+
+  async clearCompare(userId: number): Promise<number> {
+    return this.userStateStorage.clearCompare(userId);
+  }
+
+  async isInCompare(userId: number, productId: number): Promise<boolean> {
+    return this.userStateStorage.isInCompare(userId, productId);
+  }
+
+  async getUserRecentlyViewed(
+    userId: number,
+    limit?: number
+  ): Promise<UserProductViewWithProduct[]> {
+    return this.userStateStorage.getUserRecentlyViewed(userId, limit);
+  }
+
+  async recordProductView(userId: number, productId: number): Promise<UserProductView> {
+    return this.userStateStorage.recordProductView(userId, productId);
+  }
+
+  async removeFromRecentlyViewed(userId: number, productId: number): Promise<boolean> {
+    return this.userStateStorage.removeFromRecentlyViewed(userId, productId);
+  }
+
+  async clearRecentlyViewed(userId: number): Promise<number> {
+    return this.userStateStorage.clearRecentlyViewed(userId);
   }
 }
 

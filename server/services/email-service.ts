@@ -68,8 +68,8 @@ class EmailService {
     const smtpPass = process.env.SMTP_PASSWORD;
 
     if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
-      logger.info(
-        'Email service not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USERNAME, and SMTP_PASSWORD environment variables.'
+      logger.warn(
+        'Email service not configured - password reset will be unavailable. Set SMTP_HOST, SMTP_PORT, SMTP_USERNAME, and SMTP_PASSWORD environment variables.'
       );
       this.isConfigured = false;
       return;
@@ -594,6 +594,28 @@ To manage your notification preferences, visit your account settings.
 
   isReady(): boolean {
     return this.isConfigured;
+  }
+
+  /**
+   * Verify SMTP connection is working
+   * Call this at startup to detect email configuration issues early
+   * @returns true if SMTP connection verified successfully, false otherwise
+   */
+  async verifyConnection(): Promise<boolean> {
+    if (!this.isConfigured || !this.transporter) {
+      return false;
+    }
+
+    try {
+      await this.transporter.verify();
+      logger.info('SMTP connection verified successfully');
+      return true;
+    } catch (error) {
+      logger.error('SMTP connection verification failed:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
   }
 }
 

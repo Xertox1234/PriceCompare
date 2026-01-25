@@ -3,7 +3,8 @@
 **Priority**: P2 (IMPORTANT - Performance)
 **File(s)**: `migrations/0033_add_price_history_composite_index.sql` (new)
 **Estimated Time**: 30 minutes
-**Status**: Not Started
+**Status**: RESOLVED - Indexes Already Exist
+**Resolved Date**: 2026-01-25
 **Source**: Code Review 2026-01-23 (Multi-Agent Analysis)
 
 ## Problem Statement
@@ -88,3 +89,36 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS
 **Created by**: Code Review Multi-Agent Analysis
 **Creation Date**: 2026-01-23
 **Agents**: performance-oracle
+
+---
+
+## Resolution Notes (2026-01-25)
+
+**Status: NO ACTION NEEDED - Indexes Already Exist**
+
+Investigation revealed that the requested indexes were already created in migration `0004_add_price_history.sql`:
+
+### Existing Indexes (Migration 0004)
+
+1. **`idx_price_history_offer_id`** on `(product_offer_id, recorded_at DESC)` - Line 25
+   - Functionally equivalent to requested `idx_price_history_offer_recorded`
+   - Optimizes: `WHERE product_offer_id = ? AND recorded_at >= ? ORDER BY recorded_at DESC`
+
+2. **`idx_price_history_recorded_at`** on `(recorded_at DESC)` - Line 31
+   - Exact index requested already exists
+   - Optimizes: time-series queries and `ORDER BY recorded_at DESC`
+
+### Additional Existing Indexes
+
+Migration 0004 also created these related indexes:
+- `idx_price_history_product_id` on `(product_id, recorded_at DESC)`
+- `idx_price_history_retailer_id` on `(retailer_id, recorded_at DESC)`
+- `idx_price_history_product_retailer_time` on `(product_id, retailer_id, recorded_at DESC)`
+- `idx_price_history_product_price` on `(product_id, CAST(price AS DECIMAL))`
+
+### Conclusion
+
+The code review tool did not detect that migration 0004 (created 2025-11-11) already includes comprehensive indexing for the `price_history` table. No new migration is needed.
+
+**Verified by**: Code Review Resolution Specialist
+**Resolution**: Closed as duplicate - indexes exist in migration 0004

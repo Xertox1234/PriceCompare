@@ -1546,6 +1546,49 @@ export const jobLocks = pgTable(
   })
 );
 
+// ============================================================================
+// User Compare List and Recently Viewed Tables (TODO 272: Agent-Native APIs)
+// ============================================================================
+
+// Compare list - product comparison (max 4 items enforced at application layer)
+export const userCompareItems = pgTable(
+  'user_compare_items',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    productId: integer('product_id')
+      .references(() => products.id, { onDelete: 'cascade' })
+      .notNull(),
+    addedAt: timestamp('added_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdIdx: index('idx_user_compare_items_user_id').on(table.userId),
+    uniqueUserProduct: unique('unique_user_compare_product').on(table.userId, table.productId),
+  })
+);
+
+// Recently viewed - product view history (max 50 items with FIFO eviction)
+export const userProductViews = pgTable(
+  'user_product_views',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id')
+      .references(() => users.id, { onDelete: 'cascade' })
+      .notNull(),
+    productId: integer('product_id')
+      .references(() => products.id, { onDelete: 'cascade' })
+      .notNull(),
+    viewedAt: timestamp('viewed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdIdx: index('idx_user_product_views_user_id').on(table.userId),
+    userTimeIdx: index('idx_user_product_views_user_time').on(table.userId, table.viewedAt),
+    uniqueUserProduct: unique('unique_user_product_view').on(table.userId, table.productId),
+  })
+);
+
 // Insert schemas for scraping tables
 export const insertTrendingProductSchema = createInsertSchema(trendingProducts).omit({
   id: true,
@@ -1636,6 +1679,17 @@ export const insertProductSpecificationSchema = createInsertSchema(productSpecif
   updatedAt: true,
 });
 
+// Insert schemas for user state (compare list, recently viewed) - TODO 272
+export const insertUserCompareItemSchema = createInsertSchema(userCompareItems).omit({
+  id: true,
+  addedAt: true,
+});
+
+export const insertUserProductViewSchema = createInsertSchema(userProductViews).omit({
+  id: true,
+  viewedAt: true,
+});
+
 // Type definitions for scraping system
 export type TrendingProduct = typeof trendingProducts.$inferSelect;
 export type SearchQuery = typeof searchQueries.$inferSelect;
@@ -1659,6 +1713,21 @@ export type ProductSpecification = typeof productSpecifications.$inferSelect;
 export type InsertWishlist = z.infer<typeof insertWishlistSchema>;
 export type InsertWishlistItem = z.infer<typeof insertWishlistItemSchema>;
 export type InsertProductSpecification = z.infer<typeof insertProductSpecificationSchema>;
+
+// User state types (compare list, recently viewed) - TODO 272
+export type UserCompareItem = typeof userCompareItems.$inferSelect;
+export type UserProductView = typeof userProductViews.$inferSelect;
+export type InsertUserCompareItem = z.infer<typeof insertUserCompareItemSchema>;
+export type InsertUserProductView = z.infer<typeof insertUserProductViewSchema>;
+
+// Extended types for compare list and recently viewed (with hydrated products)
+export type UserCompareItemWithProduct = UserCompareItem & {
+  product: Product;
+};
+
+export type UserProductViewWithProduct = UserProductView & {
+  product: Product;
+};
 
 export type InsertTrendingProduct = z.infer<typeof insertTrendingProductSchema>;
 export type InsertSearchQuery = z.infer<typeof insertSearchQuerySchema>;

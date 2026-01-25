@@ -143,11 +143,25 @@ export async function cleanDatabase() {
     DECLARE
       tbl TEXT;
       table_list TEXT[] := ARRAY[
-        'users', 'products', 'product_offers', 'price_history', 'price_alerts',
-        'watch_lists', 'notifications', 'retailers', 'password_reset_tokens',
-        'notification_preferences', 'product_watches', 'watch_list_shares',
-        'user_reputation', 'trending_products', 'search_queries', 'agent_sessions',
-        'scraping_jobs', 'price_predictions', 'scraping_sources', 'price_snapshots'
+        -- Core entities (no FK deps)
+        'users', 'products', 'retailers', 'forum_categories', 'badges', 'topic_tags',
+
+        -- First-level dependencies (depend only on core entities)
+        'product_offers', 'watch_lists', 'notifications', 'password_reset_tokens',
+        'notification_preferences', 'user_reputation', 'trending_products',
+        'search_queries', 'agent_sessions', 'wishlists', 'user_badges',
+        'scraping_sources', 'forum_topics', 'private_messages',
+        'user_compare_items', 'user_product_views',
+
+        -- Second-level dependencies (depend on first-level)
+        'price_history', 'price_alerts', 'product_watches', 'watch_list_shares',
+        'scraping_jobs', 'price_predictions', 'price_snapshots',
+        'wishlist_items', 'product_specifications', 'product_urls', 'job_locks',
+        'forum_posts', 'deal_spottings', 'topic_tag_relations',
+
+        -- Third-level dependencies (depend on second-level)
+        'price_aggregates_daily', 'price_aggregates_weekly', 'price_aggregates_monthly',
+        'price_trends', 'post_likes', 'post_mentions', 'post_revisions'
       ];
     BEGIN
       FOREACH tbl IN ARRAY table_list

@@ -29,15 +29,10 @@ export function AuthModal({ isOpen, onClose, defaultMode = 'login' }: AuthModalP
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className="max-h-[90vh] w-[95vw] overflow-y-auto sm:max-w-md"
-        style={{
-          backgroundColor: 'white',
-          color: 'black',
-          border: '1px solid #e5e7eb',
-        }}
+        className="max-h-[90vh] w-[95vw] overflow-y-auto sm:max-w-md bg-background text-foreground border border-border"
       >
         <DialogHeader className="text-center sm:text-left">
-          <DialogTitle className="text-xl font-semibold" style={{ color: 'black' }}>
+          <DialogTitle className="text-xl font-semibold text-foreground">
             {mode === 'login' ? 'Sign In' : 'Create Account'}
           </DialogTitle>
         </DialogHeader>

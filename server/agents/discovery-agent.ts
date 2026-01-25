@@ -13,7 +13,8 @@ abstract class BaseTrendSource {
 }
 
 export class ProductDiscoveryAgent extends BaseAgent {
-  private openai: OpenAI;
+  private openai: OpenAI | null = null;
+  private isAIEnabled = false;
   private trendSources: Map<string, BaseTrendSource>;
 
   constructor() {
@@ -27,9 +28,15 @@ export class ProductDiscoveryAgent extends BaseAgent {
 
     super(config);
 
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    // Only initialize OpenAI if API key is available (graceful degradation)
+    if (process.env.OPENAI_API_KEY) {
+      this.openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+      this.isAIEnabled = true;
+    } else {
+      logger.warn('OpenAI API key not configured - AI trend analysis disabled');
+    }
 
     this.trendSources = new Map([
       ['google_trends', new GoogleTrendsSource()],
@@ -87,6 +94,15 @@ export class ProductDiscoveryAgent extends BaseAgent {
 
   private async analyzeTrendsWithAI(trends: TrendData[]): Promise<TrendData[]> {
     if (trends.length === 0) return trends;
+
+    // If AI is not enabled, return trends without AI analysis
+    if (!this.isAIEnabled || !this.openai) {
+      logger.debug('AI disabled, skipping trend analysis - returning raw trends', {
+        trendCount: trends.length,
+      });
+      // Return trends as-is without AI filtering/normalization
+      return trends;
+    }
 
     try {
       const prompt = `

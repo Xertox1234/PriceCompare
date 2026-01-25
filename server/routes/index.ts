@@ -26,6 +26,7 @@ import { registerWishlistRoutes } from './wishlist-routes';
 import { registerSpecificationRoutes } from './specification-routes';
 import { registerAgentLimitsRoutes } from './agent-limits-routes';
 import { registerApiV1Routes } from './api-v1-routes';
+import { registerUserStateRoutes } from './user-state-routes';
 
 /**
  * Register all application routes
@@ -115,6 +116,9 @@ export function registerRoutes(app: Express): Server {
 
   // Agent query limits routes
   registerAgentLimitsRoutes(app);
+
+  // User state routes (compare list, recently viewed - TODO 272)
+  registerUserStateRoutes(app);
 
   // Create HTTP server
   const httpServer = createServer(app);

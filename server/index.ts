@@ -45,6 +45,7 @@ import { startPriceAnalyticsJobs } from './jobs/price-analytics-jobs';
 import { startPriceAggregationJobs } from './jobs/price-aggregation-job';
 import { startPriceAlertCheckerJob } from './jobs/price-alert-checker';
 import { initializeNotificationProcessor } from './jobs/notification-processor';
+import { emailService } from './services/email-service';
 import { errorHandler, setupGlobalErrorHandlers } from './middleware/error-handler';
 import { RATE_LIMIT, SESSION } from './utils/constants';
 import { cleanupManager } from './utils/cleanup-manager';
@@ -402,6 +403,26 @@ app.use(sanitizeInput);
     log('Smart notification processor initialized successfully');
   } catch (error) {
     log(`Error initializing notification processor: ${error}`, 'error');
+  }
+
+  // Verify email service configuration and SMTP connection
+  if (emailService.isReady()) {
+    const smtpOk = await emailService.verifyConnection();
+    if (!smtpOk) {
+      log('============ WARNING ============', 'error');
+      log('SMTP configured but connection FAILED', 'error');
+      log('Password reset emails will NOT work', 'error');
+      log('Check SMTP credentials and server', 'error');
+      log('=================================', 'error');
+
+      if (isProduction) {
+        // In production, this is a critical warning but not fatal
+        // (app can still function without email)
+        log('Consider this a P1 issue - users cannot reset passwords', 'error');
+      }
+    }
+  } else {
+    log('Email service not configured - password reset disabled', 'warn');
   }
 
   // Perform initial cache warming (non-blocking)
