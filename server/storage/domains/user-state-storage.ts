@@ -129,7 +129,11 @@ export class UserStateStorage extends BaseStorage {
 
   /**
    * Add product to compare list
-   * Enforces max 4 items limit
+   * Enforces max 4 items limit via database trigger (migration 0033)
+   *
+   * NOTE: Application-level check provides fast UX feedback.
+   * Database trigger (trigger_enforce_compare_list_limit) is the authoritative
+   * enforcement, preventing race conditions at the lowest level.
    *
    * @param userId - User ID
    * @param productId - Product ID to add
@@ -140,13 +144,15 @@ export class UserStateStorage extends BaseStorage {
       this.validateUserId(userId);
       this.validateProductId(productId);
 
-      // Check current count
+      // NOTE: Application-level check for fast UX feedback only.
+      // Database trigger (migration 0033) has authoritative enforcement.
+      // Race condition between check and insert is handled by the trigger.
       const count = await this.getCompareCount(userId);
       if (count >= COMPARE_LIST_MAX_ITEMS) {
         throw new Error(`Compare list is full. Maximum ${COMPARE_LIST_MAX_ITEMS} items allowed.`);
       }
 
-      // Insert with ON CONFLICT DO NOTHING (idempotent)
+      // Insert with ON CONFLICT DO NOTHING (idempotent for same product)
       const [item] = await this.db
         .insert(userCompareItems)
         .values({ userId, productId })
@@ -175,8 +181,29 @@ export class UserStateStorage extends BaseStorage {
       logger.info('Product added to compare list', { userId, productId });
       return item;
     } catch (error) {
+      // Handle database trigger violation (check_violation from migration 0033)
+      if (this.isCompareListLimitError(error)) {
+        throw new Error(`Compare list is full. Maximum ${COMPARE_LIST_MAX_ITEMS} items allowed.`);
+      }
       this.handleError(error, 'addToCompare');
     }
+  }
+
+  /**
+   * Check if error is from the compare list limit trigger
+   * @private
+   */
+  private isCompareListLimitError(error: unknown): boolean {
+    if (error && typeof error === 'object') {
+      const pgError = error as { code?: string; message?: string };
+      // PostgreSQL check_violation error code is '23514'
+      // Our trigger uses 'check_violation' ERRCODE
+      return (
+        pgError.code === '23514' ||
+        (pgError.message?.includes('Compare list limit exceeded') ?? false)
+      );
+    }
+    return false;
   }
 
   /**

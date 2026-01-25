@@ -87,7 +87,11 @@ export function registerUserStateRoutes(app: Express): void {
 
   /**
    * POST /api/user/compare - Add product to compare list
-   * Max 4 items enforced at storage layer
+   *
+   * DEFENSE-IN-DEPTH: Max 4 items enforced at 3 levels:
+   * 1. Route: Fast UX feedback (this check)
+   * 2. Storage: Application-level validation
+   * 3. Database: Trigger constraint (migration 0033) - authoritative, race-condition-proof
    */
   app.post(
     '/api/user/compare',
@@ -98,7 +102,10 @@ export function registerUserStateRoutes(app: Express): void {
         const userId = req.user.id;
         const data = addToCompareSchema.parse(req.body);
 
-        // Check if list is full before attempting add
+        // NOTE: Route-level check for fast UX feedback.
+        // Database trigger (migration 0033) is the authoritative enforcement.
+        // Race condition between this check and storage.addToCompare() is
+        // handled by the trigger - worst case: user gets a slightly different error message.
         const count = await storage.getCompareCount(userId);
         if (count >= 4) {
           sendError(res, 'Compare list is full. Maximum 4 items allowed.', 400);
