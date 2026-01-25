@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, afterAll, vi } from 'vitest';
 
 // Valid test token (32+ characters required by validation schema)
 const VALID_TEST_TOKEN = 'test-reset-token-1234567890abcdef';
@@ -47,13 +47,22 @@ describe('Email Service', () => {
     // Clear all mocks
     vi.clearAllMocks();
 
-    // Reset module cache to get fresh instance
+    // Reset module cache to get fresh instance for each test
+    // (Required for testing different env configurations)
     vi.resetModules();
   });
 
   afterEach(() => {
     // Restore original environment
     process.env = originalEnv;
+  });
+
+  afterAll(() => {
+    // CRITICAL: Clean up module registry pollution to prevent affecting other test files
+    // vi.resetModules() in beforeEach can pollute the global registry, causing mocks
+    // in other files to fail. This ensures we leave the registry in a clean state.
+    vi.resetModules();
+    vi.restoreAllMocks();
   });
 
   describe('Configuration and Initialization', () => {
