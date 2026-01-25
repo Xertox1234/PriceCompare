@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Download, Image, FileText, Copy, Share2, Check } from 'lucide-react';
-import { useChartExport } from '@/hooks/useChartExport';
+import { useChartExport } from '@/hooks/use-chart-export';
 import { useToast } from '@/hooks/use-toast';
 
 interface PriceHistoryData {

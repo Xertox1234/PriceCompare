@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'wouter';
+import { apiRequest, ApiError } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +16,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Mail, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { createLogger } from '@/utils/logger';
+import { forgotPasswordSchema } from '@shared/auth-schema';
 
 const log = createLogger('ForgotPassword');
 
@@ -22,14 +24,6 @@ const log = createLogger('ForgotPassword');
 interface ForgotPasswordResponse {
   success?: boolean;
   error?: string;
-}
-
-/**
- * Type-safe JSON parsing helper
- */
-async function parseJsonResponse<T>(response: Response): Promise<T> {
-  const data: unknown = await response.json();
-  return data as T;
 }
 
 export default function ForgotPassword() {
@@ -43,43 +37,34 @@ export default function ForgotPassword() {
     e.preventDefault();
     setError(null);
 
-    if (!email) {
-      setError('Please enter your email address');
-      return;
-    }
-
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setError('Please enter a valid email address');
+    // Validate with Zod schema
+    const result = forgotPasswordSchema.safeParse({ email });
+    if (!result.success) {
+      const firstError = result.error.issues[0];
+      setError(firstError?.message ?? 'Please enter a valid email address');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/forgot-password', {
+      await apiRequest<ForgotPasswordResponse>('/api/auth/forgot-password', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ email }),
       });
 
-      const data = await parseJsonResponse<ForgotPasswordResponse>(response);
-
-      if (response.ok) {
-        setIsSubmitted(true);
-        toast({
-          title: 'Email sent',
-          description: 'If an account exists with this email, a password reset link has been sent.',
-        });
-      } else {
-        setError(data.error ?? 'An error occurred. Please try again.');
-      }
+      setIsSubmitted(true);
+      toast({
+        title: 'Email sent',
+        description: 'If an account exists with this email, a password reset link has been sent.',
+      });
     } catch (err) {
       log.error('Forgot password error:', { error: err });
-      setError('Unable to process request. Please try again later.');
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('Unable to process request. Please try again later.');
+      }
     } finally {
       setIsLoading(false);
     }

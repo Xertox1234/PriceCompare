@@ -22,7 +22,7 @@ import {
   QuickviewModal,
 } from '@/components/template/modals';
 // NOTE: CartSidebar removed - not applicable for price comparison platform (TODO 269)
-import { ShopProvider, useShop } from '@/context/shop-context';
+import { useShop } from '@/context/shop-context';
 import { cn } from '@/lib/utils';
 import { useProducts } from '@/hooks/use-products';
 import { transformProduct } from '@/hooks/use-home-data';
@@ -993,9 +993,5 @@ function ProductsContent() {
 }
 
 export default function ProductsNew() {
-  return (
-    <ShopProvider>
-      <ProductsContent />
-    </ShopProvider>
-  );
+  return <ProductsContent />;
 }

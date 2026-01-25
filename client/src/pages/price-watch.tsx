@@ -29,7 +29,7 @@ import {
   useCreateWatchList,
   useRemoveProductFromWatchList,
   type WatchedProduct,
-} from '@/hooks/useWatchList';
+} from '@/hooks/use-watchlist';
 import { Plus, Search, TrendingDown, Clock, Package, Loader2, AlertCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';

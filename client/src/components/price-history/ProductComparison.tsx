@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/select';
 import { X, Grid, Layers, BarChart2, TrendingUp } from 'lucide-react';
 import { PriceHistoryChart } from './PriceHistoryChart';
-import { useProductComparison, ComparisonProduct } from '@/hooks/useProductComparison';
+import { useProductComparison, ComparisonProduct } from '@/hooks/use-product-comparison';
 import { PRODUCT_COLORS } from '@/lib/chart-colors';
 import {
   LineChart,

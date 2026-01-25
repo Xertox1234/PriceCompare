@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from 'react';
+import { useState, lazy, Suspense, useCallback, useMemo } from 'react';
 import { Helmet } from 'react-helmet-async';
 // ============================================
 // ABOVE THE FOLD - Eager loaded (critical for FCP)
@@ -71,7 +71,7 @@ const SearchModal = lazy(() =>
   import('@/components/template/modals').then((m) => ({ default: m.SearchModal }))
 );
 
-import { ShopProvider, useShop } from '@/context/shop-context';
+import { useShop } from '@/context/shop-context';
 import { useHomePageData } from '@/hooks/use-home-data';
 import { Loader2 } from 'lucide-react';
 
@@ -137,30 +137,63 @@ function HomeNewContent() {
   // Fetch real data from API
   const { products, isLoading, error: _error } = useHomePageData();
 
-  // Add watchlist status to products
-  const addWatchlistStatus = (productList: typeof products.all) =>
-    productList.map((p) => ({ ...p, inWatchlist: isInWishlist(p.id) }));
+  // Memoized transformation to add watchlist status to products
+  // Prevents unnecessary recalculations when other state changes
+  const addWatchlistStatus = useCallback(
+    (productList: typeof products.all) =>
+      productList.map((p) => ({ ...p, inWatchlist: isInWishlist(p.id) })),
+    [isInWishlist]
+  );
 
-  const dealProducts = addWatchlistStatus(products.deals);
-  const bestSellers = addWatchlistStatus(products.bestSellers);
-  const newArrivals = addWatchlistStatus(products.newArrivals);
-  const trending = addWatchlistStatus(products.trending);
-  const laptops = addWatchlistStatus(products.laptops);
-  const smartHome = addWatchlistStatus(products.smartphones); // Use smartphones as smart home for now
-  const allProductsData = addWatchlistStatus(products.all);
+  // Memoize product lists to prevent unnecessary re-renders
+  const dealProducts = useMemo(
+    () => addWatchlistStatus(products.deals),
+    [addWatchlistStatus, products.deals]
+  );
+  const bestSellers = useMemo(
+    () => addWatchlistStatus(products.bestSellers),
+    [addWatchlistStatus, products.bestSellers]
+  );
+  const newArrivals = useMemo(
+    () => addWatchlistStatus(products.newArrivals),
+    [addWatchlistStatus, products.newArrivals]
+  );
+  const trending = useMemo(
+    () => addWatchlistStatus(products.trending),
+    [addWatchlistStatus, products.trending]
+  );
+  const laptops = useMemo(
+    () => addWatchlistStatus(products.laptops),
+    [addWatchlistStatus, products.laptops]
+  );
+  const smartHome = useMemo(
+    () => addWatchlistStatus(products.smartphones),
+    [addWatchlistStatus, products.smartphones]
+  ); // Use smartphones as smart home for now
+  const allProductsData = useMemo(
+    () => addWatchlistStatus(products.all),
+    [addWatchlistStatus, products.all]
+  );
 
-  const handleWatchlist = (product: { id: number }) => {
-    toggleWishlist(product.id);
-  };
+  // Stable callback references to prevent breaking child component memoization
+  const handleWatchlist = useCallback(
+    (product: { id: number }) => {
+      toggleWishlist(product.id);
+    },
+    [toggleWishlist]
+  );
 
-  const handleCompare = (product: { id: number }) => {
-    toggleCompare(product.id);
-    setCompareOpen(true);
-  };
+  const handleCompare = useCallback(
+    (product: { id: number }) => {
+      toggleCompare(product.id);
+      setCompareOpen(true);
+    },
+    [toggleCompare]
+  );
 
-  const handleQuickView = (product: ProductData) => {
+  const handleQuickView = useCallback((product: ProductData) => {
     setQuickviewProduct(product);
-  };
+  }, []);
 
   const categoryData = categories.map((c) => ({
     id: c.slug,
@@ -349,9 +382,5 @@ function HomeNewContent() {
  * Supports: Light mode, Dark mode, High Contrast mode
  */
 export default function HomeNew() {
-  return (
-    <ShopProvider>
-      <HomeNewContent />
-    </ShopProvider>
-  );
+  return <HomeNewContent />;
 }

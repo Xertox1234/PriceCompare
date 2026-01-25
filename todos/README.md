@@ -4,7 +4,34 @@ This folder contains TODO items for the PriceCompare project. Completed TODOs ar
 
 ## Active TODOs
 
-Currently, there are **0 numbered active TODOs**.
+Currently, there are **12 numbered active TODOs** (from frontend code review 2026-01-25).
+
+### 🔴 P1 - Critical (Blocks Quality)
+
+| TODO | Title | Impact |
+|------|-------|--------|
+| **283** | Duplicate WebSocket Connections | 2x server resources |
+| **284** | ShopProvider Not in App Hierarchy | State lost on navigation |
+| **285** | Direct fetch() Missing CSRF Tokens | Security vulnerability |
+
+### 🟡 P2 - Important (Should Fix)
+
+| TODO | Title | Impact |
+|------|-------|--------|
+| **286** | Delete Orphaned Pages | 743 lines dead code |
+| **287** | Memoization Breaking Patterns | Unnecessary re-renders |
+| **288** | Duplicate Hooks Consolidation | 19 lines duplicate |
+| **289** | Wishlist Set Optimization | O(n) → O(1) lookups |
+| **290** | Comparison List Persistence | Data loss on refresh |
+| **291** | Toggle Wishlist Race Condition | Data integrity risk |
+
+### 🔵 P3 - Nice-to-Have
+
+| TODO | Title | Impact |
+|------|-------|--------|
+| **292** | Naming Convention Consistency | 7 files to rename |
+| **293** | Agent-Native Accessibility Gaps | 3 features missing API |
+| **294** | Input Validation Consistency | Zod standardization |
 
 ### 📝 Documentation Tasks
 - **TODO_MISSING_GUIDES** - P4 (Low), Documentation

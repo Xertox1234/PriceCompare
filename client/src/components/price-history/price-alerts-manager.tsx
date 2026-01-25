@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -189,11 +190,9 @@ function AlertItem({
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/price-alerts/${alert.id}`, {
+      await apiRequest(`/api/price-alerts/${alert.id}`, {
         method: 'DELETE',
-        credentials: 'include',
       });
-      if (!res.ok) throw new Error('Failed to delete alert');
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });
@@ -204,13 +203,10 @@ function AlertItem({
 
   const toggleMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`/api/price-alerts/${alert.id}`, {
+      await apiRequest(`/api/price-alerts/${alert.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ isActive: !alert.isActive }),
       });
-      if (!res.ok) throw new Error('Failed to update alert');
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });
@@ -306,17 +302,10 @@ function CreateEditAlertDialog({
 
   const createMutation = useMutation({
     mutationFn: async (data: { productId: number; targetPrice: number }) => {
-      const res = await fetch('/api/price-alerts', {
+      return apiRequest('/api/price-alerts', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(data),
       });
-      if (!res.ok) {
-        const error = await res.text();
-        throw new Error(error || 'Failed to create alert');
-      }
-      return res.json();
     },
     onSuccess: () => onSuccess('Price alert created successfully!'),
     onError: (error: Error) => onError(error, 'create alert'),
@@ -324,14 +313,10 @@ function CreateEditAlertDialog({
 
   const updateMutation = useMutation({
     mutationFn: async (data: { targetPrice: number }) => {
-      const res = await fetch(`/api/price-alerts/${alert?.id}`, {
+      return apiRequest(`/api/price-alerts/${alert?.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error('Failed to update alert');
-      return res.json();
     },
     onSuccess: () => onSuccess('Price alert updated successfully!'),
     onError: (error: Error) => onError(error, 'update alert'),

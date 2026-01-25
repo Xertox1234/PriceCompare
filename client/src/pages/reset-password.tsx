@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'wouter';
+import { apiRequest, ApiError } from '@/lib/queryClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +16,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle2, AlertCircle, Eye, EyeOff, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { createLogger } from '@/utils/logger';
+import { resetPasswordSchema } from '@shared/auth-schema';
 
 const log = createLogger('ResetPassword');
 
@@ -28,15 +30,6 @@ interface TokenValidationResponse {
 interface ResetPasswordResponse {
   success?: boolean;
   error?: string;
-}
-
-/**
- * Type-safe JSON parsing helper
- * Casts response.json() result to expected type with runtime validation consideration
- */
-async function parseJsonResponse<T>(response: Response): Promise<T> {
-  const data: unknown = await response.json();
-  return data as T;
 }
 
 export default function ResetPassword() {
@@ -71,36 +64,25 @@ export default function ResetPassword() {
 
   const validateToken = async (tokenValue: string) => {
     try {
-      const response = await fetch(`/api/auth/reset-password/${tokenValue}`);
-      const data = await parseJsonResponse<TokenValidationResponse>(response);
+      const data = await apiRequest<TokenValidationResponse>(
+        `/api/auth/reset-password/${tokenValue}`
+      );
 
-      if (response.ok && data.email && data.username) {
+      if (data.email && data.username) {
         setUserInfo({ email: data.email, username: data.username });
       } else {
         setTokenError(data.error ?? 'Invalid or expired password reset token');
       }
     } catch (err) {
       log.error('Token validation error:', { error: err });
-      setTokenError('Unable to validate reset token. Please try again.');
+      if (err instanceof ApiError) {
+        setTokenError(err.message);
+      } else {
+        setTokenError('Unable to validate reset token. Please try again.');
+      }
     } finally {
       setIsValidating(false);
     }
-  };
-
-  const validatePassword = (pass: string): string | null => {
-    if (pass.length < 8) {
-      return 'Password must be at least 8 characters long';
-    }
-    if (!/[a-z]/.test(pass)) {
-      return 'Password must contain at least one lowercase letter';
-    }
-    if (!/[A-Z]/.test(pass)) {
-      return 'Password must contain at least one uppercase letter';
-    }
-    if (!/[0-9]/.test(pass)) {
-      return 'Password must contain at least one number';
-    }
-    return null;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -112,47 +94,39 @@ export default function ResetPassword() {
       return;
     }
 
-    const passwordError = validatePassword(password);
-    if (passwordError) {
-      setError(passwordError);
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
+    // Validate with Zod schema
+    const result = resetPasswordSchema.safeParse({ password, confirmPassword });
+    if (!result.success) {
+      const firstError = result.error.issues[0];
+      setError(firstError?.message ?? 'Invalid password');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/reset-password', {
+      await apiRequest<ResetPasswordResponse>('/api/auth/reset-password', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ token, password }),
       });
 
-      const data = await parseJsonResponse<ResetPasswordResponse>(response);
+      setIsSuccess(true);
+      toast({
+        title: 'Password reset successful',
+        description: 'You can now log in with your new password.',
+      });
 
-      if (response.ok) {
-        setIsSuccess(true);
-        toast({
-          title: 'Password reset successful',
-          description: 'You can now log in with your new password.',
-        });
-
-        // Redirect to login after 3 seconds
-        setTimeout(() => {
-          setLocation('/');
-        }, 3000);
-      } else {
-        setError(data.error ?? 'Failed to reset password. Please try again.');
-      }
+      // Redirect to login after 3 seconds
+      setTimeout(() => {
+        setLocation('/');
+      }, 3000);
     } catch (err) {
       log.error('Reset password error:', { error: err });
-      setError('Unable to process request. Please try again later.');
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('Unable to process request. Please try again later.');
+      }
     } finally {
       setIsLoading(false);
     }

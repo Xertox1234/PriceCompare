@@ -220,7 +220,7 @@ import {
   useSnoozeNotification,
   useDismissNotification,
   useRealtimeNotifications,
-} from '@/hooks/useSmartNotifications';
+} from '@/hooks/use-smart-notifications';
 
 // Components
 import { SmartAlertCard } from '@/components/notifications/SmartAlertCard';
@@ -230,7 +230,7 @@ import { NotificationCenter } from '@/components/notifications/NotificationCente
 import { SmartAlertCard, NotificationCenter } from '@/components/notifications';
 
 // Types
-import type { SmartNotification } from '@/hooks/useSmartNotifications';
+import type { SmartNotification } from '@/hooks/use-smart-notifications';
 ```
 
 ## Key Dependencies

@@ -6,6 +6,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { ThemeProvider } from '@/components/theme-provider';
 import { CountryProvider } from '@/context/country-context';
+import { ShopProvider } from '@/context/shop-context';
 import { SharedNavigation } from '@/components/shared-navigation';
 import { RateLimitBanner } from '@/components/RateLimitBanner';
 import { NewFooter } from '@/components/new-footer';
@@ -45,7 +46,7 @@ import {
   LazyProfilePage,
 } from '@/components/lazy';
 import { ErrorBoundary, RouteErrorBoundary } from '@/components/error-boundary';
-import { useRealtimeNotifications } from '@/hooks/useSmartNotifications';
+import { useRealtimeNotifications } from '@/hooks/use-smart-notifications';
 import { ConnectionStatus } from '@/components/connection-status';
 import { useWebSocket } from '@/hooks/use-websocket';
 import { useWatchListUpdates } from '@/hooks/use-watchlist-updates';
@@ -301,7 +302,9 @@ function App() {
         <ThemeProvider defaultTheme="light" storageKey="pricecompare-theme">
           <QueryClientProvider client={queryClient}>
             <CountryProvider>
-              <AppContent />
+              <ShopProvider>
+                <AppContent />
+              </ShopProvider>
             </CountryProvider>
           </QueryClientProvider>
         </ThemeProvider>

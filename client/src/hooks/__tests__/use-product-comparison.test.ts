@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useProductComparison } from '../useProductComparison';
+import { useProductComparison } from '../use-product-comparison';
 
 describe('useProductComparison', () => {
   const mockProduct1 = {

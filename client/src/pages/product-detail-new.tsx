@@ -19,7 +19,7 @@ import {
 import { TemplateHeader, TemplateFooter, ProductSection } from '@/components/template';
 // NOTE: CartSidebar removed - not applicable for price comparison platform (TODO 269)
 import { MobileMenu, CompareModal, SearchModal } from '@/components/template/modals';
-import { ShopProvider, useShop } from '@/context/shop-context';
+import { useShop } from '@/context/shop-context';
 import { addToRecentlyViewed } from '@/components/template/recently-viewed';
 import { Button } from '@/components/ui/button';
 import {
@@ -749,9 +749,5 @@ function ProductDetailContent() {
 }
 
 export default function ProductDetailPage() {
-  return (
-    <ShopProvider>
-      <ProductDetailContent />
-    </ShopProvider>
-  );
+  return <ProductDetailContent />;
 }

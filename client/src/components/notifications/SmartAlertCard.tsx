@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import type { SmartNotification } from '@/hooks/useSmartNotifications';
+import type { SmartNotification } from '@/hooks/use-smart-notifications';
 import { formatDistanceToNow } from 'date-fns';
 
 export interface SmartAlertCardProps {

@@ -7,11 +7,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '../../test/test-utils';
 import { RateLimitBanner } from '../RateLimitBanner';
-import * as useRateLimitHook from '../../hooks/useRateLimit';
+import * as useRateLimitHook from '../../hooks/use-rate-limit';
 import * as useAuthHook from '../../hooks/use-auth';
 
 // Mock the hooks
-vi.mock('../../hooks/useRateLimit');
+vi.mock('../../hooks/use-rate-limit');
 vi.mock('../../hooks/use-auth');
 
 describe('RateLimitBanner', () => {

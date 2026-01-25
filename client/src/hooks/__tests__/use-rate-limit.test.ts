@@ -6,7 +6,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
-import { useRateLimit } from '../useRateLimit';
+import { useRateLimit } from '../use-rate-limit';
 
 describe('useRateLimit', () => {
   let originalFetch: typeof fetch;

@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useReducer, useEffect, useMemo, useCallback, ReactNode } from 'react';
 import { createLogger } from '@/utils/logger';
 
 const log = createLogger('ShopContext');
@@ -165,32 +165,36 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     }
   }, [state]);
 
-  // Wishlist actions
-  const toggleWishlist = (productId: number) => {
-    dispatch({ type: 'TOGGLE_WISHLIST', payload: productId });
-  };
+  // Memoized Sets for O(1) lookups (instead of O(n) Array.includes())
+  const wishlistSet = useMemo(() => new Set(state.wishlist), [state.wishlist]);
+  const compareSet = useMemo(() => new Set(state.compare), [state.compare]);
 
-  const isInWishlist = (productId: number) => {
-    return state.wishlist.includes(productId);
-  };
+  // Wishlist actions
+  const toggleWishlist = useCallback((productId: number) => {
+    dispatch({ type: 'TOGGLE_WISHLIST', payload: productId });
+  }, []);
+
+  const isInWishlist = useCallback((productId: number) => {
+    return wishlistSet.has(productId);
+  }, [wishlistSet]);
 
   // Compare actions
-  const toggleCompare = (productId: number) => {
+  const toggleCompare = useCallback((productId: number) => {
     dispatch({ type: 'TOGGLE_COMPARE', payload: productId });
-  };
+  }, []);
 
-  const isInCompare = (productId: number) => {
-    return state.compare.includes(productId);
-  };
+  const isInCompare = useCallback((productId: number) => {
+    return compareSet.has(productId);
+  }, [compareSet]);
 
-  const clearCompare = () => {
+  const clearCompare = useCallback(() => {
     dispatch({ type: 'CLEAR_COMPARE' });
-  };
+  }, []);
 
   // Recently viewed
-  const addRecentlyViewed = (productId: number) => {
+  const addRecentlyViewed = useCallback((productId: number) => {
     dispatch({ type: 'ADD_RECENTLY_VIEWED', payload: productId });
-  };
+  }, []);
 
   const value: ShopContextType = {
     ...state,

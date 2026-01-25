@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useVirtualList } from '@/hooks/use-virtual-list';
 import { MemoizedProductCard } from './memoized-product-card';
 import type { ProductWithOffers } from '@shared/schema';
@@ -19,6 +20,15 @@ export function VirtualProductGrid({
     overscan: 3,
   });
 
+  // Stable callback reference to prevent breaking memoization
+  // MemoizedProductCard now handles the product binding internally
+  const handleAddToComparison = useCallback(
+    (product: ProductWithOffers) => {
+      onAddToComparison(product);
+    },
+    [onAddToComparison]
+  );
+
   if (products.length <= 20) {
     // For small lists, use regular rendering
     return (
@@ -27,7 +37,7 @@ export function VirtualProductGrid({
           <MemoizedProductCard
             key={product.id}
             product={product}
-            onAddToComparison={() => onAddToComparison(product)}
+            onAddToComparison={handleAddToComparison}
           />
         ))}
       </div>
@@ -51,7 +61,7 @@ export function VirtualProductGrid({
               <MemoizedProductCard
                 key={product.id}
                 product={product}
-                onAddToComparison={() => onAddToComparison(product)}
+                onAddToComparison={handleAddToComparison}
               />
             ))}
           </div>

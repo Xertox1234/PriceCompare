@@ -7,7 +7,7 @@ import {
   useIsDesktop,
   useIsTouchDevice,
   useBreakpoint,
-} from '../useMediaQuery';
+} from '../use-media-query';
 
 // Mock window.matchMedia
 const createMatchMediaMock = (matches: boolean) => {

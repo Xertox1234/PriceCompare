@@ -1,9 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
 import { toast } from '@/hooks/use-toast';
 import { createLogger } from '@/utils/logger';
 import { apiRequest } from '@/lib/queryClient';
+import { websocketClient, type ConnectionState } from '@/lib/websocket-client';
 
 const log = createLogger('SmartNotifications');
 
@@ -140,95 +140,76 @@ export function useDismissNotification() {
 
 /**
  * WebSocket hook for real-time notification delivery
- * Connects to Socket.IO server and listens for notification:new events
+ * Uses shared websocketClient singleton to listen for notification:new events
  * Updates query cache optimistically and shows toasts for high/critical alerts
  */
 export function useRealtimeNotifications() {
-  const [isConnected, setIsConnected] = useState(false);
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [connectionState, setConnectionState] = useState<ConnectionState>(
+    websocketClient.getState()
+  );
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    // Initialize Socket.IO connection
-    const socketInstance = io({
-      path: '/socket.io',
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionAttempts: 5,
-    });
-
-    // Connection event handlers
-    socketInstance.on('connect', () => {
-      setIsConnected(true);
-      log.info('WebSocket connected');
-    });
-
-    socketInstance.on('disconnect', () => {
-      setIsConnected(false);
-      log.info('WebSocket disconnected');
-    });
-
-    socketInstance.on('connect_error', (error) => {
-      log.error(`WebSocket connection error: ${error.message}`);
-      setIsConnected(false);
-    });
-
-    // Listen for new notifications
-    socketInstance.on(
-      'notification:new',
-      (data: { userId: number; notification: SmartNotification }) => {
-        const notification = data.notification;
-
-        // Only handle smart_alert notifications
-        if (notification.type !== 'smart_alert') {
-          return;
-        }
-
-        // Update query cache optimistically
-        queryClient.setQueryData(
-          ['/api/notifications/smart'],
-          (old: SmartNotificationsPayload | undefined) => {
-            if (!old) {
-              return {
-                data: [notification],
-                count: 1,
-              };
-            }
-
-            return {
-              ...old,
-              data: [notification, ...old.data],
-              count: old.count + 1,
-            };
-          }
-        );
-
-        // Invalidate queries to ensure consistency
-        void queryClient.invalidateQueries({ queryKey: ['/api/notifications/stats'] });
-
-        // Show toast for high or critical urgency
-        const urgency = notification.metadata?.urgency;
-        if (urgency === 'critical' || urgency === 'high') {
-          toast({
-            title: notification.title,
-            description: notification.content,
-            variant: urgency === 'critical' ? 'destructive' : 'default',
-          });
-        }
+    // Subscribe to connection state changes
+    const unsubscribeState = websocketClient.onStateChange((state) => {
+      setConnectionState(state);
+      if (state === 'connected') {
+        log.info('WebSocket connected (via shared client)');
+      } else if (state === 'disconnected') {
+        log.info('WebSocket disconnected (via shared client)');
       }
-    );
+    });
 
-    setSocket(socketInstance);
+    // Ensure websocket client is connected
+    if (!websocketClient.isConnected()) {
+      websocketClient.connect();
+    }
+
+    // Handler for new notifications using typed event from ServerToClientEvents
+    const handleNotificationNew = (data: {
+      notification: {
+        id: number;
+        type: 'price_alert' | 'watch_list' | 'system';
+        title: string;
+        content: string;
+        priority: 'low' | 'medium' | 'high';
+        read: boolean;
+        timestamp: string;
+      };
+      unreadCount: number;
+    }) => {
+      // Map the typed notification to SmartNotification format for cache update
+      // Since smart alerts may come through with type info, we handle all types
+      const notification = data.notification;
+
+      // Update query cache optimistically
+      // Note: The typed event uses NotificationEvent which differs from SmartNotification
+      // We invalidate queries to fetch fresh data instead of optimistic update
+      void queryClient.invalidateQueries({ queryKey: ['/api/notifications/smart'] });
+      void queryClient.invalidateQueries({ queryKey: ['/api/notifications/stats'] });
+
+      // Show toast for high priority notifications
+      if (notification.priority === 'high') {
+        toast({
+          title: notification.title,
+          description: notification.content,
+          variant: 'default',
+        });
+      }
+    };
+
+    // Subscribe to notification events using the shared client
+    websocketClient.on('notification:new', handleNotificationNew);
 
     // Cleanup on unmount
     return () => {
-      socketInstance.disconnect();
+      unsubscribeState();
+      websocketClient.off('notification:new', handleNotificationNew);
     };
   }, [queryClient]);
 
   return {
-    isConnected,
-    socket,
+    isConnected: connectionState === 'connected',
+    connectionState,
   };
 }

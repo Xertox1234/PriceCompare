@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'wouter';
 import { AlertTriangle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useRateLimit } from '@/hooks/useRateLimit';
+import { useRateLimit } from '@/hooks/use-rate-limit';
 import { useAuth } from '@/hooks/use-auth';
 
 /**

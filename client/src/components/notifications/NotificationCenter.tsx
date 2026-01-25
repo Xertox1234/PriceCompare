@@ -16,7 +16,7 @@ import {
   useSnoozeNotification,
   useDismissNotification,
   type SmartNotification,
-} from '@/hooks/useSmartNotifications';
+} from '@/hooks/use-smart-notifications';
 import {
   useMarkAllAsRead,
   useNotifications,

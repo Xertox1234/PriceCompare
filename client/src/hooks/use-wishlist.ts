@@ -4,31 +4,11 @@
  * Manages user wishlists (simple "I want this" lists).
  * Separate from watchlists which track prices.
  */
+import { useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Wishlist, WishlistItem, Product, ProductWithOffers } from '@shared/schema';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from './use-auth';
-
-// Type-safe error extraction from unknown JSON response
-interface ApiErrorResponse {
-  error?: string;
-  message?: string;
-}
-
-function extractErrorMessage(data: unknown, fallback: string): string {
-  if (typeof data === 'object' && data !== null) {
-    const obj = data as ApiErrorResponse;
-    if (typeof obj.error === 'string') return obj.error;
-    if (typeof obj.message === 'string') return obj.message;
-  }
-  return fallback;
-}
-
-// Type-safe JSON parsing helper
-async function parseJsonResponse<T>(response: Response): Promise<T> {
-  const data: unknown = await response.json();
-  return data as T;
-}
 
 // Types
 export interface WishlistWithItems extends Wishlist {
@@ -100,17 +80,10 @@ export function useCreateWishlist() {
       description?: string;
       isPublic?: boolean;
     }): Promise<WishlistWithItems> => {
-      const response = await fetch('/api/wishlists', {
+      return apiRequest<WishlistWithItems>('/api/wishlists', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(data),
       });
-      if (!response.ok) {
-        const errorData: unknown = await response.json();
-        throw new Error(extractErrorMessage(errorData, 'Failed to create wishlist'));
-      }
-      return parseJsonResponse<WishlistWithItems>(response);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
@@ -130,17 +103,10 @@ export function useUpdateWishlist() {
       wishlistId: number;
       updates: { name?: string; description?: string; isPublic?: boolean };
     }) => {
-      const response = await fetch(`/api/wishlists/${wishlistId}`, {
+      return apiRequest<Wishlist>(`/api/wishlists/${wishlistId}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(updates),
       });
-      if (!response.ok) {
-        const errorData: unknown = await response.json();
-        throw new Error(extractErrorMessage(errorData, 'Failed to update wishlist'));
-      }
-      return parseJsonResponse<Wishlist>(response);
     },
     onSuccess: (_, { wishlistId }) => {
       void queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
@@ -155,15 +121,9 @@ export function useDeleteWishlist() {
 
   return useMutation({
     mutationFn: async (wishlistId: number) => {
-      const response = await fetch(`/api/wishlists/${wishlistId}`, {
+      return apiRequest<{ success: boolean }>(`/api/wishlists/${wishlistId}`, {
         method: 'DELETE',
-        credentials: 'include',
       });
-      if (!response.ok) {
-        const errorData: unknown = await response.json();
-        throw new Error(extractErrorMessage(errorData, 'Failed to delete wishlist'));
-      }
-      return parseJsonResponse<{ success: boolean }>(response);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
@@ -187,17 +147,10 @@ export function useAddToWishlist() {
       notes?: string;
       priority?: number;
     }) => {
-      const response = await fetch(`/api/wishlists/${wishlistId}/items`, {
+      return apiRequest<WishlistItem>(`/api/wishlists/${wishlistId}/items`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify({ productId, notes, priority }),
       });
-      if (!response.ok) {
-        const errorData: unknown = await response.json();
-        throw new Error(extractErrorMessage(errorData, 'Failed to add to wishlist'));
-      }
-      return parseJsonResponse<WishlistItem>(response);
     },
     onSuccess: (_, { wishlistId, productId }) => {
       void queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
@@ -214,15 +167,9 @@ export function useRemoveFromWishlist() {
 
   return useMutation({
     mutationFn: async ({ wishlistId, productId }: { wishlistId: number; productId: number }) => {
-      const response = await fetch(`/api/wishlists/${wishlistId}/items/${productId}`, {
+      return apiRequest<{ success: boolean }>(`/api/wishlists/${wishlistId}/items/${productId}`, {
         method: 'DELETE',
-        credentials: 'include',
       });
-      if (!response.ok) {
-        const errorData: unknown = await response.json();
-        throw new Error(extractErrorMessage(errorData, 'Failed to remove from wishlist'));
-      }
-      return parseJsonResponse<{ success: boolean }>(response);
     },
     onSuccess: (_, { wishlistId, productId }) => {
       void queryClient.invalidateQueries({ queryKey: ['/api/wishlists'] });
@@ -234,9 +181,13 @@ export function useRemoveFromWishlist() {
 }
 
 // Quick toggle - add to default wishlist or remove
+// Uses mutex pattern to prevent race conditions from rapid toggles
 export function useToggleWishlist() {
   const queryClient = useQueryClient();
   const { data: wishlists } = useWishlists();
+
+  // Mutex: Track in-flight toggle operations per product to prevent race conditions
+  const pendingToggles = useRef(new Set<number>());
 
   const addMutation = useAddToWishlist();
   const removeMutation = useRemoveFromWishlist();
@@ -250,28 +201,42 @@ export function useToggleWishlist() {
       productId: number;
       isCurrentlyInWishlist: boolean;
     }) => {
-      // Get or create default wishlist
-      let defaultWishlist =
-        wishlists?.wishlists?.find((w) => w.name === 'My Wishlist') ?? wishlists?.wishlists?.[0];
-
-      if (!defaultWishlist) {
-        // Create default wishlist
-        const result = await createMutation.mutateAsync({ name: 'My Wishlist' });
-        defaultWishlist = result;
+      // Race condition guard: Prevent duplicate in-flight operations for same product
+      if (pendingToggles.current.has(productId)) {
+        // Return undefined to signal operation was skipped (not an error)
+        return undefined;
       }
 
-      if (isCurrentlyInWishlist) {
-        // Find which wishlist has this product and remove it
-        const wishlistWithProduct = wishlists?.wishlists?.find((w) =>
-          w.items?.some((item) => item.productId === productId)
-        );
-        if (wishlistWithProduct) {
-          return removeMutation.mutateAsync({ wishlistId: wishlistWithProduct.id, productId });
+      // Mark this product as having an in-flight toggle operation
+      pendingToggles.current.add(productId);
+
+      try {
+        // Get or create default wishlist
+        let defaultWishlist =
+          wishlists?.wishlists?.find((w) => w.name === 'My Wishlist') ?? wishlists?.wishlists?.[0];
+
+        if (!defaultWishlist) {
+          // Create default wishlist
+          const result = await createMutation.mutateAsync({ name: 'My Wishlist' });
+          defaultWishlist = result;
         }
-        return undefined;
-      } else {
-        // Add to default wishlist - defaultWishlist is guaranteed to exist here
-        return addMutation.mutateAsync({ wishlistId: defaultWishlist.id, productId });
+
+        if (isCurrentlyInWishlist) {
+          // Find which wishlist has this product and remove it
+          const wishlistWithProduct = wishlists?.wishlists?.find((w) =>
+            w.items?.some((item) => item.productId === productId)
+          );
+          if (wishlistWithProduct) {
+            return removeMutation.mutateAsync({ wishlistId: wishlistWithProduct.id, productId });
+          }
+          return undefined;
+        } else {
+          // Add to default wishlist - defaultWishlist is guaranteed to exist here
+          return addMutation.mutateAsync({ wishlistId: defaultWishlist.id, productId });
+        }
+      } finally {
+        // Always remove from pending set, whether success or failure
+        pendingToggles.current.delete(productId);
       }
     },
     onSuccess: () => {

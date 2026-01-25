@@ -15,7 +15,7 @@ import { TemplateHeader } from '@/components/template/header';
 import { TemplateFooter } from '@/components/template/footer';
 // NOTE: CartSidebar removed - not applicable for price comparison platform (TODO 269)
 import { MobileMenu, CompareModal, SearchModal } from '@/components/template/modals';
-import { ShopProvider, useShop } from '@/context/shop-context';
+import { useShop } from '@/context/shop-context';
 import { Button } from '@/components/ui/button';
 import { allProducts } from '@/data/template-data';
 
@@ -329,9 +329,5 @@ function WishlistContent() {
 }
 
 export default function WishlistPage() {
-  return (
-    <ShopProvider>
-      <WishlistContent />
-    </ShopProvider>
-  );
+  return <WishlistContent />;
 }

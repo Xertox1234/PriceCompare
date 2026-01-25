@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProductWithOffers } from '@shared/schema';
@@ -12,7 +13,7 @@ import { SeasonalPatterns } from './price-history/SeasonalPatterns';
 import { RetailerReliability } from './price-history/RetailerReliability';
 import { TrendingUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useIsMobile } from '@/hooks/useMediaQuery';
+import { useIsMobile } from '@/hooks/use-media-query';
 
 // Type definitions for API responses (matching backend response shapes)
 interface PriceHistoryData {
@@ -131,17 +132,10 @@ export function ProductDetailDialog({ product, open, onOpenChange }: ProductDeta
   // Mutation for creating price alerts
   const createAlertMutation = useMutation({
     mutationFn: async (data: { productId: number; targetPrice: number; notifyForum: boolean }) => {
-      const res = await fetch('/api/price-alerts', {
+      return apiRequest('/api/price-alerts', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
         body: JSON.stringify(data),
       });
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText || 'Failed to create price alert');
-      }
-      return res.json();
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });
