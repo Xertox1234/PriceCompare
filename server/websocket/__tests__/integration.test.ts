@@ -15,6 +15,7 @@
  * in Vitest while maintaining coverage of WebSocket functionality.
  */
 
+/* eslint-disable @typescript-eslint/require-await -- Mock functions intentionally async for interface compliance */
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import {
   setupWebSocketTestContext,

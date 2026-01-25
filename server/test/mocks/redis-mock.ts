@@ -214,6 +214,7 @@ export function createInMemoryRedisMock() {
     }),
     hset: vi.fn((key: string, field: string, value: string) => {
       if (!hashStore.has(key)) hashStore.set(key, new Map());
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- Key just set above
       hashStore.get(key)!.set(field, value);
       return Promise.resolve(1);
     }),

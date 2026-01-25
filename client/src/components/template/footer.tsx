@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Link } from 'wouter';
 import {
   TrendingUp,
@@ -15,21 +14,9 @@ import {
   Truck,
   Clock,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 export function TemplateFooter() {
   const currentYear = new Date().getFullYear();
-  const [email, setEmail] = useState('');
-  const [subscribed, setSubscribed] = useState(false);
-
-  const handleSubscribe = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email) {
-      setSubscribed(true);
-      setEmail('');
-      setTimeout(() => setSubscribed(false), 3000);
-    }
-  };
 
   return (
     <footer className="bg-foreground text-muted dark:bg-slate-950">

@@ -1053,6 +1053,7 @@ describe('DataExtractionAgent - Playwright Implementation', () => {
     (chromium.launch as ReturnType<typeof vi.fn>).mockResolvedValue(mockBrowser);
   });
 
+  // eslint-disable-next-line @typescript-eslint/require-await -- Async kept for future cleanup if needed
   afterEach(async () => {
     // Browser cleanup is now automatic via nested try-finally (TODO 268 fix)
     // No need to manually check/close browser property

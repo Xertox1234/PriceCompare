@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion -- Test file uses non-null assertions after expect().not.toBeNull() checks */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { db } from '../../db';
 import {

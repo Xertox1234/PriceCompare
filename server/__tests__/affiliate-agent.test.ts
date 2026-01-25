@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion -- Test file uses non-null assertions after expect().toBeDefined() checks */
 import { describe, it, expect } from 'vitest';
 import { AffiliateLinkAgent } from '../agents/affiliate-agent';
 import { storage } from '../storage';

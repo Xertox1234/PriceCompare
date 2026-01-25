@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion -- Test file uses non-null assertions after expect().toBeInstanceOf() type guards */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   withRetry,

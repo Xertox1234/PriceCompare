@@ -568,6 +568,7 @@ export async function seedPriceHistoryData(
     if (!dailyPricesByRetailer.has(groupKey)) {
       dailyPricesByRetailer.set(groupKey, []);
     }
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- Key just set above
     dailyPricesByRetailer.get(groupKey)!.push({
       price: parseFloat(record.price),
       retailerId: record.retailerId,
