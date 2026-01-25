@@ -44,11 +44,26 @@ export function generateDiscourseSSO(user: SharedUser, nonce: string, returnUrl:
 
 /**
  * Verify SSO signature from Discourse
+ *
+ * SECURITY: Uses constant-time comparison to prevent timing attacks.
+ * String comparison (===) short-circuits on first mismatch, allowing
+ * attackers to recover the secret by measuring response times.
+ *
+ * @internal Exported for testing only - do not use directly in application code
  */
-function verifySSO(sso: string, sig: string): boolean {
+export function verifySSO(sso: string, sig: string): boolean {
   const computedSig = crypto.createHmac('sha256', DISCOURSE_SSO_SECRET).update(sso).digest('hex');
 
-  return computedSig === sig;
+  // SECURITY: Length check required before timingSafeEqual
+  // Also prevents processing invalid signatures
+  if (computedSig.length !== sig.length) {
+    return false;
+  }
+
+  // SECURITY: Constant-time comparison prevents timing attacks
+  // Always compares ALL bytes regardless of where mismatch occurs
+  // NOTE: Both signatures are hex-encoded strings from digest('hex'), so decode as 'hex'
+  return crypto.timingSafeEqual(Buffer.from(computedSig, 'hex'), Buffer.from(sig, 'hex'));
 }
 
 /**

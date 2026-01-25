@@ -23,6 +23,7 @@ import {
  *   app.post('/api/watchlists', flexibleAuth, csrfProtection, withAuth, handler);
  *
  * Direct usage (legacy, not recommended):
+ *   // CSRF exempt: Basic Auth requests are stateless - no browser cookies, immune to CSRF
  *   app.post('/api/v1/scraping/discover-trends', basicAuth, withAdmin, handler);
  *
  * Client example:

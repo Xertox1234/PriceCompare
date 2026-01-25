@@ -50,14 +50,27 @@ const PRODUCTION_REQUIRED_ENV_VARS: RequiredEnvVar[] = [
     description: 'Redis connection URL (required in production for distributed features)',
     critical: true,
   },
+  {
+    name: 'APP_URL',
+    description: 'Application URL for email links (e.g., https://pricecompare.com)',
+    critical: true,
+  },
+  {
+    name: 'CLIENT_URL',
+    description: 'Frontend URL for CORS/WebSocket origins (e.g., https://pricecompare.com)',
+    critical: true,
+  },
+  {
+    name: 'ALLOWED_ORIGINS',
+    description: 'Comma-separated list of allowed CORS origins (e.g., https://pricecompare.com)',
+    critical: true,
+  },
 ];
 
 const OPTIONAL_ENV_VARS: RequiredEnvVar[] = [
-  {
-    name: 'REDIS_URL',
-    description: 'Redis connection URL (optional in development, REQUIRED in production)',
-    critical: false,
-  },
+  // NOTE: REDIS_URL is NOT listed here - it's in PRODUCTION_REQUIRED_ENV_VARS
+  // In development, Redis is optional (app uses in-memory fallback with warnings)
+  // In production, Redis is mandatory (validated separately above)
   {
     name: 'DISCOURSE_URL',
     description: 'Discourse forum URL',
@@ -100,6 +113,42 @@ function validateSecretStrength(name: string, value: string): string[] {
     if (value.toLowerCase().includes(weak)) {
       errors.push(`${name} contains weak/default pattern: "${weak}"`);
     }
+  }
+
+  return errors;
+}
+
+/**
+ * Validates that a URL meets production requirements
+ * - Must be a valid URL
+ * - Must use HTTPS (not HTTP)
+ * - Must not be localhost
+ */
+function validateProductionUrl(name: string, value: string): string[] {
+  const errors: string[] = [];
+
+  // Check if it's a valid URL
+  try {
+    const url = new URL(value);
+
+    // Must use HTTPS in production
+    if (url.protocol !== 'https:') {
+      errors.push(
+        `${name} must use HTTPS in production (got: ${url.protocol}//). ` +
+          'HTTP is insecure and should never be used in production.'
+      );
+    }
+
+    // Must not be localhost
+    const hostname = url.hostname.toLowerCase();
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+      errors.push(
+        `${name} cannot be localhost in production (got: ${hostname}). ` +
+          'Set this to your actual production domain.'
+      );
+    }
+  } catch {
+    errors.push(`${name} is not a valid URL (got: ${value})`);
   }
 
   return errors;
@@ -193,15 +242,65 @@ export function validateEnvironment(): void {
         const message = `❌ CRITICAL: ${envVar.name} is not set (${envVar.description})`;
         errors.push(message);
         log.error(message);
-        log.error('\n💡 PRODUCTION REQUIREMENT: Redis is mandatory in production for:');
-        log.error('   - Distributed rate limiting across multiple server instances');
-        log.error('   - Session storage and persistence');
-        log.error('   - Account lockout tracking');
-        log.error('   - Caching and performance optimization');
-        log.error('   - Job queue coordination');
-        log.error('\n   Set REDIS_URL in your environment: redis://hostname:6379');
+
+        // Provide specific guidance based on variable type
+        if (envVar.name === 'REDIS_URL') {
+          log.error('\n💡 PRODUCTION REQUIREMENT: Redis is mandatory in production for:');
+          log.error('   - Distributed rate limiting across multiple server instances');
+          log.error('   - Session storage and persistence');
+          log.error('   - Account lockout tracking');
+          log.error('   - Caching and performance optimization');
+          log.error('   - Job queue coordination');
+          log.error('\n   Set REDIS_URL in your environment: redis://hostname:6379');
+        } else if (envVar.name === 'APP_URL') {
+          log.error('\n💡 PRODUCTION REQUIREMENT: APP_URL is used in:');
+          log.error('   - Password reset email links');
+          log.error('   - Notification email links');
+          log.error('   - Any user-facing URLs in emails');
+          log.error('\n   Example: APP_URL=https://pricecompare.com');
+        } else if (envVar.name === 'CLIENT_URL') {
+          log.error('\n💡 PRODUCTION REQUIREMENT: CLIENT_URL is used for:');
+          log.error('   - WebSocket CORS origin validation');
+          log.error('   - Real-time notification delivery');
+          log.error('\n   Example: CLIENT_URL=https://pricecompare.com');
+        } else if (envVar.name === 'ALLOWED_ORIGINS') {
+          log.error('\n💡 PRODUCTION REQUIREMENT: ALLOWED_ORIGINS is used for:');
+          log.error('   - CORS policy configuration');
+          log.error('   - Cross-origin request validation');
+          log.error('\n   Example: ALLOWED_ORIGINS=https://pricecompare.com,https://www.pricecompare.com');
+        }
       } else {
-        log.info(`  ✅ ${envVar.name} is set (production requirement)`);
+        // Validate URL format for URL-type variables
+        if (envVar.name === 'APP_URL' || envVar.name === 'CLIENT_URL') {
+          const urlErrors = validateProductionUrl(envVar.name, value);
+          if (urlErrors.length > 0) {
+            log.error(`\n❌ SECURITY: Invalid URL for ${envVar.name}:`);
+            urlErrors.forEach((e) => log.error(`  ${e}`));
+            errors.push(...urlErrors);
+          } else {
+            log.info(`  ✅ ${envVar.name} is set (production requirement)`);
+          }
+        } else if (envVar.name === 'ALLOWED_ORIGINS') {
+          // Validate each origin in the comma-separated list
+          const origins = value.split(',').map((o) => o.trim());
+          let allOriginsValid = true;
+
+          for (const origin of origins) {
+            const originErrors = validateProductionUrl(`${envVar.name} entry "${origin}"`, origin);
+            if (originErrors.length > 0) {
+              log.error(`\n❌ SECURITY: Invalid origin in ${envVar.name}:`);
+              originErrors.forEach((e) => log.error(`  ${e}`));
+              errors.push(...originErrors);
+              allOriginsValid = false;
+            }
+          }
+
+          if (allOriginsValid) {
+            log.info(`  ✅ ${envVar.name} is set with ${origins.length} origin(s) (production requirement)`);
+          }
+        } else {
+          log.info(`  ✅ ${envVar.name} is set (production requirement)`);
+        }
       }
     }
   }
