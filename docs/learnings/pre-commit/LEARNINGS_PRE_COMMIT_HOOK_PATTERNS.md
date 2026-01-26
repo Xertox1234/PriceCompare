@@ -1,18 +1,183 @@
 # Pre-Commit Hook Patterns and Solutions
 
 **Created:** 2025-12-03
+**Last Updated:** 2026-01-26
 **Context:** Learned while committing batch insert optimization (TODO #010)
-**Related:** `.git/hooks/pre-commit`, `docs/04_SECURITY_PATTERNS.md`
+**Related:** `.git/hooks/pre-commit`, `.claude/hooks.json`, `docs/04_SECURITY_PATTERNS.md`
 
 ## Overview
 
 The pre-commit hook enforces code quality and security standards by scanning staged changes for common anti-patterns. This document codifies how to work **with** the hook rather than fighting it.
 
+**CRITICAL UPDATE (2026-01-26):** This project has **TWO independent pre-commit systems** that both must pass. Understanding which system is blocking your commit is essential for debugging.
+
+## Dual Pre-Commit System Architecture
+
+### Pattern: Two Independent Pre-Commit Enforcement Layers
+
+**Context:** When commits are blocked but direct script execution passes (e.g., `npm run security:check` succeeds but commit fails), you're likely hitting the second enforcement layer.
+
+**Problem:** Developers may not realize there are TWO separate systems checking their code, leading to confusion when one passes but the commit still fails.
+
+**Architecture:**
+
+#### 1. Husky Bash Hook (`.husky/pre-commit`)
+
+**Location:** `.husky/pre-commit`
+**Trigger:** Every `git commit`
+**Execution:** Shell scripts via npm scripts
+
+**Output Format:**
+```bash
+╔════════════════════════════════════════════════════════════════╗
+║                    TYPE CHECKING                               ║
+╚════════════════════════════════════════════════════════════════╝
+```
+
+**Scripts Run:**
+- `npm run type-check` - TypeScript compiler errors
+- `npx lint-staged` - ESLint + Prettier on staged files
+- `npm run security:check` - Bash security scanner
+
+**Security Detection:** `scripts/security-checks.sh`
+```bash
+# Line 253-277: passwordHash detection
+PW_EXPOSURE=$(grep -rn "passwordHash:" server/ --include="*.ts" 2>/dev/null | \
+  grep -v "SECURITY:" | \
+  grep -v "// " | \
+  grep -v "__tests__" | \
+  grep -v "\.test\." | \      # ← EXCLUDES test files
+  grep -v "interface " | \
+  grep -v "type " | \
+  grep -v ": string" | \
+  grep -v "scripts/" || true)
+```
+
+**Key Feature:** Test files (`.test.ts`) are EXCLUDED from passwordHash detection.
+
+#### 2. Claude Code AI Hook (`.claude/hooks.json`)
+
+**Location:** `.claude/hooks.json`
+**Trigger:** Every `git commit` (via Claude Code CLI integration)
+**Execution:** AI agent `code-review-specialist`
+
+**Output Format:**
+```bash
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+▶ Check name
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+**Agent:** `.claude/agents/code-review-specialist.md`
+**Detection Logic:** AI-powered pattern recognition (lines 2981+)
+
+**Security Detection:**
+```markdown
+**BLOCKERS (11 total) - Commit fails:**
+1. TypeScript errors
+2. ESLint errors
+3. passwordHash exposure
+```
+
+**Key Feature:** Does NOT exclude test files - applies SAME standards to ALL TypeScript files.
+
+### Diagnostic Pattern: Output Format Identification
+
+When a commit is blocked, check the terminal output format:
+
+| Output Format | System | Action |
+|---------------|--------|--------|
+| `╔════` box borders | Bash (`scripts/security-checks.sh`) | Check bash script logic, add `// SECURITY:` markers |
+| `━━━━━━` with `▶` bullets | Claude Code AI (`code-review-specialist`) | Add `// SECURITY:` markers (test files included) |
+
+**Example Debug Session:**
+
+```bash
+$ git commit -m "fix: update test fixtures"
+
+# Output shows:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+▶ Security Check: passwordHash exposure
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# Diagnosis: Claude Code AI agent is blocking
+# Solution: Add // SECURITY: marker even in test files
+```
+
+### Detection Logic Comparison
+
+| Aspect | Bash Hook | Claude Code AI |
+|--------|-----------|----------------|
+| **Test File Exclusion** | YES (`.test.` excluded) | NO (all files checked) |
+| **passwordHash Detection** | Line-by-line grep | Pattern recognition + context |
+| **Bypass Marker** | `// SECURITY:` inline comment | `// SECURITY:` inline comment |
+| **Execution** | Shell script | AI agent via Claude CLI |
+| **Configuration** | `.husky/pre-commit` + `scripts/security-checks.sh` | `.claude/hooks.json` + `.claude/agents/code-review-specialist.md` |
+
+### Rationale
+
+**Why Two Systems?**
+
+1. **Defense in Depth:** Bash catches obvious patterns, AI catches complex/contextual issues
+2. **Complementary Coverage:** Bash is fast/deterministic, AI understands intent
+3. **Migration Safety:** Bash hook existed first, AI layer added later for enhanced detection
+4. **Different Strengths:**
+   - Bash: Fast, predictable, easy to bypass for exceptions (test file exclusions)
+   - AI: Context-aware, catches subtle issues, harder to game
+
+**Consequence:** Both systems must pass for commit to succeed. A fix that passes Bash may still fail AI review.
+
+### Debugging Workflow
+
+When commit is blocked:
+
+```mermaid
+graph TD
+    A[Commit Blocked] --> B{Check Output Format}
+    B -->|╔════| C[Bash Hook]
+    B -->|━━━━━━ with ▶| D[Claude AI Hook]
+    C --> E[Check scripts/security-checks.sh]
+    D --> F[Check .claude/agents/code-review-specialist.md]
+    E --> G{Test file?}
+    G -->|Yes| H[Add // SECURITY: marker anyway]
+    G -->|No| I[Fix actual issue]
+    F --> J[Add // SECURITY: marker]
+    H --> K[Retry Commit]
+    I --> K
+    J --> K
+```
+
+**Steps:**
+
+1. **Identify blocker** via output format (box vs bullets)
+2. **Check which system** reported the issue
+3. **Apply appropriate fix:**
+   - **Bash hook:** May pass for test files, but AI won't
+   - **AI hook:** Requires `// SECURITY:` marker in ALL files (including tests)
+4. **Retry commit** - both systems must pass
+
+**Related Patterns:**
+- [Security Comment Patterns](#security-comment-patterns) - How to properly mark test fixtures
+- [Pre-Commit Hook Warning vs Blocker Classification](#pre-commit-hook-warning-vs-blocker-classification) - What blocks commits
+
+*Source: Debugging session 2026-01-26 (test fixture passwordHash blocking)*
+*Added: 2026-01-26*
+
+---
+
 ## Security Comment Patterns
 
-### Pattern: Inline Security Markers
+### Pattern: Inline Security Markers (Works for BOTH Hook Systems)
 
-The hook detects security-sensitive code (like `passwordHash`) but **only recognizes exceptions when the marker is on the same line**.
+**Context:** Both the Bash hook and Claude Code AI hook detect security-sensitive code (like `passwordHash`), but **only recognize exceptions when the marker is on the same line**.
+
+**Critical:** This pattern works for BOTH enforcement systems. Always use inline `// SECURITY:` comments, even in test files.
+
+**Established Marker Styles in Codebase:**
+- `// SECURITY: Test data only`
+- `// SECURITY: Test data - intentional use for database record`
+- `// SECURITY: Test fixture - intentional for user creation`
+- `// SECURITY: Test fixture credentials, not real secrets`
 
 #### ❌ WRONG - Separate Line Comment (Blocked by Hook)
 
@@ -390,6 +555,156 @@ The pre-commit hook mirrors CI/CD checks:
 2. **CI (GitHub Actions):** Comprehensive checks, blocks PR merges
 3. **Both enforce same standards** - no surprises in CI
 
+## Debugging Pre-Commit Failures: Complete Workflow
+
+### Pattern: When Commit Blocks but Direct Script Passes
+
+**Context:** You run `npm run security:check` and it passes, but `git commit` still fails. This indicates the Claude Code AI hook is blocking, not the Bash hook.
+
+**Problem:** Developers waste time debugging the wrong system because they don't recognize which enforcement layer is active.
+
+**Complete Diagnostic Workflow:**
+
+```bash
+# Step 1: Attempt commit
+$ git commit -m "fix: update test fixtures"
+# ❌ Commit blocked with output...
+
+# Step 2: Check output format to identify blocker
+# Look for:
+# - ╔════ (Bash hook) OR
+# - ━━━━━━ with ▶ (Claude AI hook)
+
+# Step 3: If Bash hook failed, test directly
+$ npm run security:check
+# If this passes but commit failed, proceed to Step 4
+
+# Step 4: Identify which file/line is blocking
+# Check git diff for staged changes
+$ git diff --cached
+
+# Step 5: Check which system's detection logic applies
+```
+
+**Decision Tree:**
+
+```
+Commit Blocked
+    │
+    ├─→ Output: ╔════ (Box borders)
+    │       │
+    │       └─→ Bash Hook (.husky/pre-commit)
+    │              │
+    │              ├─→ Test file (.test.ts)?
+    │              │       │
+    │              │       ├─→ YES: Should pass (test files excluded)
+    │              │       │       └─→ Add // SECURITY: marker anyway (for AI hook)
+    │              │       │
+    │              │       └─→ NO: Fix actual issue or add marker
+    │              │
+    │              └─→ Run: npm run security:check (to verify fix)
+    │
+    └─→ Output: ━━━━━━ with ▶ (Bullets)
+            │
+            └─→ Claude AI Hook (.claude/hooks.json)
+                   │
+                   ├─→ Applies to ALL files (including tests)
+                   ├─→ Add // SECURITY: inline marker
+                   └─→ No direct test script available
+```
+
+### Example: Real Debugging Session
+
+**Scenario:** Test file with `passwordHash` blocks commit, but `npm run security:check` passes.
+
+```bash
+# 1. Attempt commit
+$ git commit -m "test: add user fixture"
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+▶ Security Check: passwordHash exposure
+   File: server/__tests__/auth.test.ts
+   Line 42: passwordHash: hashedPassword,
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# 2. Diagnosis: ━━━━━━ format = Claude AI hook
+# 3. Test bash hook
+$ npm run security:check
+✅ Security checks passed
+# Confirms: Bash hook excludes test files, AI hook does not
+
+# 4. Solution: Add inline marker (even in test file)
+# Edit server/__tests__/auth.test.ts line 42:
+passwordHash: hashedPassword, // SECURITY: Test fixture - intentional for user creation
+
+# 5. Retry commit
+$ git commit -m "test: add user fixture"
+✅ Commit successful
+```
+
+### Cheat Sheet: Which System is Blocking?
+
+| Symptom | Blocker | Configuration File | Fix Location |
+|---------|---------|-------------------|--------------|
+| Box borders (`╔════`) | Bash hook | `.husky/pre-commit` | `scripts/security-checks.sh` |
+| Bullets (`▶`) | Claude AI | `.claude/hooks.json` | `.claude/agents/code-review-specialist.md` |
+| `npm run security:check` passes | Claude AI (only) | `.claude/hooks.json` | Add `// SECURITY:` markers |
+| Both pass, commit fails | Lint-staged (ESLint) | `.husky/pre-commit` | Fix ESLint errors |
+
+### Quick Fixes by Issue Type
+
+| Issue | Bash Hook | Claude AI Hook | Universal Fix |
+|-------|-----------|----------------|---------------|
+| **passwordHash in test file** | Passes (excluded) | Fails (included) | Add `// SECURITY:` inline marker |
+| **passwordHash in production** | Fails | Fails | Fix: Use explicit field selection |
+| **ESLint error** | Fails (via lint-staged) | Fails | Fix: Resolve ESLint issue |
+| **TypeScript error** | Fails (via type-check) | Fails | Fix: Resolve TypeScript issue |
+| **Unused variable** | Fails (ESLint) | Fails | Remove or prefix with `_` |
+
+### Testing Your Fix
+
+```bash
+# Test Bash hook only
+$ npm run security:check
+$ npm run type-check
+$ npx lint-staged
+
+# Test full commit flow (both hooks)
+$ git commit -m "test message"
+
+# If still blocked, check which output format appears
+```
+
+### Common Gotchas
+
+1. **"I added `// SECURITY:` on previous line"**
+   - ❌ Won't work - both hooks use line-by-line grep
+   - ✅ Must be inline: `passwordHash, // SECURITY: ...`
+
+2. **"Bash script passes but commit fails"**
+   - Diagnosis: Claude AI hook is blocking
+   - Solution: Check for AI-specific patterns (test file inclusion)
+
+3. **"I'm in a test file, why is it blocked?"**
+   - Bash hook: Excludes test files (`.test.` pattern)
+   - AI hook: Does NOT exclude test files
+   - Solution: Add `// SECURITY:` marker in all files
+
+4. **"Hook says passwordHash, but I don't see it"**
+   - Check for: `passwordHash:`, `passwordHash,`, `passwordHash }`
+   - Variations: Property names, type definitions, comments
+   - Use: `git diff --cached | grep -i passwordHash` to find
+
+### Related Patterns
+
+- [Dual Pre-Commit System Architecture](#dual-pre-commit-system-architecture) - System overview
+- [Security Comment Patterns](#security-comment-patterns) - Proper marker usage
+- [Pre-Commit Hook Warning vs Blocker Classification](#pre-commit-hook-warning-vs-blocker-classification) - Severity levels
+
+*Source: Debugging session 2026-01-26 (test fixture passwordHash blocking)*
+*Added: 2026-01-26*
+
+---
+
 ## Common Questions
 
 ### Q: Why does the hook check every commit?
@@ -463,12 +778,15 @@ passwordHash: 'hash', // SECURITY: Test data only, never exposed in queries
 
 ## Key Takeaways
 
-1. **Inline security markers** - `SECURITY:` must be on same line as sensitive code
-2. **Remove unused variables** - Don't declare if you don't use, or prefix with `_`
-3. **Hook output is helpful** - Read the guidance, it shows exact fixes
-4. **Test files = production files** - Same quality standards apply
-5. **Never bypass casually** - Bypassing creates technical debt for the team
-6. **Fix during development** - Following patterns avoids hook failures entirely
+1. **TWO independent systems** - Bash hook (.husky) + Claude AI hook (.claude) both must pass
+2. **Output format matters** - Box borders (╔════) = Bash, Bullets (▶) = Claude AI
+3. **Test files treated differently** - Bash excludes `.test.` files, AI does not
+4. **Inline security markers** - `SECURITY:` must be on same line as sensitive code (works for both systems)
+5. **Remove unused variables** - Don't declare if you don't use, or prefix with `_`
+6. **Hook output is helpful** - Read the guidance, it shows exact fixes
+7. **Debug systematically** - Identify which system is blocking before fixing
+8. **Never bypass casually** - Bypassing creates technical debt for the team
+9. **Fix during development** - Following patterns avoids hook failures entirely
 
 ---
 
