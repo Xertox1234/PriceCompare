@@ -254,10 +254,17 @@ jobs:
             }
 
       - name: Send Slack notification (if configured)
-        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        # Note: secrets can't be tested directly in 'if' conditions
+        # The step will fail silently if SLACK_WEBHOOK_URL is not set
+        continue-on-error: true
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
+          # Exit early if webhook URL is not configured
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "Slack webhook not configured, skipping notification"
+            exit 0
+          fi
           curl -X POST "$SLACK_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
             -d '{
