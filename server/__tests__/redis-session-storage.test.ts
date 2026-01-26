@@ -40,7 +40,8 @@ describe('Redis Session Storage Integration', () => {
         resave: false,
         saveUninitialized: false,
         cookie: {
-          secure: false, // Allow non-HTTPS for testing
+          // Use secure cookies in production, not in test
+          secure: process.env.NODE_ENV === 'production',
           httpOnly: true,
           sameSite: 'lax',
           maxAge: 24 * 60 * 60 * 1000, // 24 hours

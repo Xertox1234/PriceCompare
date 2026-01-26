@@ -38,7 +38,8 @@ describe('CSRF Protection Middleware', () => {
         saveUninitialized: true, // Create session for token generation
         cookie: {
           httpOnly: true,
-          secure: false,
+          // Use secure cookies in production, not in test
+          secure: process.env.NODE_ENV === 'production',
           maxAge: 24 * 60 * 60 * 1000,
         },
       })

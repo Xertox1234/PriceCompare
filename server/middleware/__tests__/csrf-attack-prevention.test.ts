@@ -118,7 +118,10 @@ describe('CSRF Attack Prevention (Security Tests)', () => {
         secret: 'test-secret',
         resave: false,
         saveUninitialized: false,
-        cookie: { secure: false },
+        cookie: {
+          // Use secure cookies in production, not in test
+          secure: process.env.NODE_ENV === 'production',
+        },
       })
     );
 

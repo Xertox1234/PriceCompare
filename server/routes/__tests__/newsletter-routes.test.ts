@@ -78,7 +78,8 @@ describe('Newsletter Routes - Integration Tests', () => {
         saveUninitialized: false,
         cookie: {
           httpOnly: true,
-          secure: false,
+          // Use secure cookies in production, not in test
+          secure: process.env.NODE_ENV === 'production',
           maxAge: 24 * 60 * 60 * 1000,
         },
       })

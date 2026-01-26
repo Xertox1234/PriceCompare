@@ -15,6 +15,7 @@ import { describe, test, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import request from 'supertest';
 import express, { type Express } from 'express';
 import session from 'express-session';
+import { csrfProtection } from '../../middleware/security';
 import { storage } from '../../storage';
 import { hashPassword, passport } from '../../auth';
 import type { SafeUser } from '../../storage/types';
@@ -65,8 +66,15 @@ function createTestApp(): Express {
       secret: 'test-session-secret-min-32-chars-long',
       resave: false,
       saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        // Use secure cookies in production, not in test
+        secure: process.env.NODE_ENV === 'production',
+      },
     })
   );
+  // Apply CSRF protection middleware (mocked in tests)
+  app.use(csrfProtection);
   app.use(passport.initialize());
   app.use(passport.session());
 

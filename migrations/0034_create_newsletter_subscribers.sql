@@ -13,11 +13,11 @@ CREATE TABLE IF NOT EXISTS newsletter_subscribers (
   id SERIAL PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
   is_active BOOLEAN NOT NULL DEFAULT true,
-  subscribed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  subscribed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   source VARCHAR(50),  -- Track where they subscribed from (footer, modal, blog, etc.)
   user_id INTEGER,     -- Optional FK to users table for registered users
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 
   -- Foreign key to users table (nullable - subscriber might not be registered)
   CONSTRAINT fk_newsletter_subscribers_user
