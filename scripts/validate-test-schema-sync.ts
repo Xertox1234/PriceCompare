@@ -77,14 +77,31 @@ function extractTruncateTableNames(helpersPath: string): string[] {
   try {
     const content = readFileSync(helpersPath, 'utf-8');
 
-    // Find TRUNCATE TABLE block
+    // First, try to match the new PL/pgSQL array-based approach:
+    // table_list TEXT[] := ARRAY['table1', 'table2', ...]
+    const arrayMatch = content.match(/table_list\s+TEXT\[\]\s*:=\s*ARRAY\[([\s\S]+?)\];/);
+
+    if (arrayMatch) {
+      // Extract table names from ARRAY[...] format
+      const tableList = arrayMatch[1];
+      // Match quoted strings: 'table_name'
+      const tableRegex = /'([^']+)'/g;
+      const tables: string[] = [];
+      let match;
+      while ((match = tableRegex.exec(tableList)) !== null) {
+        tables.push(match[1]);
+      }
+      return tables.sort();
+    }
+
+    // Fallback: Try old TRUNCATE TABLE block format
     const truncateMatch = content.match(
       /TRUNCATE TABLE\s+([\s\S]+?)\s+RESTART IDENTITY CASCADE/
     );
 
     if (!truncateMatch) {
       console.error(
-        `${colors.red}Error: Could not find TRUNCATE TABLE statement in ${helpersPath}${colors.reset}`
+        `${colors.red}Error: Could not find table_list ARRAY or TRUNCATE TABLE statement in ${helpersPath}${colors.reset}`
       );
       process.exit(2);
     }
