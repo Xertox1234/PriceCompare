@@ -62,7 +62,7 @@ SELECT
 FROM users
 WHERE id NOT IN (SELECT user_id FROM watch_lists WHERE is_default = true);
 
--- Assign existing watches to users' default watch lists
+-- Assign existing watches to user default watch lists
 UPDATE product_watches pw
 SET watch_list_id = (
   SELECT id FROM watch_lists wl

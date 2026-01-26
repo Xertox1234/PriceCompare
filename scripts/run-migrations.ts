@@ -22,9 +22,31 @@ function splitSqlStatements(sql: string): string[] {
 
   let inSingleQuote = false;
   let dollarTag: string | null = null;
+  let inLineComment = false;
 
   for (let i = 0; i < sql.length; i++) {
     const ch = sql[i];
+
+    // Handle line comments (-- to end of line)
+    // Single quotes and dollar quotes inside comments are NOT string delimiters
+    if (!inSingleQuote && !dollarTag && !inLineComment && ch === '-' && sql[i + 1] === '-') {
+      inLineComment = true;
+      current += ch;
+      continue;
+    }
+
+    // End of line comment
+    if (inLineComment && (ch === '\n' || ch === '\r')) {
+      inLineComment = false;
+      current += ch;
+      continue;
+    }
+
+    // Skip quote handling inside line comments
+    if (inLineComment) {
+      current += ch;
+      continue;
+    }
 
     // Toggle single-quote strings, respecting escaped quotes ('')
     if (!dollarTag && ch === "'") {
