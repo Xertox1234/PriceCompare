@@ -726,7 +726,12 @@ describe('Newsletter Routes - Integration Tests', () => {
         .limit(1);
 
       expect(updated.updatedAt).not.toEqual(original.updatedAt);
-      expect(updated.updatedAt! > original.updatedAt!).toBe(true);
+      // Both timestamps verified to exist - safe comparison
+      expect(updated.updatedAt).toBeDefined();
+      expect(original.updatedAt).toBeDefined();
+      expect(new Date(updated.updatedAt as Date).getTime()).toBeGreaterThan(
+        new Date(original.updatedAt as Date).getTime()
+      );
     });
 
     it('should preserve subscribedAt timestamp on reactivation', async () => {
