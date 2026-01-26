@@ -25,104 +25,172 @@ const JOB_OPTIONS = {
   removeOnFail: 1000, // Keep last 1000 failed jobs for analysis
 } as const;
 
-// Create Bull queue for price snapshots with default retry configuration
-export const priceSnapshotQueue =
-  typeof redisConfig === 'string'
-    ? new Queue('price-snapshots', redisConfig, {
-        defaultJobOptions: JOB_OPTIONS,
-      })
-    : new Queue('price-snapshots', {
-        redis: redisConfig,
-        defaultJobOptions: JOB_OPTIONS,
-      });
+// LAZY INITIALIZATION: Queue is only created when first accessed
+// This prevents the Bull queue from connecting to Redis at module import time,
+// which would block the server startup if Redis is not yet ready.
+let _priceSnapshotQueue: Queue.Queue | null = null;
+let _queueInitialized = false;
 
-// Process price snapshot jobs with explicit concurrency limit
-// Concurrency of 5 balances throughput with resource usage
-void priceSnapshotQueue.process(5, async (job) => {
-  logger.info(`[PriceSnapshotQueue] Processing job ${job.id} at ${new Date().toISOString()}`);
-
-  try {
-    const count = await priceSnapshotService.snapshotAllPrices();
-    logger.info(`[PriceSnapshotQueue] Successfully snapshotted ${count} prices`);
-
-    return { success: true, count };
-  } catch (error) {
-    logger.error('[PriceSnapshotQueue] Error processing snapshot job:', {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    throw error;
+/**
+ * Get the price snapshot queue (lazy initialization)
+ * The queue is created on first access, not at module load time.
+ */
+function getPriceSnapshotQueue(): Queue.Queue {
+  if (!_priceSnapshotQueue) {
+    _priceSnapshotQueue =
+      typeof redisConfig === 'string'
+        ? new Queue('price-snapshots', redisConfig, {
+            defaultJobOptions: JOB_OPTIONS,
+          })
+        : new Queue('price-snapshots', {
+            redis: redisConfig,
+            defaultJobOptions: JOB_OPTIONS,
+          });
   }
-});
+  return _priceSnapshotQueue;
+}
 
-// Handle job completion
-priceSnapshotQueue.on('completed', (job, result: unknown) => {
-  // Type guard instead of unsafe assertion
-  let itemsProcessed = 0;
-
-  if (typeof result === 'object' && result !== null && 'count' in result) {
-    const data = result as Record<string, unknown>;
-    if (typeof data.count === 'number') {
-      itemsProcessed = data.count;
+/**
+ * Legacy export for backward compatibility - provides lazy access to the queue
+ * The queue is not created until one of these methods is called.
+ */
+export const priceSnapshotQueue = {
+  get process() {
+    return getPriceSnapshotQueue().process.bind(getPriceSnapshotQueue());
+  },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  add: async (data: any, opts?: any) => {
+    return getPriceSnapshotQueue().add(data, opts);
+  },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  on: (event: string, callback: any) => {
+    return getPriceSnapshotQueue().on(event, callback);
+  },
+  close: async () => {
+    if (_priceSnapshotQueue) {
+      return _priceSnapshotQueue.close();
     }
-  }
+  },
+  getWaitingCount: async () => {
+    return getPriceSnapshotQueue().getWaitingCount();
+  },
+  getActiveCount: async () => {
+    return getPriceSnapshotQueue().getActiveCount();
+  },
+  getCompletedCount: async () => {
+    return getPriceSnapshotQueue().getCompletedCount();
+  },
+  getFailedCount: async () => {
+    return getPriceSnapshotQueue().getFailedCount();
+  },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  clean: async (grace: number, type?: any) => {
+    return getPriceSnapshotQueue().clean(grace, type);
+  },
+};
 
-  // Extract type safely with progressive narrowing
-  let jobType: string | undefined;
-  if (job.data && typeof job.data === 'object' && 'type' in job.data) {
-    const data = job.data as Record<string, unknown>;
-    jobType = typeof data.type === 'string' ? data.type : String(data.type);
-  }
+/**
+ * Setup queue event handlers and processor
+ * Must be called once after queue is ready
+ */
+function setupQueueHandlers() {
+  if (_queueInitialized) return;
+  
+  const queue = getPriceSnapshotQueue();
+  
+  // Process price snapshot jobs with explicit concurrency limit
+  // Concurrency of 5 balances throughput with resource usage
+  void queue.process(5, async (job) => {
+    logger.info(`[PriceSnapshotQueue] Processing job ${job.id} at ${new Date().toISOString()}`);
 
-  logger.info('[PriceSnapshotQueue] Job completed successfully', {
-    jobId: job.id,
-    jobName: job.name,
-    type: jobType,
-    itemsProcessed,
-    timestamp: new Date().toISOString(),
+    try {
+      const count = await priceSnapshotService.snapshotAllPrices();
+      logger.info(`[PriceSnapshotQueue] Successfully snapshotted ${count} prices`);
+
+      return { success: true, count };
+    } catch (error) {
+      logger.error('[PriceSnapshotQueue] Error processing snapshot job:', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   });
-});
 
-// Handle job failures
-priceSnapshotQueue.on('failed', (job, err: unknown) => {
-  const errorMessage = err instanceof Error ? err.message : String(err);
+  // Handle job completion
+  queue.on('completed', (job, result: unknown) => {
+    // Type guard instead of unsafe assertion
+    let itemsProcessed = 0;
 
-  // Classify error for alerting and debugging
-  const error = err instanceof Error ? err : new Error(String(err));
-  const isRetryableFailure = isRetryableError(error);
-  const isNonRetryableFailure = isNonRetryableError(error);
-  const retriesExhausted = job?.attemptsMade === job?.opts.attempts;
+    if (typeof result === 'object' && result !== null && 'count' in result) {
+      const data = result as Record<string, unknown>;
+      if (typeof data.count === 'number') {
+        itemsProcessed = data.count;
+      }
+    }
 
-  // Extract type safely with progressive narrowing
-  let jobType: string | undefined;
-  if (job?.data && typeof job.data === 'object' && 'type' in job.data) {
-    const data = job.data as Record<string, unknown>;
-    jobType = typeof data.type === 'string' ? data.type : String(data.type);
-  }
+    // Extract type safely with progressive narrowing
+    let jobType: string | undefined;
+    if (job.data && typeof job.data === 'object' && 'type' in job.data) {
+      const data = job.data as Record<string, unknown>;
+      jobType = typeof data.type === 'string' ? data.type : String(data.type);
+    }
 
-  logger.error('[PriceSnapshotQueue] Job permanently failed', {
-    jobId: job?.id,
-    jobName: job?.name,
-    type: jobType,
-    attempts: job?.attemptsMade,
-    maxAttempts: job?.opts.attempts,
-    error: errorMessage,
-    errorClassification: isNonRetryableFailure
-      ? 'permanent'
-      : (isRetryableFailure ? 'transient_exhausted' : 'unknown'),
-    failureMode: retriesExhausted ? 'retries_exhausted' : 'initial_failure',
+    logger.info('[PriceSnapshotQueue] Job completed successfully', {
+      jobId: job.id,
+      jobName: job.name,
+      type: jobType,
+      itemsProcessed,
+      timestamp: new Date().toISOString(),
+    });
   });
-});
 
-// Handle job stalling
-priceSnapshotQueue.on('stalled', (job) => {
-  logger.warn(`[PriceSnapshotQueue] Job ${job.id} stalled`);
-});
+  // Handle job failures
+  queue.on('failed', (job, err: unknown) => {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+
+    // Classify error for alerting and debugging
+    const error = err instanceof Error ? err : new Error(String(err));
+    const isRetryableFailure = isRetryableError(error);
+    const isNonRetryableFailure = isNonRetryableError(error);
+    const retriesExhausted = job?.attemptsMade === job?.opts.attempts;
+
+    // Extract type safely with progressive narrowing
+    let jobType: string | undefined;
+    if (job?.data && typeof job.data === 'object' && 'type' in job.data) {
+      const data = job.data as Record<string, unknown>;
+      jobType = typeof data.type === 'string' ? data.type : String(data.type);
+    }
+
+    logger.error('[PriceSnapshotQueue] Job permanently failed', {
+      jobId: job?.id,
+      jobName: job?.name,
+      type: jobType,
+      attempts: job?.attemptsMade,
+      maxAttempts: job?.opts.attempts,
+      error: errorMessage,
+      errorClassification: isNonRetryableFailure
+        ? 'permanent'
+        : (isRetryableFailure ? 'transient_exhausted' : 'unknown'),
+      failureMode: retriesExhausted ? 'retries_exhausted' : 'initial_failure',
+    });
+  });
+
+  // Handle job stalling
+  queue.on('stalled', (job) => {
+    logger.warn(`[PriceSnapshotQueue] Job ${job.id} stalled`);
+  });
+  
+  _queueInitialized = true;
+}
 
 /**
  * Initialize the price snapshot scheduler
  * Runs twice daily: at 8 AM and 8 PM
  */
 export function initializePriceSnapshotScheduler() {
+  // Setup queue handlers first
+  setupQueueHandlers();
+  
   // Schedule price snapshots twice a day
   // Cron format: minute hour * * *
   // "0 8,20 * * *" = At 8:00 AM and 8:00 PM every day
@@ -140,7 +208,7 @@ export function initializePriceSnapshotScheduler() {
           `[PriceSnapshotScheduler] Triggering scheduled price snapshot at ${new Date().toISOString()} (lock acquired)`
         );
 
-        await priceSnapshotQueue.add(
+        await getPriceSnapshotQueue().add(
           {
             type: 'scheduled',
             timestamp: new Date().toISOString(),
@@ -169,7 +237,7 @@ export function initializePriceSnapshotScheduler() {
 export async function triggerManualSnapshot(): Promise<void> {
   logger.info('[PriceSnapshotQueue] Manually triggering price snapshot');
 
-  await priceSnapshotQueue.add(
+  await getPriceSnapshotQueue().add(
     {
       type: 'manual',
       timestamp: new Date().toISOString(),
@@ -185,11 +253,12 @@ export async function triggerManualSnapshot(): Promise<void> {
  * Get queue statistics
  */
 export async function getQueueStats() {
+  const queue = getPriceSnapshotQueue();
   const [waiting, active, completed, failed] = await Promise.all([
-    priceSnapshotQueue.getWaitingCount(),
-    priceSnapshotQueue.getActiveCount(),
-    priceSnapshotQueue.getCompletedCount(),
-    priceSnapshotQueue.getFailedCount(),
+    queue.getWaitingCount(),
+    queue.getActiveCount(),
+    queue.getCompletedCount(),
+    queue.getFailedCount(),
   ]);
 
   return {
@@ -205,10 +274,11 @@ export async function getQueueStats() {
  * Clean up old completed jobs
  */
 export async function cleanupOldJobs() {
+  const queue = getPriceSnapshotQueue();
   // Remove completed jobs older than 24 hours
-  await priceSnapshotQueue.clean(24 * 60 * 60 * 1000, 'completed');
+  await queue.clean(24 * 60 * 60 * 1000, 'completed');
   // Remove failed jobs older than 7 days
-  await priceSnapshotQueue.clean(7 * 24 * 60 * 60 * 1000, 'failed');
+  await queue.clean(7 * 24 * 60 * 60 * 1000, 'failed');
 
   logger.info('[PriceSnapshotQueue] Cleaned up old jobs');
 }
