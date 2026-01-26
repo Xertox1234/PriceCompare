@@ -1,3 +1,6 @@
+// ARCHITECTURE CHANGE APPROVED: TODO_293 Newsletter subscribers table (additive only, follows existing schema pattern)
+// Approved changes: Added newsletterSubscribers table and types
+// Justification: Agent-native accessibility requires table for newsletter subscription (docs/TODO_297_ARCHITECTURE_APPROVAL_NEWSLETTER.md)
 import {
   pgTable,
   text,
@@ -301,6 +304,8 @@ export const users = pgTable('users', {
   daysVisited: integer('days_visited').default(0),
   // User preferences (TODO 258: Agent-Native User Preferences API)
   preferredCountry: varchar('preferred_country', { length: 2 }), // ISO 3166-1 alpha-2 (US, CA). NULL defaults to US.
+  theme: varchar('theme', { length: 10 }).default('system'), // light, dark, system
+  highContrast: boolean('high_contrast').default(false), // High contrast mode for accessibility
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -1569,6 +1574,28 @@ export const userCompareItems = pgTable(
   })
 );
 
+// Newsletter subscribers - email collection for newsletter with unsubscribe support
+export const newsletterSubscribers = pgTable(
+  'newsletter_subscribers',
+  {
+    id: serial('id').primaryKey(),
+    email: text('email').notNull().unique(),
+    isActive: boolean('is_active').notNull().default(true),
+    subscribedAt: timestamp('subscribed_at', { withTimezone: true }).notNull().defaultNow(),
+    source: varchar('source', { length: 50 }), // footer, modal, blog, product_page, etc.
+    userId: integer('user_id').references(() => users.id, { onDelete: 'set null' }), // Optional link to registered users
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    emailIdx: index('idx_newsletter_subscribers_email').on(table.email),
+    isActiveIdx: index('idx_newsletter_subscribers_is_active').on(table.isActive),
+    activeEmailIdx: index('idx_newsletter_subscribers_active_email').on(table.isActive, table.email),
+    subscribedAtIdx: index('idx_newsletter_subscribers_subscribed_at').on(table.subscribedAt),
+    userIdIdx: index('idx_newsletter_subscribers_user_id').on(table.userId),
+  })
+);
+
 // Recently viewed - product view history (max 50 items with FIFO eviction)
 export const userProductViews = pgTable(
   'user_product_views',
@@ -1690,6 +1717,23 @@ export const insertUserProductViewSchema = createInsertSchema(userProductViews).
   viewedAt: true,
 });
 
+// Insert schema for newsletter subscribers (migration 0034)
+export const insertNewsletterSubscriberSchema = createInsertSchema(newsletterSubscribers)
+  .omit({
+    id: true,
+    subscribedAt: true,
+    createdAt: true,
+    updatedAt: true,
+  })
+  .refine(
+    (data) => {
+      // Validate email format (matches database CHECK constraint)
+      const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+      return emailRegex.test(data.email);
+    },
+    { message: 'Invalid email format', path: ['email'] }
+  );
+
 // Type definitions for scraping system
 export type TrendingProduct = typeof trendingProducts.$inferSelect;
 export type SearchQuery = typeof searchQueries.$inferSelect;
@@ -1719,6 +1763,10 @@ export type UserCompareItem = typeof userCompareItems.$inferSelect;
 export type UserProductView = typeof userProductViews.$inferSelect;
 export type InsertUserCompareItem = z.infer<typeof insertUserCompareItemSchema>;
 export type InsertUserProductView = z.infer<typeof insertUserProductViewSchema>;
+
+// Newsletter subscriber types (migration 0034)
+export type NewsletterSubscriber = typeof newsletterSubscribers.$inferSelect;
+export type InsertNewsletterSubscriber = z.infer<typeof insertNewsletterSubscriberSchema>;
 
 // Extended types for compare list and recently viewed (with hydrated products)
 export type UserCompareItemWithProduct = UserCompareItem & {

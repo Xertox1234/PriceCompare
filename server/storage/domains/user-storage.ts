@@ -20,7 +20,9 @@ import {
   products,
   retailers,
   priceAlerts,
+  newsletterSubscribers,
   type User,
+  type NewsletterSubscriber,
 } from '@shared/schema';
 import { BaseStorage } from '../base-storage';
 import type { SafeUser, AdminUser, AdminAnalyticsOverview, UserGrowthData } from '../types';
@@ -128,11 +130,26 @@ export class UserStorage extends BaseStorage {
           id: users.id,
           username: users.username,
           email: users.email,
+          emailHash: users.emailHash,
           role: users.role,
           trustLevel: users.trustLevel,
           isActive: users.isActive,
           isSuspended: users.isSuspended,
+          reputation: users.reputation,
+          avatarUrl: users.avatarUrl,
+          bio: users.bio,
+          location: users.location,
+          website: users.website,
+          lastSeenAt: users.lastSeenAt,
+          postCount: users.postCount,
+          topicCount: users.topicCount,
+          likesGiven: users.likesGiven,
+          likesReceived: users.likesReceived,
+          timeReadPosts: users.timeReadPosts,
+          daysVisited: users.daysVisited,
           preferredCountry: users.preferredCountry, // User preference (TODO 258)
+          theme: users.theme, // Theme preference (TODO 258)
+          highContrast: users.highContrast, // Accessibility preference (TODO 258)
           createdAt: users.createdAt,
           updatedAt: users.updatedAt,
         })
@@ -182,6 +199,8 @@ export class UserStorage extends BaseStorage {
           timeReadPosts: users.timeReadPosts,
           daysVisited: users.daysVisited,
           preferredCountry: users.preferredCountry, // User preference (TODO 258)
+          theme: users.theme, // Theme preference (TODO 258)
+          highContrast: users.highContrast, // Accessibility preference (TODO 258)
           createdAt: users.createdAt,
           updatedAt: users.updatedAt,
         })
@@ -907,22 +926,28 @@ export class UserStorage extends BaseStorage {
   // ============================================================================
 
   /**
-   * Get user account preferences (country preference, etc.)
+   * Get user account preferences (country, theme, accessibility)
    * Returns user's stored account-level preferences for API/agent access
    *
    * NOTE: This is distinct from notification preferences (getUserPreferences in notification-storage.ts).
-   * Account preferences control regional settings, while notification preferences control alerts.
+   * Account preferences control regional settings, theme, and accessibility, while notification preferences control alerts.
    *
    * @param userId - User ID (validated as positive integer)
-   * @returns User account preferences object with preferredCountry
+   * @returns User account preferences object with preferredCountry, theme, highContrast
    */
-  async getUserAccountPreferences(userId: number): Promise<{ preferredCountry: string | null }> {
+  async getUserAccountPreferences(userId: number): Promise<{
+    preferredCountry: string | null;
+    theme: string | null;
+    highContrast: boolean | null;
+  }> {
     try {
       this.validateUserId(userId);
 
       const [result] = await this.db
         .select({
           preferredCountry: users.preferredCountry,
+          theme: users.theme,
+          highContrast: users.highContrast,
         })
         .from(users)
         .where(eq(users.id, userId))
@@ -930,6 +955,8 @@ export class UserStorage extends BaseStorage {
 
       return {
         preferredCountry: result?.preferredCountry ?? null,
+        theme: result?.theme ?? null,
+        highContrast: result?.highContrast ?? null,
       };
     } catch (error) {
       this.handleError(error, 'getUserAccountPreferences');
@@ -948,10 +975,16 @@ export class UserStorage extends BaseStorage {
    * @param userId - User ID (validated as positive integer)
    * @param preferences - Preference fields to update
    * @param preferences.preferredCountry - ISO 3166-1 alpha-2 country code (US, CA) or null to clear
+   * @param preferences.theme - Theme preference (light, dark, system)
+   * @param preferences.highContrast - High contrast mode toggle for accessibility
    */
   async updateUserAccountPreferences(
     userId: number,
-    preferences: { preferredCountry?: string | null }
+    preferences: {
+      preferredCountry?: string | null;
+      theme?: string;
+      highContrast?: boolean;
+    }
   ): Promise<void> {
     try {
       this.validateUserId(userId);
@@ -965,12 +998,39 @@ export class UserStorage extends BaseStorage {
         }
       }
 
+      // Validate theme value
+      if (preferences.theme !== undefined) {
+        const validThemes = ['light', 'dark', 'system'];
+        if (!validThemes.includes(preferences.theme)) {
+          throw new Error(
+            `Invalid theme: ${preferences.theme}. Must be one of: ${validThemes.join(', ')}`
+          );
+        }
+      }
+
+      // Build update object with only provided fields
+      const updates: {
+        preferredCountry?: string | null;
+        theme?: string;
+        highContrast?: boolean;
+        updatedAt: Date;
+      } = {
+        updatedAt: new Date(),
+      };
+
+      if (preferences.preferredCountry !== undefined) {
+        updates.preferredCountry = preferences.preferredCountry;
+      }
+      if (preferences.theme !== undefined) {
+        updates.theme = preferences.theme;
+      }
+      if (preferences.highContrast !== undefined) {
+        updates.highContrast = preferences.highContrast;
+      }
+
       await this.db
         .update(users)
-        .set({
-          preferredCountry: preferences.preferredCountry,
-          updatedAt: new Date(),
-        })
+        .set(updates)
         .where(eq(users.id, userId));
 
       // Invalidate user cache after successful update
@@ -979,6 +1039,371 @@ export class UserStorage extends BaseStorage {
       this.logSuccess('updateUserAccountPreferences', { userId, preferences });
     } catch (error) {
       this.handleError(error, 'updateUserAccountPreferences');
+    }
+  }
+
+  // ============================================================================
+  // Newsletter Operations
+  // ============================================================================
+
+  /**
+   * Validate email format and requirements
+   * @private
+   */
+  private validateEmailFormat(email: string, context: string): void {
+    if (!email || typeof email !== 'string') {
+      throw new Error(`${context}: Email is required`);
+    }
+
+    const trimmedEmail = email.trim();
+    if (trimmedEmail.length === 0) {
+      throw new Error(`${context}: Email cannot be empty`);
+    }
+
+    if (trimmedEmail.length > 255) {
+      throw new Error(`${context}: Email cannot exceed 255 characters`);
+    }
+
+    // Validate email format (matches database CHECK constraint pattern)
+    const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      throw new Error(`${context}: Invalid email format`);
+    }
+  }
+
+  /**
+   * Validate newsletter source field
+   * @private
+   */
+  private validateSource(source: string | null | undefined, context: string): void {
+    if (source !== null && source !== undefined) {
+      if (typeof source !== 'string') {
+        throw new Error(`${context}: Source must be a string`);
+      }
+      if (source.length > 50) {
+        throw new Error(`${context}: Source cannot exceed 50 characters`);
+      }
+    }
+  }
+
+  /**
+   * Subscribe to newsletter atomically (handles both new and reactivation)
+   *
+   * RACE CONDITION PREVENTION: Uses SERIALIZABLE transaction to prevent duplicate
+   * subscriptions when two requests try to subscribe the same email simultaneously.
+   *
+   * The check-then-act pattern (check if exists, then insert/update) is vulnerable
+   * to race conditions. This atomic method wraps all operations in a SERIALIZABLE
+   * transaction, ensuring only one request can complete while others retry.
+   *
+   * BEHAVIOR:
+   * - If email doesn't exist: Creates new subscription (201 Created)
+   * - If email exists and is inactive: Reactivates subscription (200 OK)
+   * - If email exists and is active: Returns alreadyActive=true (409 Conflict)
+   *
+   * UNIQUE CONSTRAINT HANDLING:
+   * PostgreSQL unique constraint violations are handled gracefully by checking
+   * for the specific error code (23505) and converting to alreadyActive response.
+   *
+   * @param email - Email address to subscribe (normalized to lowercase)
+   * @param source - Source of subscription (footer, modal, product_page, etc.)
+   * @param userId - Optional user ID if subscriber is a registered user
+   * @returns Object with subscriber record and status flags
+   */
+  async subscribeToNewsletterAtomic(
+    email: string,
+    source?: string | null,
+    userId?: number | null
+  ): Promise<{ subscriber: NewsletterSubscriber; isReactivation: boolean; alreadyActive: boolean }> {
+    try {
+      // Input validation (defense-in-depth, before transaction)
+      this.validateEmailFormat(email, 'subscribeToNewsletterAtomic');
+      this.validateSource(source, 'subscribeToNewsletterAtomic');
+
+      const normalizedEmail = email.trim().toLowerCase();
+
+      // Execute in SERIALIZABLE transaction to prevent race conditions
+      const result = await retryWithBackoff(
+        async () =>
+          this.db.transaction(
+            async (tx) => {
+              // Check if subscription exists
+              const [existing] = await tx
+                .select()
+                .from(newsletterSubscribers)
+                .where(eq(newsletterSubscribers.email, normalizedEmail))
+                .limit(1);
+
+              // Case 1: Email already active - no operation needed
+              if (existing && existing.isActive) {
+                return { subscriber: existing, isReactivation: false, alreadyActive: true };
+              }
+
+              // Case 2: Email exists but inactive - reactivate
+              if (existing && !existing.isActive) {
+                const updates: {
+                  isActive: boolean;
+                  updatedAt: Date;
+                  source?: string | null;
+                } = {
+                  isActive: true,
+                  updatedAt: new Date(),
+                };
+
+                // Update source if provided
+                if (source !== undefined) {
+                  updates.source = source || null;
+                }
+
+                const [reactivated] = await tx
+                  .update(newsletterSubscribers)
+                  .set(updates)
+                  .where(eq(newsletterSubscribers.email, normalizedEmail))
+                  .returning();
+
+                return { subscriber: reactivated, isReactivation: true, alreadyActive: false };
+              }
+
+              // Case 3: Email doesn't exist - create new subscription
+              const [created] = await tx
+                .insert(newsletterSubscribers)
+                .values({
+                  email: normalizedEmail,
+                  isActive: true,
+                  source: source || null,
+                  userId: userId || null,
+                })
+                .returning();
+
+              return { subscriber: created, isReactivation: false, alreadyActive: false };
+            },
+            {
+              isolationLevel: 'serializable', // Prevent race conditions
+            }
+          ),
+        {
+          maxAttempts: 3,
+          initialDelayMs: 100,
+          isRetryable: isTransientDatabaseError,
+          context: { operation: 'subscribeToNewsletterAtomic', email: normalizedEmail },
+          onRetry: (error, attempt, delayMs) => {
+            logger.warn('[Storage] Retrying newsletter subscription after serialization error', {
+              error: error instanceof Error ? error.message : String(error),
+              attempt,
+              delayMs,
+              email: normalizedEmail,
+            });
+          },
+        }
+      );
+
+      this.logSuccess('subscribeToNewsletterAtomic', {
+        email: normalizedEmail,
+        source,
+        userId,
+        isReactivation: result.isReactivation,
+        alreadyActive: result.alreadyActive,
+      });
+
+      return result;
+    } catch (error) {
+      // Handle unique constraint violations gracefully
+      // PostgreSQL error code 23505: unique_violation
+      if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
+        // Race condition: Another request created the subscription between our check and insert
+        // Retry the operation to get the existing record
+        logger.info('[Storage] Unique constraint violation in newsletter subscription, fetching existing record', {
+          email: email.trim().toLowerCase(),
+        });
+
+        // Fetch the existing record that caused the conflict
+        const [existing] = await this.db
+          .select()
+          .from(newsletterSubscribers)
+          .where(eq(newsletterSubscribers.email, email.trim().toLowerCase()))
+          .limit(1);
+
+        if (existing) {
+          return {
+            subscriber: existing,
+            isReactivation: false,
+            alreadyActive: existing.isActive,
+          };
+        }
+      }
+
+      this.handleError(error, 'subscribeToNewsletterAtomic');
+    }
+  }
+
+  /**
+   * Subscribe an email to the newsletter
+   *
+   * DEPRECATED: Use subscribeToNewsletterAtomic() instead to prevent race conditions.
+   * This method does not handle concurrent subscriptions safely.
+   *
+   * @param email - Email address to subscribe
+   * @param source - Source of subscription (footer, modal, product_page, etc.)
+   * @param userId - Optional user ID if subscriber is a registered user
+   * @returns Newsletter subscriber record
+   */
+  async subscribeToNewsletter(
+    email: string,
+    source?: string | null,
+    userId?: number | null
+  ): Promise<NewsletterSubscriber> {
+    try {
+      // Input validation (defense-in-depth)
+      this.validateEmailFormat(email, 'subscribeToNewsletter');
+      this.validateSource(source, 'subscribeToNewsletter');
+
+      const [subscriber] = await this.db
+        .insert(newsletterSubscribers)
+        .values({
+          email: email.trim().toLowerCase(),
+          isActive: true,
+          source: source || null,
+          userId: userId || null,
+        })
+        .returning();
+
+      this.logSuccess('subscribeToNewsletter', { email, source, userId });
+      return subscriber;
+    } catch (error) {
+      this.handleError(error, 'subscribeToNewsletter');
+    }
+  }
+
+  /**
+   * Unsubscribe an email from the newsletter
+   * Sets is_active = false instead of deletion for audit trail
+   *
+   * @param email - Email address to unsubscribe
+   */
+  async unsubscribeFromNewsletter(email: string): Promise<void> {
+    try {
+      // Input validation (defense-in-depth)
+      this.validateEmailFormat(email, 'unsubscribeFromNewsletter');
+
+      await this.db
+        .update(newsletterSubscribers)
+        .set({
+          isActive: false,
+          updatedAt: new Date(),
+        })
+        .where(eq(newsletterSubscribers.email, email.trim().toLowerCase()));
+
+      this.logSuccess('unsubscribeFromNewsletter', { email });
+    } catch (error) {
+      this.handleError(error, 'unsubscribeFromNewsletter');
+    }
+  }
+
+  /**
+   * Check if an email is actively subscribed to the newsletter
+   *
+   * @param email - Email address to check
+   * @returns true if actively subscribed, false otherwise
+   */
+  async isEmailSubscribed(email: string): Promise<boolean> {
+    try {
+      // Input validation (defense-in-depth)
+      // Return false for invalid email instead of throwing (public status check)
+      try {
+        this.validateEmailFormat(email, 'isEmailSubscribed');
+      } catch {
+        return false;
+      }
+
+      const [subscriber] = await this.db
+        .select({
+          isActive: newsletterSubscribers.isActive,
+        })
+        .from(newsletterSubscribers)
+        .where(
+          and(
+            eq(newsletterSubscribers.email, email.trim().toLowerCase()),
+            eq(newsletterSubscribers.isActive, true)
+          )
+        )
+        .limit(1);
+
+      return subscriber?.isActive ?? false;
+    } catch (error) {
+      this.handleError(error, 'isEmailSubscribed');
+    }
+  }
+
+  /**
+   * Get newsletter subscriber record by email
+   *
+   * @param email - Email address to look up
+   * @returns Subscriber record or null if not found
+   */
+  async getNewsletterSubscriberByEmail(email: string): Promise<NewsletterSubscriber | null> {
+    try {
+      // Input validation (defense-in-depth)
+      // Return null for invalid email instead of throwing (lookup method)
+      try {
+        this.validateEmailFormat(email, 'getNewsletterSubscriberByEmail');
+      } catch {
+        return null;
+      }
+
+      const [subscriber] = await this.db
+        .select()
+        .from(newsletterSubscribers)
+        .where(eq(newsletterSubscribers.email, email.trim().toLowerCase()))
+        .limit(1);
+
+      return subscriber || null;
+    } catch (error) {
+      this.handleError(error, 'getNewsletterSubscriberByEmail');
+    }
+  }
+
+  /**
+   * Reactivate an existing newsletter subscription
+   *
+   * DEPRECATED: This method is used internally by subscribeToNewsletterAtomic().
+   * Use subscribeToNewsletterAtomic() instead for atomic check-then-update logic.
+   *
+   * @param email - Email address to reactivate
+   * @param source - Optional updated source
+   * @returns Updated subscriber record
+   */
+  async reactivateNewsletterSubscription(
+    email: string,
+    source?: string | null
+  ): Promise<NewsletterSubscriber> {
+    try {
+      // Input validation (defense-in-depth)
+      this.validateEmailFormat(email, 'reactivateNewsletterSubscription');
+      this.validateSource(source, 'reactivateNewsletterSubscription');
+
+      const updates: {
+        isActive: boolean;
+        updatedAt: Date;
+        source?: string | null;
+      } = {
+        isActive: true,
+        updatedAt: new Date(),
+      };
+
+      if (source !== undefined) {
+        updates.source = source || null;
+      }
+
+      const [subscriber] = await this.db
+        .update(newsletterSubscribers)
+        .set(updates)
+        .where(eq(newsletterSubscribers.email, email.trim().toLowerCase()))
+        .returning();
+
+      this.logSuccess('reactivateNewsletterSubscription', { email, source });
+      return subscriber;
+    } catch (error) {
+      this.handleError(error, 'reactivateNewsletterSubscription');
     }
   }
 }

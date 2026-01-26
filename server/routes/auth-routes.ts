@@ -773,21 +773,27 @@ export function registerAuthRoutes(app: Express): void {
 
   /**
    * GET /api/user/preferences
-   * Get user preferences including country preference
+   * Get user preferences including country, theme, and accessibility preferences
    *
    * AGENT-NATIVE: Enables agents to read user preferences that were
    * previously only available in localStorage.
    *
-   * Response: { preferredCountry: "US" | "CA" | null }
-   * Default: Returns "US" if no preference is set
+   * Response: {
+   *   preferredCountry: "US" | "CA" | null,
+   *   theme: "light" | "dark" | "system",
+   *   highContrast: boolean
+   * }
+   * Defaults: Returns "US" for country, "system" for theme, false for highContrast if not set
    */
   app.get('/api/user/preferences', withAuth(async (req, res) => {
     try {
       const preferences = await storage.getUserAccountPreferences(req.user.id);
 
-      // Return with default fallback for preferredCountry
+      // Return with default fallbacks (nullish coalescing for semantic correctness)
       sendSuccess(res, {
-        preferredCountry: preferences.preferredCountry || 'US',
+        preferredCountry: preferences.preferredCountry ?? 'US',
+        theme: preferences.theme ?? 'system',
+        highContrast: preferences.highContrast ?? false,
       });
     } catch (error) {
       sendErrorFromException(res, error, 'GetUserPreferences');
@@ -801,7 +807,11 @@ export function registerAuthRoutes(app: Express): void {
    * AGENT-NATIVE: Enables agents to set user preferences that were
    * previously only settable via browser localStorage.
    *
-   * Request body: { preferredCountry?: "US" | "CA" }
+   * Request body: {
+   *   preferredCountry?: "US" | "CA",
+   *   theme?: "light" | "dark" | "system",
+   *   highContrast?: boolean
+   * }
    * CSRF protection required for mutation.
    */
   app.put('/api/user/preferences', csrfProtection, withAuth(async (req, res) => {
@@ -814,6 +824,12 @@ export function registerAuthRoutes(app: Express): void {
           .regex(/^[A-Z]{2}$/, 'Country code must be uppercase ISO 3166-1 alpha-2')
           .optional()
           .nullable(),
+        theme: z
+          .enum(['light', 'dark', 'system'], {
+            message: 'Theme must be one of: light, dark, system',
+          })
+          .optional(),
+        highContrast: z.boolean().optional(),
       });
 
       const parseResult = updatePreferencesSchema.safeParse(req.body);
@@ -822,7 +838,7 @@ export function registerAuthRoutes(app: Express): void {
         return;
       }
 
-      const { preferredCountry } = parseResult.data;
+      const { preferredCountry, theme, highContrast } = parseResult.data;
 
       // Validate against supported countries (uses shared/country-constants.ts)
       if (preferredCountry && !isValidCountryCode(preferredCountry)) {
@@ -831,11 +847,20 @@ export function registerAuthRoutes(app: Express): void {
       }
 
       // Update preferences in storage
-      await storage.updateUserAccountPreferences(req.user.id, { preferredCountry });
+      await storage.updateUserAccountPreferences(req.user.id, {
+        preferredCountry,
+        theme,
+        highContrast,
+      });
 
-      // Return updated preferences
+      // Fetch updated preferences to return
+      const updatedPreferences = await storage.getUserAccountPreferences(req.user.id);
+
+      // Return updated preferences with defaults (nullish coalescing for semantic correctness)
       sendSuccess(res, {
-        preferredCountry: preferredCountry || 'US',
+        preferredCountry: updatedPreferences.preferredCountry ?? 'US',
+        theme: updatedPreferences.theme ?? 'system',
+        highContrast: updatedPreferences.highContrast ?? false,
       });
     } catch (error) {
       sendErrorFromException(res, error, 'UpdateUserPreferences');

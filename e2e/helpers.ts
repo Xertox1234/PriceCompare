@@ -151,7 +151,7 @@ export async function cleanDatabase() {
         'notification_preferences', 'user_reputation', 'trending_products',
         'search_queries', 'agent_sessions', 'wishlists', 'user_badges',
         'scraping_sources', 'forum_topics', 'private_messages',
-        'user_compare_items', 'user_product_views',
+        'user_compare_items', 'user_product_views', 'newsletter_subscribers',
 
         -- Second-level dependencies (depend on first-level)
         'price_history', 'price_alerts', 'product_watches', 'watch_list_shares',

@@ -1,4 +1,7 @@
 /* eslint-disable @typescript-eslint/require-await -- MemStorage implements IStorage interface which requires async methods for production database implementations. In-memory implementations don't need await but must maintain async signatures for interface compliance. See docs/LEARNINGS_ESLINT_PRETTIER_CLEANUP_2025.md */
+// ARCHITECTURE CHANGE APPROVED: TODO_293 Newsletter subscription methods (additive only, follows existing storage pattern)
+// Approved changes: Added newsletter subscription methods to IStorage interface and implementations
+// Justification: Agent-native accessibility requires API for newsletter subscription (docs/TODO_297_ARCHITECTURE_APPROVAL_NEWSLETTER.md)
 import {
   retailers,
   products,
@@ -65,6 +68,7 @@ import {
   type UserProductView,
   type UserCompareItemWithProduct,
   type UserProductViewWithProduct,
+  type NewsletterSubscriber,
 } from '@shared/schema';
 import type {
   WatchListImportData,
@@ -350,8 +354,31 @@ export interface IStorage {
 
   // User Account Preferences (TODO 258: Agent-Native User Preferences API)
   // Note: These are distinct from notification preferences (getUserPreferences/updateUserPreferences)
-  getUserAccountPreferences(userId: number): Promise<{ preferredCountry: string | null }>;
-  updateUserAccountPreferences(userId: number, preferences: { preferredCountry?: string | null }): Promise<void>;
+  getUserAccountPreferences(userId: number): Promise<{
+    preferredCountry: string | null;
+    theme: string | null;
+    highContrast: boolean | null;
+  }>;
+  updateUserAccountPreferences(
+    userId: number,
+    preferences: {
+      preferredCountry?: string | null;
+      theme?: string;
+      highContrast?: boolean;
+    }
+  ): Promise<void>;
+
+  // Newsletter
+  subscribeToNewsletter(email: string, source?: string | null, userId?: number | null): Promise<NewsletterSubscriber>;
+  subscribeToNewsletterAtomic(
+    email: string,
+    source?: string | null,
+    userId?: number | null
+  ): Promise<{ subscriber: NewsletterSubscriber; isReactivation: boolean; alreadyActive: boolean }>;
+  unsubscribeFromNewsletter(email: string): Promise<void>;
+  isEmailSubscribed(email: string): Promise<boolean>;
+  getNewsletterSubscriberByEmail(email: string): Promise<NewsletterSubscriber | null>;
+  reactivateNewsletterSubscription(email: string, source?: string | null): Promise<NewsletterSubscriber>;
 
   // Admin Analytics
   getAllUsers(): Promise<AdminUser[]>;
@@ -1942,11 +1969,51 @@ export class MemStorage implements IStorage {
   }
 
   // User Account Preferences (TODO 258)
-  async getUserAccountPreferences(_userId: number): Promise<{ preferredCountry: string | null }> {
-    return { preferredCountry: null };
+  async getUserAccountPreferences(_userId: number): Promise<{
+    preferredCountry: string | null;
+    theme: string | null;
+    highContrast: boolean | null;
+  }> {
+    return { preferredCountry: null, theme: null, highContrast: null };
   }
 
-  async updateUserAccountPreferences(_userId: number, _preferences: { preferredCountry?: string | null }): Promise<void> {
+  async updateUserAccountPreferences(
+    _userId: number,
+    _preferences: {
+      preferredCountry?: string | null;
+      theme?: string;
+      highContrast?: boolean;
+    }
+  ): Promise<void> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  // Newsletter
+  async subscribeToNewsletter(_email: string, _source?: string | null, _userId?: number | null): Promise<NewsletterSubscriber> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async subscribeToNewsletterAtomic(
+    _email: string,
+    _source?: string | null,
+    _userId?: number | null
+  ): Promise<{ subscriber: NewsletterSubscriber; isReactivation: boolean; alreadyActive: boolean }> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async unsubscribeFromNewsletter(_email: string): Promise<void> {
+    throw new Error('Not supported in memory storage');
+  }
+
+  async isEmailSubscribed(_email: string): Promise<boolean> {
+    return false;
+  }
+
+  async getNewsletterSubscriberByEmail(_email: string): Promise<NewsletterSubscriber | null> {
+    return null;
+  }
+
+  async reactivateNewsletterSubscription(_email: string, _source?: string | null): Promise<NewsletterSubscriber> {
     throw new Error('Not supported in memory storage');
   }
 
@@ -3782,12 +3849,52 @@ export class DatabaseStorage implements IStorage {
   }
 
   // User Account Preferences (TODO 258: Agent-Native User Preferences API)
-  async getUserAccountPreferences(userId: number): Promise<{ preferredCountry: string | null }> {
+  async getUserAccountPreferences(userId: number): Promise<{
+    preferredCountry: string | null;
+    theme: string | null;
+    highContrast: boolean | null;
+  }> {
     return this.userStorage.getUserAccountPreferences(userId);
   }
 
-  async updateUserAccountPreferences(userId: number, preferences: { preferredCountry?: string | null }): Promise<void> {
+  async updateUserAccountPreferences(
+    userId: number,
+    preferences: {
+      preferredCountry?: string | null;
+      theme?: string;
+      highContrast?: boolean;
+    }
+  ): Promise<void> {
     return this.userStorage.updateUserAccountPreferences(userId, preferences);
+  }
+
+  // Newsletter
+  async subscribeToNewsletter(email: string, source?: string | null, userId?: number | null): Promise<NewsletterSubscriber> {
+    return this.userStorage.subscribeToNewsletter(email, source, userId);
+  }
+
+  async subscribeToNewsletterAtomic(
+    email: string,
+    source?: string | null,
+    userId?: number | null
+  ): Promise<{ subscriber: NewsletterSubscriber; isReactivation: boolean; alreadyActive: boolean }> {
+    return this.userStorage.subscribeToNewsletterAtomic(email, source, userId);
+  }
+
+  async unsubscribeFromNewsletter(email: string): Promise<void> {
+    return this.userStorage.unsubscribeFromNewsletter(email);
+  }
+
+  async isEmailSubscribed(email: string): Promise<boolean> {
+    return this.userStorage.isEmailSubscribed(email);
+  }
+
+  async getNewsletterSubscriberByEmail(email: string): Promise<NewsletterSubscriber | null> {
+    return this.userStorage.getNewsletterSubscriberByEmail(email);
+  }
+
+  async reactivateNewsletterSubscription(email: string, source?: string | null): Promise<NewsletterSubscriber> {
+    return this.userStorage.reactivateNewsletterSubscription(email, source);
   }
 
   // Admin Analytics

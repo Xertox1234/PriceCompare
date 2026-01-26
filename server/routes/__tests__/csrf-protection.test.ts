@@ -145,6 +145,8 @@ describe('CSRF Protection', () => {
         timeReadPosts: 0,
         daysVisited: 1,
         preferredCountry: null, // User preference (TODO 258)
+        theme: null, // Theme preference (TODO 258)
+        highContrast: null, // Accessibility preference (TODO 258)
         createdAt: new Date(),
         updatedAt: new Date(),
       };

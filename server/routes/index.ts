@@ -27,6 +27,7 @@ import { registerSpecificationRoutes } from './specification-routes';
 import { registerAgentLimitsRoutes } from './agent-limits-routes';
 import { registerApiV1Routes } from './api-v1-routes';
 import { registerUserStateRoutes } from './user-state-routes';
+import { registerNewsletterRoutes } from './newsletter-routes';
 
 /**
  * Register all application routes
@@ -119,6 +120,9 @@ export function registerRoutes(app: Express): Server {
 
   // User state routes (compare list, recently viewed - TODO 272)
   registerUserStateRoutes(app);
+
+  // Newsletter routes (TODO 258: Agent-Native APIs)
+  registerNewsletterRoutes(app);
 
   // Create HTTP server
   const httpServer = createServer(app);

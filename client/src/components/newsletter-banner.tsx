@@ -1,8 +1,9 @@
-import { memo, useState, useCallback } from 'react';
+import { memo, useState, useCallback, useEffect } from 'react';
 import { Bell, Mail, CheckCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { apiRequest, ApiError } from '@/lib/queryClient';
 
 // ============================================================================
 // Type Definitions
@@ -29,10 +30,24 @@ type SubmissionState = 'idle' | 'loading' | 'success' | 'error';
  * - Icons for visual appeal
  * - Centered layout with max-width container
  */
+const NEWSLETTER_SUBSCRIBED_KEY = 'newsletter_subscribed';
+
 export const NewsletterBanner = memo(({ className }: NewsletterBannerProps) => {
   const [email, setEmail] = useState('');
   const [submissionState, setSubmissionState] = useState<SubmissionState>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Restore success state from localStorage to prevent repeated prompts
+  useEffect(() => {
+    try {
+      const hasSubscribed = localStorage.getItem(NEWSLETTER_SUBSCRIBED_KEY);
+      if (hasSubscribed === 'true') {
+        setSubmissionState('success');
+      }
+    } catch {
+      // localStorage may be unavailable (SSR, private browsing)
+    }
+  }, []);
 
   // Email validation
   const isValidEmail = useCallback((emailValue: string): boolean => {
@@ -74,12 +89,33 @@ export const NewsletterBanner = memo(({ className }: NewsletterBannerProps) => {
       // Set loading state
       setSubmissionState('loading');
 
-      // Simulate API call (UI only - no actual submission)
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      try {
+        // Real API call to newsletter subscription endpoint
+        await apiRequest('/api/newsletter/subscribe', {
+          method: 'POST',
+          body: JSON.stringify({ email, source: 'footer' }),
+        });
 
-      // Simulate success
-      setSubmissionState('success');
-      setEmail('');
+        // Success - persist to localStorage to prevent repeated prompts
+        setSubmissionState('success');
+        setEmail('');
+        try {
+          localStorage.setItem(NEWSLETTER_SUBSCRIBED_KEY, 'true');
+        } catch {
+          // localStorage may be unavailable (SSR, private browsing)
+        }
+      } catch (error) {
+        // Handle error
+        setSubmissionState('error');
+
+        if (error instanceof ApiError) {
+          // API-specific error message
+          setErrorMessage(error.message || 'Failed to subscribe. Please try again.');
+        } else {
+          // Generic error
+          setErrorMessage('Something went wrong. Please try again later.');
+        }
+      }
     },
     [email, isValidEmail]
   );
@@ -146,6 +182,7 @@ export const NewsletterBanner = memo(({ className }: NewsletterBannerProps) => {
                   'inline-flex items-center gap-2 rounded-full px-6 py-3',
                   'bg-white/20 backdrop-blur-sm'
                 )}
+                data-testid="newsletter-message"
               >
                 <CheckCircle className="h-5 w-5 text-emerald-300" />
                 <span className="font-medium text-white">
@@ -182,11 +219,13 @@ export const NewsletterBanner = memo(({ className }: NewsletterBannerProps) => {
                   )}
                   aria-label="Email address"
                   aria-describedby={submissionState === 'error' ? 'email-error' : undefined}
+                  data-testid="newsletter-email-input"
                 />
                 {submissionState === 'error' && (
                   <p
                     id="email-error"
                     className="absolute -bottom-6 left-0 text-xs font-medium text-red-200"
+                    data-testid="newsletter-message"
                   >
                     {errorMessage}
                   </p>
@@ -202,6 +241,7 @@ export const NewsletterBanner = memo(({ className }: NewsletterBannerProps) => {
                   'shadow-lg shadow-black/10',
                   'transition-all duration-200'
                 )}
+                data-testid="newsletter-subscribe-button"
               >
                 {submissionState === 'loading' ? (
                   <>
