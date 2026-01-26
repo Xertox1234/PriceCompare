@@ -1,0 +1,32 @@
+# Git attributes
+# Ensure consistent line endings across platforms
+
+# Default behavior - auto-detect
+* text=auto
+
+# Source files - force LF line endings
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# SQL files - force LF line endings (critical for dollar-quoted strings)
+*.sql text eol=lf
+
+# Shell scripts - force LF line endings
+*.sh text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
