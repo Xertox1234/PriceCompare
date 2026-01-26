@@ -1,9 +1,10 @@
 # TypeScript Patterns & Anti-Patterns
 
-**Version:** 2.11
-**Last Updated:** 2026-01-23
+**Version:** 2.12
+**Last Updated:** 2026-01-26
 **Domain:** TypeScript, Type Safety, Async/Await, Zod Validation
 **Changelog:**
+- 2.12 (2026-01-26): Added Flexible Component Props with Intersection Types pattern and ReturnType for Function Type Inference pattern - handle multiple related types in components, infer types from function signatures for library compatibility (from TODO_290/291)
 - 2.11 (2026-01-23): Added Shared Constants Pattern with Type Guards (from TODO 262 code review)
 **Migrated From:**
 - docs/TYPESCRIPT_PATTERNS.md (v1.0)
@@ -35,6 +36,8 @@ This document codifies TypeScript patterns to ensure type safety and prevent run
   - [DECIMAL Field Validation with Drizzle ORM](#decimal-field-validation-with-drizzle-orm-critical---phase-5)
 - [React Component Patterns](#react-component-patterns)
 - [Utility Type Patterns](#utility-type-patterns)
+  - [Flexible Component Props with Intersection Types (NEW)](#flexible-component-props-with-intersection-types-new---2026-01-26) ⭐ **NEW**
+  - [ReturnType for Function Type Inference (NEW)](#returntype-for-function-type-inference-new---2026-01-26) ⭐ **NEW**
 - [Error Type Handling](#error-type-handling)
 - [Async/Promise Patterns](#asyncpromise-patterns)
 - [Type Guards & Narrowing](#type-guards--narrowing)
@@ -1201,6 +1204,353 @@ type ApiResponse<T> = {
   error: string;
 };
 ```
+
+### Flexible Component Props with Intersection Types (NEW - 2026-01-26)
+
+**When:** Component needs to accept multiple related types that share a base structure but have optional additional fields.
+
+**Problem:** Component receives data from different sources - sometimes with extended fields (e.g., `ProductWithOffers`), sometimes without (e.g., `Product`). Type mismatch errors occur when trying to pass the base type where the extended type is expected.
+
+**Solution:** Create an intersection type that makes extended fields optional, allowing the component to work with both types.
+
+#### ✅ CORRECT - Intersection Type with Optional Fields
+
+```typescript
+import type { Product } from '@shared/schema';
+
+// Accept Product with optional extended fields
+// Works for both Product and ProductWithOffers
+type ComparisonItem = Product & { bestPrice?: number };
+
+interface ComparisonModalProps {
+  items: ComparisonItem[];  // Accepts Product[] or ProductWithOffers[]
+  onRemoveItem: (productId: number) => void;
+  onClear: () => void;
+}
+
+export function ComparisonModal({ items, onRemoveItem, onClear }: ComparisonModalProps) {
+  return (
+    <div>
+      {items.map((item) => (
+        <div key={item.id}>
+          <h3>{item.name}</h3>
+          {/* Optional field - safely handles both types */}
+          {item.bestPrice && <p>Best: ${item.bestPrice}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Usage 1: Pass Product[]
+const products: Product[] = await apiRequest('/api/products');
+<ComparisonModal items={products} ... />  // ✅ Works
+
+// Usage 2: Pass ProductWithOffers[]
+const offers: ProductWithOffers[] = await apiRequest('/api/products-with-offers');
+<ComparisonModal items={offers} ... />  // ✅ Works
+```
+
+#### ❌ WRONG - Strict Extended Type
+
+```typescript
+// ❌ Only accepts ProductWithOffers - rejects Product[]
+interface ComparisonModalProps {
+  items: ProductWithOffers[];  // Too restrictive!
+  onRemoveItem: (productId: number) => void;
+}
+
+export function ComparisonModal({ items }: ComparisonModalProps) {
+  return (
+    <div>
+      {items.map((item) => (
+        <div key={item.id}>
+          <h3>{item.name}</h3>
+          <p>Best: ${item.bestPrice}</p>  {/* Assumes bestPrice always exists */}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ❌ Error: Type 'Product[]' is not assignable to type 'ProductWithOffers[]'
+const products: Product[] = await apiRequest('/api/products');
+<ComparisonModal items={products} ... />  // TypeScript error!
+```
+
+#### ❌ WRONG - Type Assertion (Loses Safety)
+
+```typescript
+// ❌ Using 'as' defeats type safety
+<ComparisonModal items={products as ProductWithOffers[]} ... />
+
+// Component assumes bestPrice exists - runtime error!
+<p>Best: ${item.bestPrice}</p>  // undefined if Product passed
+```
+
+**Rationale:**
+
+- **Flexibility**: Works with base and extended types without type assertions
+- **Type safety**: TypeScript enforces safe optional chaining for extended fields
+- **Maintainability**: Adding new extended types doesn't break existing usage
+- **DRY principle**: Single component handles multiple data sources
+- **Runtime safety**: Optional fields use safe access (`item.bestPrice && ...`)
+
+**Key Design Principles:**
+
+1. **Intersection over Union**: `Product & { bestPrice?: number }` vs `Product | ProductWithOffers`
+   - Intersection preserves all base type fields
+   - Optional extension fields are safely accessible
+
+2. **Optional Fields**: Mark extended fields as optional (`?`)
+   - Component must handle undefined gracefully
+   - Prevents runtime errors when base type is passed
+
+3. **Safe Access**: Use optional chaining or conditional rendering
+   ```typescript
+   {item.bestPrice && <p>Best: ${item.bestPrice}</p>}
+   // OR
+   <p>Best: ${item.bestPrice ?? 'N/A'}</p>
+   ```
+
+**When to Use:**
+
+- ✅ Components consuming data from multiple API endpoints
+- ✅ Base entity + optional computed/derived fields
+- ✅ Component libraries accepting variants of same entity
+- ✅ Migration scenarios (old schema → new schema with extras)
+
+**When NOT to Use:**
+
+- ❌ Types have conflicting fields (use discriminated union instead)
+- ❌ Extended fields are required (use strict type)
+- ❌ Completely different entity types (use generic props)
+
+**Alternative Approaches:**
+
+1. **Generic Component** (more complex but reusable):
+   ```typescript
+   interface BaseItem { id: number; name: string }
+   interface ComparisonModalProps<T extends BaseItem> {
+     items: T[];
+     renderPrice?: (item: T) => React.ReactNode;
+   }
+   ```
+
+2. **Discriminated Union** (when types truly differ):
+   ```typescript
+   type ComparisonItem =
+     | { type: 'basic'; data: Product }
+     | { type: 'offers'; data: ProductWithOffers };
+   ```
+
+3. **Type Guards** (runtime type checking):
+   ```typescript
+   function hasOffers(item: Product | ProductWithOffers): item is ProductWithOffers {
+     return 'bestPrice' in item;
+   }
+
+   {hasOffers(item) && <p>Best: ${item.bestPrice}</p>}
+   ```
+
+**Related Patterns:**
+
+- **Utility Type Patterns** (above) - Pick, Omit, Partial for type manipulation
+- **Type Guards & Narrowing** (below) - Runtime type checking
+- **React Component Patterns** - Props interface design
+
+*Source: TODO_291 - Fixed TypeScript error in comparison-modal.tsx where Product[] was passed but ProductWithOffers[] was expected*
+*Added: 2026-01-26*
+
+---
+
+### ReturnType for Function Type Inference (NEW - 2026-01-26)
+
+**When:** Need to type a variable based on what a function returns, especially for library functions or complex return types.
+
+**Problem:** Library type definitions may be incorrect, outdated, or overly complex. Manually typing variables can lead to mismatches with actual return types, causing TypeScript errors.
+
+**Solution:** Use TypeScript's `ReturnType<typeof fn>` utility to infer the type from the actual function signature.
+
+#### ✅ CORRECT - ReturnType Inference
+
+```typescript
+import request from 'supertest';
+
+describe('Integration Tests', () => {
+  // Let TypeScript infer the correct type from request.agent()
+  let agent: ReturnType<typeof request.agent>;
+
+  beforeAll(() => {
+    const app = createTestApp();
+    agent = request.agent(app);  // ✅ Type matches perfectly
+  });
+
+  test('should maintain session', async () => {
+    await agent.post('/api/auth/login')
+      .send({ username: 'test', password: 'test123' })
+      .expect(200);
+
+    // Session persists across requests
+    await agent.get('/api/user/profile').expect(200);
+  });
+});
+```
+
+#### ❌ WRONG - Manual Type Specification
+
+```typescript
+import request, { SuperAgentTest } from 'supertest';
+
+describe('Integration Tests', () => {
+  // ❌ Manual type may not match actual return type
+  let agent: SuperAgentTest;  // Library type might be wrong
+
+  beforeAll(() => {
+    const app = createTestApp();
+    agent = request.agent(app);
+    // Error TS2322: Type 'TestAgent<Test>' is not assignable to type 'SuperAgentTest'
+  });
+});
+```
+
+#### ❌ WRONG - Type Assertion (Loses Safety)
+
+```typescript
+import request from 'supertest';
+
+describe('Integration Tests', () => {
+  let agent: any;  // ❌ Loses all type safety
+
+  beforeAll(() => {
+    const app = createTestApp();
+    agent = request.agent(app);  // No type checking
+  });
+
+  test('should work', async () => {
+    await agent.get('/api/user/profile').expect(200);
+    // No autocomplete, no error checking, no safety!
+  });
+});
+```
+
+**Rationale:**
+
+- **Type accuracy**: Always matches actual return type, even when library types are wrong
+- **Maintainability**: Automatically updates when function signature changes
+- **No type assertions**: Avoids unsafe `as` casts or `any` escape hatches
+- **Library version safety**: Works across library version upgrades
+- **Autocomplete**: Full IDE support for returned object methods/properties
+
+**Key Use Cases:**
+
+1. **Test Agent Pattern** (from example):
+   ```typescript
+   let agent: ReturnType<typeof request.agent>;
+   let client: ReturnType<typeof createClient>;
+   ```
+
+2. **Factory Functions**:
+   ```typescript
+   function createStore() {
+     return {
+       get: (key: string) => localStorage.getItem(key),
+       set: (key: string, value: string) => localStorage.setItem(key, value),
+     };
+   }
+
+   let store: ReturnType<typeof createStore>;  // Inferred type
+   ```
+
+3. **Complex Library Returns**:
+   ```typescript
+   import { createBrowserRouter } from 'react-router-dom';
+
+   let router: ReturnType<typeof createBrowserRouter>;  // Complex type inferred
+   ```
+
+4. **Async Functions**:
+   ```typescript
+   async function fetchUser(id: number) {
+     return await apiRequest<User>(`/api/users/${id}`);
+   }
+
+   // Unwrap Promise to get User type
+   type UserResult = Awaited<ReturnType<typeof fetchUser>>;  // User
+   ```
+
+**When to Use:**
+
+- ✅ Library function return types are incorrect/outdated
+- ✅ Return type is complex or hard to specify manually
+- ✅ Factory functions with inferred return objects
+- ✅ Test fixtures and setup functions
+- ✅ Type evolves with function implementation
+
+**When NOT to Use:**
+
+- ❌ Public API functions (explicit return types for documentation)
+- ❌ Return type is simple and obvious (`number`, `string`)
+- ❌ Need to enforce specific return shape (explicit type is contract)
+
+**Advanced Patterns:**
+
+1. **Combine with Parameters** (infer both input and output types):
+   ```typescript
+   function processData(input: string, options: Options) {
+     return { result: input.toUpperCase(), options };
+   }
+
+   type Input = Parameters<typeof processData>[0];      // string
+   type Options = Parameters<typeof processData>[1];    // Options
+   type Output = ReturnType<typeof processData>;        // { result: string; options: Options }
+   ```
+
+2. **Extract from Class Methods**:
+   ```typescript
+   class ApiClient {
+     async getUser(id: number) {
+       return await fetch(`/api/users/${id}`).then(r => r.json());
+     }
+   }
+
+   type GetUserReturn = Awaited<ReturnType<ApiClient['getUser']>>;
+   ```
+
+3. **Generic Function Inference**:
+   ```typescript
+   function createQuery<T>(endpoint: string): Promise<T> {
+     return fetch(endpoint).then(r => r.json()) as Promise<T>;
+   }
+
+   const getUserQuery = createQuery<User>('/api/users/1');
+   type UserQueryResult = Awaited<ReturnType<typeof getUserQuery>>;  // User
+   ```
+
+**Related Patterns:**
+
+- **Function Return Type Inference** (above) - When to use explicit vs inferred
+- **Type Inference Patterns** - Let TypeScript infer where safe
+- **Utility Type Patterns** - Parameters<T>, Awaited<T>
+
+**TypeScript Utility Types Reference:**
+
+```typescript
+// Extract return type
+ReturnType<typeof fn>
+
+// Extract parameter types
+Parameters<typeof fn>  // [param1Type, param2Type, ...]
+
+// Unwrap Promise type
+Awaited<Promise<T>>    // T
+
+// Combine for async functions
+type Result = Awaited<ReturnType<typeof asyncFn>>;
+```
+
+*Source: TODO_291 - Fixed TypeScript error in compare-routes-simple.test.ts where SuperAgentTest type didn't match actual TestAgent<Test> return type*
+*Added: 2026-01-26*
 
 ---
 

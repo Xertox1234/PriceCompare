@@ -1,12 +1,15 @@
 import { useEffect, useRef } from 'react';
 import { X, Trash2, BarChart2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { ProductWithOffers } from '@shared/schema';
+import type { Product } from '@shared/schema';
 import { MAX_COMPARISON_ITEMS } from '@/lib/constants';
 import { useLocation } from 'wouter';
 
+// Accept Product with optional bestPrice (works for both Product and ProductWithOffers)
+type ComparisonItem = Product & { bestPrice?: number };
+
 interface ComparisonModalProps {
-  items: ProductWithOffers[];
+  items: ComparisonItem[];
   onRemoveItem: (productId: number) => void;
   onClear: () => void;
 }
