@@ -71,7 +71,9 @@ jobs:
           echo "NODE_ENV=test" >> $GITHUB_ENV
 
       - name: Setup pgvector extension
-        run: PGPASSWORD=postgres psql -h localhost -U postgres -d pricecompare_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d pricecompare_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          PGPASSWORD=postgres psql -h localhost -U postgres -d pricecompare_test -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
 
       - name: Run database migrations
         run: |

@@ -1065,11 +1065,6 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
           .get('/api/v1/search/advanced?query=test')
           .set('Authorization', authHeader);
 
-        // Debug: Log response body on non-200 status
-        if (res.status !== 200) {
-          console.error('[DEBUG] Advanced search failed:', JSON.stringify(res.body, null, 2));
-        }
-
         const result = expectSuccessResponse<{
           results: unknown[];
           metadata: { features: string[] };
@@ -1083,11 +1078,6 @@ describe('API v1 Routes - Phase 1 Read-Only Endpoints', () => {
         const res = await request(app)
           .get('/api/v1/search/advanced?query=laptop&minPrice=100&maxPrice=1000')
           .set('Authorization', authHeader);
-
-        // Debug: Log response body on non-200 status
-        if (res.status !== 200) {
-          console.error('[DEBUG] Price filters failed:', JSON.stringify(res.body, null, 2));
-        }
 
         expectSuccessResponse(res, 200);
       });
