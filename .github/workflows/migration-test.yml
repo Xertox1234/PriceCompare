@@ -11,6 +11,11 @@ on:
   # Allow manual trigger
   workflow_dispatch:
 
+# Required permissions for PR comments
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   migration-test:
     name: Test Migrations

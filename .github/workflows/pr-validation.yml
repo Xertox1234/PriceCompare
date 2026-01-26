@@ -17,6 +17,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+# Required permissions for PR comments and checks
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
 jobs:
   # Job 1: Code Quality & Type Checking
   quality:

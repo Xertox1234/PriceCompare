@@ -16,6 +16,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+# Required permissions for PR comments
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   pattern-validation:
     name: Validate Against Pattern Files
@@ -40,9 +45,8 @@ jobs:
       - name: Get changed files
         id: changed-files
         run: |
-          echo "files<<EOF" >> $GITHUB_OUTPUT
-          git diff --name-only origin/${{ github.base_ref }}..HEAD | grep -E '\.(ts|tsx)$' | tr '\n' ' ' >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          FILES=$(git diff --name-only origin/${{ github.base_ref }}..HEAD | grep -E '\.(ts|tsx)$' | tr '\n' ' ' || echo '')
+          echo "files=$FILES" >> $GITHUB_OUTPUT
 
       - name: Run pattern validation
         id: validation
