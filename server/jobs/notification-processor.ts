@@ -57,13 +57,13 @@ export const notificationQueue = {
   get process() {
     return getNotificationQueue().process.bind(getNotificationQueue());
   },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  add: async (name: string, data: any, opts?: any) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Bull queue has complex generic types for job data
+  add: async (name: string, data: any, opts?: Queue.JobOptions) => {
     return getNotificationQueue().add(name, data, opts);
   },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  on: (event: string, callback: any) => {
-    return getNotificationQueue().on(event, callback);
+  on: (event: string, callback: (...args: unknown[]) => void) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- Bull queue event callbacks have dynamic signatures
+    return getNotificationQueue().on(event, callback as (...args: any[]) => void);
   },
   close: async () => {
     if (_notificationQueue) {

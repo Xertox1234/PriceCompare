@@ -58,13 +58,13 @@ export const priceSnapshotQueue = {
   get process() {
     return getPriceSnapshotQueue().process.bind(getPriceSnapshotQueue());
   },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  add: async (data: any, opts?: any) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Bull queue has complex generic types for job data
+  add: async (data: any, opts?: Queue.JobOptions) => {
     return getPriceSnapshotQueue().add(data, opts);
   },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  on: (event: string, callback: any) => {
-    return getPriceSnapshotQueue().on(event, callback);
+  on: (event: string, callback: (...args: unknown[]) => void) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- Bull queue event callbacks have dynamic signatures
+    return getPriceSnapshotQueue().on(event, callback as (...args: any[]) => void);
   },
   close: async () => {
     if (_priceSnapshotQueue) {
@@ -83,9 +83,9 @@ export const priceSnapshotQueue = {
   getFailedCount: async () => {
     return getPriceSnapshotQueue().getFailedCount();
   },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  clean: async (grace: number, type?: any) => {
-    return getPriceSnapshotQueue().clean(grace, type);
+  clean: async (grace: number, type?: Queue.JobStatusClean) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- Bull queue clean method type param is complex union
+    return getPriceSnapshotQueue().clean(grace, type as any);
   },
 };
 
