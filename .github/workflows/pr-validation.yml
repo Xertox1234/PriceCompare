@@ -170,10 +170,12 @@ jobs:
           echo "ENCRYPTION_KEY=$(openssl rand -hex 32)" >> $GITHUB_ENV
           echo "NODE_ENV=test" >> $GITHUB_ENV
 
-      - name: Install pgvector extension
+      - name: Install PostgreSQL extensions
         run: |
           echo "Creating pgvector extension..."
           PGPASSWORD=postgres psql -h localhost -U postgres -d test_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          echo "Creating pg_trgm extension for fuzzy search..."
+          PGPASSWORD=postgres psql -h localhost -U postgres -d test_db -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
 
       - name: Setup base schema
         run: npm run db:push

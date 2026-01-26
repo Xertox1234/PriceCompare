@@ -113,6 +113,8 @@ jobs:
           NODE_ENV: test
         run: |
           echo "Installing pgvector extension..."
+          echo "Installing pg_trgm extension for fuzzy search..."
+          PGPASSWORD=postgres psql -h localhost -U postgres -d e2e_test_db -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
           PGPASSWORD=postgres psql -h localhost -U postgres -d e2e_test_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
           echo "Creating base schema..."
           npm run db:push
@@ -319,6 +321,8 @@ jobs:
           NODE_ENV: test
         run: |
           echo "Installing pgvector extension..."
+          echo "Installing pg_trgm extension for fuzzy search..."
+          PGPASSWORD=postgres psql -h localhost -U postgres -d e2e_test_db -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
           PGPASSWORD=postgres psql -h localhost -U postgres -d e2e_test_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
           echo "Creating base schema..."
           npm run db:push
