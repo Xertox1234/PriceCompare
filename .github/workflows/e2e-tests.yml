@@ -140,8 +140,9 @@ jobs:
           PLAYWRIGHT_TEST_BASE_URL: http://localhost:5000
           CI: true
         run: |
-          # Start server in background
-          npm start &
+          # Start server in background (use node directly to respect NODE_ENV=test from env)
+          # npm start has NODE_ENV=production hardcoded which would require APP_URL etc.
+          node dist/index.js &
           SERVER_PID=$!
           
           # Wait for server to be ready
@@ -345,8 +346,9 @@ jobs:
           PLAYWRIGHT_TEST_BASE_URL: http://localhost:5000
           CI: true
         run: |
-          # Start server in background
-          npm start &
+          # Start server in background (use node directly to respect NODE_ENV=test from env)
+          # npm start has NODE_ENV=production hardcoded which would require APP_URL etc.
+          node dist/index.js &
           SERVER_PID=$!
 
           # Wait for server to be ready
