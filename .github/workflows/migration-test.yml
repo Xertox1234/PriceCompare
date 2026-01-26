@@ -113,6 +113,12 @@ jobs:
           psql postgresql://postgres:postgres@localhost:5432/postgres -c "DROP DATABASE IF EXISTS migration_perf_test;"
           psql postgresql://postgres:postgres@localhost:5432/postgres -c "CREATE DATABASE migration_perf_test;"
 
+          # Install pgvector extension (required for migrations)
+          PGPASSWORD=postgres psql -h localhost -U postgres -d migration_perf_test -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
+          # Create base schema first (migrations assume base tables exist)
+          DATABASE_URL=postgresql://postgres:postgres@localhost:5432/migration_perf_test npm run db:push
+
           # Time the migration
           START_TIME=$(date +%s)
           DATABASE_URL=postgresql://postgres:postgres@localhost:5432/migration_perf_test npm run migrate

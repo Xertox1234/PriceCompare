@@ -91,9 +91,10 @@ jobs:
           echo ""
 
           # Check 2: Storage Layer Usage (no direct db imports in routes)
+          # NOTE: Test files are excluded - they legitimately need db imports for setup/teardown
           echo "📋 Check 2: Storage Layer Pattern"
           for file in $CHANGED_FILES; do
-            if [[ $file == server/routes/*.ts ]]; then
+            if [[ $file == server/routes/*.ts && ! $file == *__tests__* && ! $file == *.test.ts ]]; then
               if grep -q "import.*{.*db.*}.*from.*['\"].*\/db['\"]" "$file"; then
                 echo "  ❌ CRITICAL: $file imports db directly (should use storage layer)"
                 echo "     Pattern: docs/02_DATABASE_PATTERNS.md (Storage Layer Usage)"
@@ -128,9 +129,10 @@ jobs:
           echo ""
 
           # Check 5: N+1 Query Pattern (queries in loops)
+          # NOTE: Test files are excluded - they may intentionally use loops for test setup
           echo "📋 Check 5: N+1 Query Prevention"
           for file in $CHANGED_FILES; do
-            if [[ $file == server/**/*.ts ]]; then
+            if [[ $file == server/**/*.ts && ! $file == *__tests__* && ! $file == *.test.ts ]]; then
               # Simplified check: for...of with await db/storage inside
               if grep -Pzo "for\s*\(.*of.*\)[\s\S]*?await\s+(db\.|storage\.)" "$file" > /dev/null 2>&1; then
                 echo "  ❌ CRITICAL: $file may have N+1 query pattern (loop with await db/storage)"
