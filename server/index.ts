@@ -39,12 +39,13 @@ import { requestSizeLimiter, DEFAULT_SIZE_LIMITS } from './middleware/request-li
 import { initializeRedis, getRedisSessionClient, closeRedis } from './config/redis';
 import { createSessionStore } from './config/session-store';
 import { cleanupExpiredTokens } from './services/password-reset-service';
-import { initializePriceSnapshotScheduler } from './jobs/price-snapshot-queue';
+// NOTE: Job queue imports (price-snapshot-queue, notification-processor) moved to dynamic
+// imports inside the async IIFE. Bull queues connect to Redis at import time, which can
+// hang if Redis isn't fully ready. Dynamic imports defer queue creation until Redis is confirmed.
 import { startPriceHistoryJobs } from './jobs/price-history-jobs';
 import { startPriceAnalyticsJobs } from './jobs/price-analytics-jobs';
 import { startPriceAggregationJobs } from './jobs/price-aggregation-job';
 import { startPriceAlertCheckerJob } from './jobs/price-alert-checker';
-import { initializeNotificationProcessor } from './jobs/notification-processor';
 import { emailService } from './services/email-service';
 import { errorHandler, setupGlobalErrorHandlers } from './middleware/error-handler';
 import { RATE_LIMIT, SESSION } from './utils/constants';
@@ -58,8 +59,8 @@ import {
 } from './services/event-subscriptions';
 import { storageCache } from './services/storage-cache';
 import { pool } from './db';
-import { notificationQueue } from './jobs/notification-processor';
-import { priceSnapshotQueue } from './jobs/price-snapshot-queue';
+// NOTE: Job queue imports moved to dynamic imports in graceful shutdown handler
+// to avoid Bull connecting to Redis at import time, which can hang if Redis isn't ready
 import type { Server } from 'http';
 
 const serverLog = createLogger('Server');
@@ -384,8 +385,10 @@ app.use(sanitizeInput);
   }
 
   // Initialize price snapshot scheduler
+  // Dynamic import to defer Bull queue creation until Redis is confirmed ready
   try {
     log('Initializing price snapshot scheduler...');
+    const { initializePriceSnapshotScheduler } = await import('./jobs/price-snapshot-queue');
     initializePriceSnapshotScheduler();
     log('Price snapshot scheduler initialized successfully');
 
@@ -398,8 +401,10 @@ app.use(sanitizeInput);
   }
 
   // Initialize smart notification processor
+  // Dynamic import to defer Bull queue creation until Redis is confirmed ready
   try {
     log('Initializing smart notification processor...');
+    const { initializeNotificationProcessor } = await import('./jobs/notification-processor');
     initializeNotificationProcessor();
     log('Smart notification processor initialized successfully');
   } catch (error) {
@@ -485,6 +490,8 @@ async function gracefulShutdown(signal: string) {
     // Step 3: Close job queues (wait for active jobs to complete)
     log('Closing Bull job queues...');
     try {
+      // Dynamic import to avoid loading queues that may not have been initialized
+      const { notificationQueue } = await import('./jobs/notification-processor');
       if (notificationQueue) {
         await notificationQueue.close();
         log('Notification queue closed');
@@ -496,6 +503,8 @@ async function gracefulShutdown(signal: string) {
     }
 
     try {
+      // Dynamic import to avoid loading queues that may not have been initialized
+      const { priceSnapshotQueue } = await import('./jobs/price-snapshot-queue');
       if (priceSnapshotQueue) {
         await priceSnapshotQueue.close();
         log('Price snapshot queue closed');
