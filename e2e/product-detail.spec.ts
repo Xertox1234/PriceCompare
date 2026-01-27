@@ -236,8 +236,11 @@ test.describe('Product Detail - Watchlist Integration', () => {
     // For E2E tests, verifying API success + toast is sufficient.
   });
 
-  // TODO: Fix flaky test - sometimes times out waiting for DELETE response (10s timeout)
-  // Skipping temporarily to unblock CI. Issue: watchlist state transitions timing issues
+  // NOTE: Watchlist removal feature is tested comprehensively in e2e/watchlist.spec.ts (line 178)
+  // with database helpers for fast, reliable setup. This test is skipped as a duplicate.
+  // The watchlist.spec.ts test uses proper setup phase (database seeding) vs UI-based setup,
+  // avoiding timing issues with React Query cache invalidation between add/remove operations.
+  // See: SKIPPED_TESTS_JUSTIFICATION.md section "Flaky E2E Tests"
   test.skip('should remove product from watchlist', async ({ page }) => {
     // Register and login user
     await registerUser(page, generateTestUsername(), generateTestEmail(), 'UserPass123!');
@@ -273,16 +276,15 @@ test.describe('Product Detail - Watchlist Integration', () => {
       return;
     }
 
-    // Wait for toast to confirm addition and button to be re-enabled
+    // Wait for toast to confirm addition
     await expect(page.getByText(/added to/i).first()).toBeVisible({ timeout: 5000 });
+    
+    // Wait for button state to update to "Remove from watchlist" (React Query refetch)
+    // This ensures the optimistic update + query invalidation has completed
+    await expect(watchlistButton).toHaveAttribute('aria-label', 'Remove from watchlist', { timeout: TIMEOUTS.USER_STATE_CHANGE });
     await expect(watchlistButton).not.toBeDisabled({ timeout: TIMEOUTS.USER_STATE_CHANGE });
 
     // REMOVE product from watchlist
-    // NOTE: React Query refetch after ADD can cause button state flicker.
-    // The button may briefly show old state before query invalidation completes.
-    // This wait ensures the optimistic update has fully settled.
-    await page.waitForTimeout(2000);
-
     const removeApiPromise = page.waitForResponse(
       response => response.url().includes('/api/community/watch/') && response.request().method() === 'DELETE',
       { timeout: TIMEOUTS.API_RESPONSE }

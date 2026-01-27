@@ -259,11 +259,8 @@ test.describe('Accessibility (A11y)', () => {
       }
 
       // Scan only the dialog subtree.
-      // TODO: Fix color contrast issues in auth modal dark mode (foreground #0f1729 on background #333333)
-      // Temporarily disabling color-contrast rule to unblock CI. See: TODO-293-fix-modal-contrast
       const results = await runA11yScan(page, { 
         include: '[role="dialog"], [data-state="open"]',
-        disableRules: ['color-contrast'],
       });
 
       expect(

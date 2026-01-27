@@ -297,21 +297,22 @@ test.describe('Product Discovery & Price Tracking', () => {
     // Feature is tested in e2e/watchlist.spec.ts (Feature 4.3)
     // Verified: "should remove product from watchlist" test passes with database helpers
 
-    // TODO: Fix flaky test - sometimes watchlist button doesn't appear on expandable card
-    // Skipping temporarily to unblock CI. Issue: expandable card rendering timing
-    test.skip('should require authentication to add to watchlist', async ({ page }) => {
+    test('should require authentication to add to watchlist', async ({ page }) => {
       // Go to product page without logging in
       await page.goto('/shop');
       await waitForPageReady(page);
+      
+      // Click on first product card to navigate to product detail
       await page.locator('.expandable-card').first().click();
+      
+      // Wait for product detail page to load (same pattern as working test at line 263)
+      await waitForPageReady(page);
 
-      // Try to add to watchlist (use data-testid for precise matching)
+      // Find watchlist toggle button and wait for it to be visible
       const watchlistButton = page.locator('[data-testid="add-to-watchlist"]');
+      await watchlistButton.waitFor({ state: 'visible', timeout: TIMEOUTS.BUTTON_VISIBLE });
 
-      // Verify button exists
-      const hasWatchlistButton = (await watchlistButton.count()) > 0;
-      expect(hasWatchlistButton).toBe(true);
-
+      // Click to attempt adding to watchlist (should trigger auth modal)
       await watchlistButton.first().click();
 
       // Should show login prompt (modal-based auth)

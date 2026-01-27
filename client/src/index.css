@@ -259,11 +259,20 @@
 }
 
 /* Modal and Dialog Overrides */
-/* !important required to override Radix UI inline styles */
-[data-radix-dialog-content] {
-  background-color: hsl(var(--color-background)) !important;
-  color: hsl(var(--color-foreground)) !important;
+/* Using [role="dialog"] since Radix doesn't add data-radix-dialog-content */
+/* Explicit opaque background to ensure axe-core computes correct contrast ratio */
+[role="dialog"] {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
   border: 1px solid hsl(var(--color-border)) !important;
+  /* Create stacking context to isolate from overlay */
+  isolation: isolate;
+}
+
+.dark [role="dialog"] {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
 }
 
 /* Comparison Modal Styling */
@@ -290,14 +299,6 @@
     left: 1rem;
     max-width: none;
   }
-}
-
-/* Force proper dialog styling */
-/* !important required to override Radix UI inline styles in dark mode */
-.dark [data-radix-dialog-content] {
-  background-color: hsl(220 13% 9%) !important;
-  color: hsl(210 40% 98%) !important;
-  border-color: hsl(215 28% 17%) !important;
 }
 
 /* Hero Slider Styles - Smooth animated slider with thumbnails */
