@@ -1,0 +1,26 @@
+name: "PriceCompare CodeQL Configuration"
+
+# Exclude test files from security scanning since they often contain
+# intentional patterns that would trigger security alerts in production code:
+# - Test servers without CSRF protection
+# - Test servers without rate limiting
+# - Hardcoded test secrets
+# - Mock implementations lacking security features
+paths-ignore:
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.test.js"
+  - "**/*.spec.ts"
+  - "**/*.spec.tsx"
+  - "**/*.spec.js"
+  - "**/test/**"
+  - "**/tests/**"
+  - "**/__tests__/**"
+  - "**/e2e/**"
+  - "**/mocks/**"
+  - "**/fixtures/**"
+  - "server/test/**"
+
+# Use the default queries plus security-extended
+queries:
+  - uses: security-and-quality
