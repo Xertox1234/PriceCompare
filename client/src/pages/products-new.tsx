@@ -395,8 +395,8 @@ function ProductsContent() {
       <div className="border-border border-b pb-6">
         <h6 className="text-foreground mb-4 font-semibold">Price</h6>
         <div className="space-y-2">
-          {priceRanges.map((range, idx) => (
-            <label key={idx} className="group flex cursor-pointer items-center gap-3">
+          {priceRanges.map((range) => (
+            <label key={range.label} className="group flex cursor-pointer items-center gap-3">
               <input
                 type="radio"
                 name="priceRange"

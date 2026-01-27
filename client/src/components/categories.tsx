@@ -1,5 +1,6 @@
+import { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Link } from 'wouter';
+import { Link, useLocation } from 'wouter';
 import { getProductImageUrl, handleImageError } from '@/lib/utils';
 
 const categories = [
@@ -56,6 +57,25 @@ const categories = [
 ];
 
 export function Categories() {
+  const [, setLocation] = useLocation();
+
+  const handleCategoryClick = useCallback(
+    (categoryName: string) => {
+      setLocation(`/products?category=${encodeURIComponent(categoryName)}`);
+    },
+    [setLocation]
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>, categoryName: string) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        handleCategoryClick(categoryName);
+      }
+    },
+    [handleCategoryClick]
+  );
+
   return (
     <section className="mb-12">
       <h3 className="text-muted-foreground mb-8 text-center text-3xl font-bold">
@@ -63,10 +83,15 @@ export function Categories() {
       </h3>
 
       <div className="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-6">
-        {categories.map((category, index) => (
+        {categories.map((category) => (
           <div
-            key={index}
-            className="bg-card transform cursor-pointer rounded-2xl p-6 text-center shadow-md transition duration-300 hover:-translate-y-1 hover:shadow-xl"
+            key={category.name}
+            role="button"
+            tabIndex={0}
+            onClick={() => handleCategoryClick(category.name)}
+            onKeyDown={(e) => handleKeyDown(e, category.name)}
+            aria-label={`Browse ${category.name} category`}
+            className="bg-card transform cursor-pointer rounded-2xl p-6 text-center shadow-md transition duration-300 hover:-translate-y-1 hover:shadow-xl focus:ring-primary focus:ring-2 focus:outline-none focus:ring-offset-2"
           >
             <img
               src={getProductImageUrl(category.image)}

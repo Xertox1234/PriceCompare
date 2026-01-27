@@ -339,7 +339,7 @@ function ProductDetailContent() {
             <div className="flex gap-3 overflow-x-auto pb-2">
               {images.map((img, idx) => (
                 <button
-                  key={idx}
+                  key={img}
                   type="button"
                   onClick={() => setSelectedImageIndex(idx)}
                   aria-label={`View product image ${idx + 1}`}

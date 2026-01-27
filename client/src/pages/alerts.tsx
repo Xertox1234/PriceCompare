@@ -68,6 +68,9 @@ export default function AlertsPage() {
       setTargetPriceDraft('');
       setValidationError(null);
     },
+    onError: () => {
+      toast({ title: 'Failed to update alert', variant: 'destructive' });
+    },
   });
 
   const deleteMutation = useMutation({
@@ -78,6 +81,9 @@ export default function AlertsPage() {
       await queryClient.invalidateQueries({ queryKey: ['/api/price-alerts'] });
       toast({ title: 'Alert deleted' });
       setConfirmDeleteAlertId(null);
+    },
+    onError: () => {
+      toast({ title: 'Failed to delete alert', variant: 'destructive' });
     },
   });
 

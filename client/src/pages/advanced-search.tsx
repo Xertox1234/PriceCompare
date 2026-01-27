@@ -93,9 +93,9 @@ export function AdvancedSearchPage() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
-                        {searchHistory.slice(0, 5).map((historyQuery, index) => (
+                        {searchHistory.slice(0, 5).map((historyQuery) => (
                           <Button
-                            key={index}
+                            key={historyQuery}
                             variant="ghost"
                             size="sm"
                             onClick={() => setQuery(historyQuery)}
@@ -277,8 +277,8 @@ export function AdvancedSearchPage() {
                             example: 'wireless audio devices',
                             searchType: 'category',
                           },
-                        ].map((demo, index) => (
-                          <Card key={index} className="transition-shadow hover:shadow-md">
+                        ].map((demo) => (
+                          <Card key={demo.title} className="transition-shadow hover:shadow-md">
                             <CardContent className="p-4">
                               <h4 className="mb-2 font-semibold">{demo.title}</h4>
                               <p className="text-muted-foreground mb-3 text-sm">

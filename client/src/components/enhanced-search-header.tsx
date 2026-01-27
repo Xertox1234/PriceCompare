@@ -323,9 +323,9 @@ export function EnhancedSearchHeader({
                       <div className="text-muted-foreground px-4 py-2 text-xs font-medium tracking-wider uppercase">
                         Smart Suggestions
                       </div>
-                      {suggestions.map((suggestion, index) => (
+                      {suggestions.map((suggestion) => (
                         <button
-                          key={index}
+                          key={suggestion.query}
                           onClick={() => handleSuggestionClick(suggestion)}
                           onKeyDown={(e) => {
                             if (e.key === 'ArrowDown') {
@@ -387,9 +387,9 @@ export function EnhancedSearchHeader({
                         <div className="text-muted-foreground px-4 py-2 text-xs font-medium tracking-wider uppercase">
                           Recent Searches
                         </div>
-                        {searchHistory.slice(0, 3).map((historyItem, index) => (
+                        {searchHistory.slice(0, 3).map((historyItem) => (
                           <button
-                            key={index}
+                            key={historyItem}
                             onClick={() =>
                               handleSuggestionClick({ query: historyItem, type: 'history' })
                             }

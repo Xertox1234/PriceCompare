@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { memo } from 'react';
 import { Link } from 'wouter';
 import { Heart, BarChart2, Eye, TrendingDown, TrendingUp, Minus, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -38,7 +39,7 @@ interface ProductCardProps {
   className?: string;
 }
 
-export function ProductCard({
+export const ProductCard = memo(function ProductCard({
   product,
   variant = 'default',
   onWatchlist,
@@ -265,7 +266,7 @@ export function ProductCard({
       </div>
     </div>
   );
-}
+});
 
 function HorizontalProductCard({
   product,

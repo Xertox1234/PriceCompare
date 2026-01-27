@@ -43,27 +43,37 @@ export default function AdminPage() {
   const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ['/api/admin/users'],
     enabled: isAdmin, // Only fetch when user is admin
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes
   });
 
   // Analytics data - only when user is authenticated as admin
   const { data: overviewData } = useQuery<AnalyticsOverview>({
     queryKey: ['/api/admin/analytics/overview'],
     enabled: isAdmin, // Only fetch when user is admin
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes
   });
 
   const { data: userGrowthData = [] } = useQuery<UserGrowthData[]>({
     queryKey: ['/api/admin/analytics/user-growth'],
     enabled: isAdmin, // Only fetch when user is admin
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes
   });
 
   const { data: productActivityData = [] } = useQuery<ProductActivityData[]>({
     queryKey: ['/api/admin/analytics/product-activity'],
     enabled: isAdmin, // Only fetch when user is admin
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes
   });
 
   const { data: topCategoriesData = [] } = useQuery<TopCategoryData[]>({
     queryKey: ['/api/admin/analytics/top-categories'],
     enabled: isAdmin, // Only fetch when user is admin
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes
   });
 
   // Redirect non-admin users to home page

@@ -15,10 +15,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { promisify } from 'util';
-import globCallback from 'glob';
-
-const glob = promisify(globCallback);
+import { glob } from 'glob';
 
 interface Detection {
   file: string;

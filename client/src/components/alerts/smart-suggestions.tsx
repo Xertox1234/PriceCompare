@@ -86,9 +86,9 @@ export function SmartSuggestions({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {data.data.map((suggestion, index) => (
+        {data.data.map((suggestion) => (
           <SuggestionCard
-            key={index}
+            key={`${productId}-${suggestion.basedOn}`}
             suggestion={suggestion}
             onAccept={() => handleAcceptSuggestion(suggestion)}
             isCreating={createAlert.isPending}
