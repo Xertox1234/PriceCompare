@@ -1,9 +1,28 @@
 import { createHash } from 'crypto';
 import { AdvancedCacheService, CacheTier } from './advanced-cache';
 import { logger } from '../utils/logger';
-import { storage, type SafeUser } from '../storage';
+// LAZY IMPORT: storage is imported dynamically to break circular dependency
+// storage-cache.ts <-> storage.ts (via user-storage.ts) would cause a deadlock
+// at module load time if imported directly.
+import type { SafeUser } from '../storage';
 import type { Retailer, ProductWithOffers } from '@shared/schema';
 import { CacheKeys } from '../utils/cache-keys';
+
+// Lazy getter for storage to break circular dependency
+// Storage is only accessed at runtime, not during module initialization
+let _storage: typeof import('../storage').storage | null = null;
+let _storagePromise: Promise<typeof import('../storage').storage> | null = null;
+
+async function getStorageAsync(): Promise<typeof import('../storage').storage> {
+  if (_storage) return _storage;
+  if (!_storagePromise) {
+    _storagePromise = import('../storage').then((m) => {
+      _storage = m.storage;
+      return m.storage;
+    });
+  }
+  return _storagePromise;
+}
 
 // Re-export CacheTier for convenience (consumers can import from this module)
 export { CacheTier };
@@ -340,7 +359,7 @@ export class StorageCacheService {
     const cacheKey = CacheKeys.PRODUCT.FULL(id);
     return this.cachedGet<ProductWithOffers | null>(
       cacheKey,
-      () => storage.getProductById(id),
+      async () => (await getStorageAsync()).getProductById(id),
       CacheTier.WARM
     );
   }
@@ -379,7 +398,7 @@ export class StorageCacheService {
   async getAllRetailers(): Promise<Retailer[]> {
     const cacheKey = CacheKeys.RETAILER.ALL();
 
-    return this.cachedGet<Retailer[]>(cacheKey, () => storage.getAllRetailers(), CacheTier.STATIC);
+    return this.cachedGet<Retailer[]>(cacheKey, async () => (await getStorageAsync()).getAllRetailers(), CacheTier.STATIC);
   }
 
   /**
@@ -392,7 +411,7 @@ export class StorageCacheService {
     // Use a dedicated cache key for active-only retailers
     const cacheKey = `retailer:active:v1`;
 
-    return this.cachedGet<Retailer[]>(cacheKey, () => storage.getRetailers(), CacheTier.STATIC);
+    return this.cachedGet<Retailer[]>(cacheKey, async () => (await getStorageAsync()).getRetailers(), CacheTier.STATIC);
   }
 
   /**
@@ -438,7 +457,7 @@ export class StorageCacheService {
 
     return this.cachedGet<Retailer[]>(
       cacheKey,
-      () => storage.getRetailersByCountry(countryCode),
+      async () => (await getStorageAsync()).getRetailersByCountry(countryCode),
       CacheTier.STATIC
     );
   }
@@ -488,7 +507,7 @@ export class StorageCacheService {
 
     return this.cachedGet<Retailer | null>(
       cacheKey,
-      () => storage.getRetailerById(id),
+      async () => (await getStorageAsync()).getRetailerById(id),
       CacheTier.STATIC
     );
   }
@@ -557,7 +576,7 @@ export class StorageCacheService {
     const filterHash = this.hashFilters(filters);
     const cacheKey = CacheKeys.PRODUCT.SEARCH(filterHash);
 
-    return this.cachedGet(cacheKey, () => storage.searchProducts(filters), CacheTier.COLD);
+    return this.cachedGet(cacheKey, async () => (await getStorageAsync()).searchProducts(filters), CacheTier.COLD);
   }
 
   /**
@@ -573,7 +592,7 @@ export class StorageCacheService {
 
     return this.cachedGet<SafeUser | null>(
       cacheKey,
-      () => storage.getUserByIdSafe(id),
+      async () => (await getStorageAsync()).getUserByIdSafe(id),
       CacheTier.WARM
     );
   }

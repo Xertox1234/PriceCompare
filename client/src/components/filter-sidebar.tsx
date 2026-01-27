@@ -91,6 +91,7 @@ export const FilterSidebar = memo(({ filters, onFilterChange }: FilterSidebarPro
           className="border-input bg-background text-foreground focus:border-ring focus:ring-ring w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2"
           value={filters.category || ''}
           onChange={(e) => onFilterChange({ category: e.target.value || undefined })}
+          data-testid="filter-category-select"
         >
           <option value="">All categories</option>
           <option value="Electronics">Electronics</option>

@@ -106,7 +106,8 @@ describe('CSRF Protection', () => {
         saveUninitialized: false,
         cookie: {
           httpOnly: true,
-          secure: false,
+          // Use secure cookies in production, not in test
+          secure: process.env.NODE_ENV === 'production',
           maxAge: 24 * 60 * 60 * 1000,
         },
       })
@@ -145,6 +146,8 @@ describe('CSRF Protection', () => {
         timeReadPosts: 0,
         daysVisited: 1,
         preferredCountry: null, // User preference (TODO 258)
+        theme: null, // Theme preference (TODO 258)
+        highContrast: null, // Accessibility preference (TODO 258)
         createdAt: new Date(),
         updatedAt: new Date(),
       };

@@ -69,7 +69,8 @@ test.describe('Admin - Dashboard Management', () => {
       await waitForPageReady(page);
 
       // Should redirect to home page (route protection in admin.tsx:lines 38-42)
-      await expect(page).toHaveURL('http://localhost:5001/');
+      // Use relative path check to avoid hardcoded port number
+      await expect(page).toHaveURL('/');
     });
   });
 

@@ -9,7 +9,7 @@ import request from 'supertest';
 import express from 'express';
 import session from 'express-session';
 import type { RedisClientType } from 'redis';
-import type { Store } from 'express-session';
+import type { Store, SessionData } from 'express-session';
 import { initializeRedis, getRedisSessionClient, closeRedis } from '../config/redis';
 import { createSessionStore } from '../config/session-store';
 
@@ -40,7 +40,8 @@ describe('Redis Session Storage Integration', () => {
         resave: false,
         saveUninitialized: false,
         cookie: {
-          secure: false, // Allow non-HTTPS for testing
+          // Use secure cookies in production, not in test
+          secure: process.env.NODE_ENV === 'production',
           httpOnly: true,
           sameSite: 'lax',
           maxAge: 24 * 60 * 60 * 1000, // 24 hours
@@ -236,15 +237,14 @@ describe('Redis Session Storage Integration', () => {
 
     // Create a test session directly via the store
     const testSessionId = 'test-session-ttl-123';
-    const testSessionData = {
-      cookie: { maxAge: 86400000 }, // 24 hours
+    const testSessionData: SessionData = {
+      cookie: { maxAge: 86400000, originalMaxAge: 86400000 }, // 24 hours
       userId: 111,
       username: 'ttluser',
     };
 
     await new Promise((resolve, reject) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Session store type mismatch with express-session types
-      store.set(testSessionId, testSessionData as any, (err?: Error) => {
+      store.set(testSessionId, testSessionData, (err?: Error) => {
         if (err) reject(err);
         else resolve(true);
       });

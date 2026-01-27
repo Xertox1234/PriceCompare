@@ -31,6 +31,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+# Required permissions for PR comments
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   e2e-tests:
     name: E2E Tests (Chromium, shard ${{ matrix.shard }}/4)
@@ -108,6 +113,8 @@ jobs:
           NODE_ENV: test
         run: |
           echo "Installing pgvector extension..."
+          echo "Installing pg_trgm extension for fuzzy search..."
+          PGPASSWORD=postgres psql -h localhost -U postgres -d e2e_test_db -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
           PGPASSWORD=postgres psql -h localhost -U postgres -d e2e_test_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
           echo "Creating base schema..."
           npm run db:push
@@ -124,8 +131,13 @@ jobs:
 
       - name: Generate runtime secrets
         run: |
-          echo "SESSION_SECRET=$(node -e 'process.stdout.write(require(\"crypto\").randomBytes(32).toString(\"base64\"))')" >> $GITHUB_ENV
-          echo "CSRF_SECRET=$(node -e 'process.stdout.write(require(\"crypto\").randomBytes(32).toString(\"base64\"))')" >> $GITHUB_ENV
+          # Generate secure random secrets using openssl (avoids escaping issues with node -e)
+          echo "SESSION_SECRET=$(openssl rand -base64 32)" >> $GITHUB_ENV
+          echo "CSRF_SECRET=$(openssl rand -base64 32)" >> $GITHUB_ENV
+          # Also generate ENCRYPTION_KEY (64 hex chars = 32 bytes for AES-256)
+          echo "ENCRYPTION_KEY=$(openssl rand -hex 32)" >> $GITHUB_ENV
+          # Generate DISCOURSE_SSO_SECRET (required by env-validation)
+          echo "DISCOURSE_SSO_SECRET=$(openssl rand -base64 32)" >> $GITHUB_ENV
 
       - name: Run E2E tests
         env:
@@ -135,8 +147,9 @@ jobs:
           PLAYWRIGHT_TEST_BASE_URL: http://localhost:5000
           CI: true
         run: |
-          # Start server in background
-          npm start &
+          # Start server in background (use node directly to respect NODE_ENV=test from env)
+          # npm start has NODE_ENV=production hardcoded which would require APP_URL etc.
+          node dist/index.js &
           SERVER_PID=$!
           
           # Wait for server to be ready
@@ -308,6 +321,8 @@ jobs:
           NODE_ENV: test
         run: |
           echo "Installing pgvector extension..."
+          echo "Installing pg_trgm extension for fuzzy search..."
+          PGPASSWORD=postgres psql -h localhost -U postgres -d e2e_test_db -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
           PGPASSWORD=postgres psql -h localhost -U postgres -d e2e_test_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
           echo "Creating base schema..."
           npm run db:push
@@ -324,8 +339,13 @@ jobs:
 
       - name: Generate runtime secrets
         run: |
-          echo "SESSION_SECRET=$(node -e 'process.stdout.write(require(\"crypto\").randomBytes(32).toString(\"base64\"))')" >> $GITHUB_ENV
-          echo "CSRF_SECRET=$(node -e 'process.stdout.write(require(\"crypto\").randomBytes(32).toString(\"base64\"))')" >> $GITHUB_ENV
+          # Generate secure random secrets using openssl (avoids escaping issues with node -e)
+          echo "SESSION_SECRET=$(openssl rand -base64 32)" >> $GITHUB_ENV
+          echo "CSRF_SECRET=$(openssl rand -base64 32)" >> $GITHUB_ENV
+          # Also generate ENCRYPTION_KEY (64 hex chars = 32 bytes for AES-256)
+          echo "ENCRYPTION_KEY=$(openssl rand -hex 32)" >> $GITHUB_ENV
+          # Generate DISCOURSE_SSO_SECRET (required by env-validation)
+          echo "DISCOURSE_SSO_SECRET=$(openssl rand -base64 32)" >> $GITHUB_ENV
 
       - name: Run E2E tests
         env:
@@ -335,8 +355,9 @@ jobs:
           PLAYWRIGHT_TEST_BASE_URL: http://localhost:5000
           CI: true
         run: |
-          # Start server in background
-          npm start &
+          # Start server in background (use node directly to respect NODE_ENV=test from env)
+          # npm start has NODE_ENV=production hardcoded which would require APP_URL etc.
+          node dist/index.js &
           SERVER_PID=$!
 
           # Wait for server to be ready

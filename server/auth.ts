@@ -88,6 +88,8 @@ passport.use(
             timeReadPosts: users.timeReadPosts,
             daysVisited: users.daysVisited,
             preferredCountry: users.preferredCountry, // User preference (TODO 258)
+            theme: users.theme, // Theme preference (TODO 258)
+            highContrast: users.highContrast, // Accessibility preference (TODO 258)
             createdAt: users.createdAt,
             updatedAt: users.updatedAt,
           })
@@ -281,6 +283,8 @@ export async function createUser(userData: {
     timeReadPosts: user.timeReadPosts,
     daysVisited: user.daysVisited,
     preferredCountry: user.preferredCountry, // User preference (TODO 258)
+    theme: user.theme, // Theme preference (TODO 258)
+    highContrast: user.highContrast, // Accessibility preference (TODO 258)
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
@@ -313,6 +317,8 @@ export async function findUserByEmail(email: string): Promise<SafeUser | null> {
       timeReadPosts: users.timeReadPosts,
       daysVisited: users.daysVisited,
       preferredCountry: users.preferredCountry, // User preference (TODO 258)
+      theme: users.theme, // Theme preference (TODO 258)
+      highContrast: users.highContrast, // Accessibility preference (TODO 258)
       createdAt: users.createdAt,
       updatedAt: users.updatedAt,
     })
@@ -358,6 +364,8 @@ export async function findUserById(id: number): Promise<SafeUser | null> {
       timeReadPosts: users.timeReadPosts,
       daysVisited: users.daysVisited,
       preferredCountry: users.preferredCountry, // User preference (TODO 258)
+      theme: users.theme, // Theme preference (TODO 258)
+      highContrast: users.highContrast, // Accessibility preference (TODO 258)
       createdAt: users.createdAt,
       updatedAt: users.updatedAt,
     })

@@ -29,11 +29,63 @@ const redisConfig = process.env.REDIS_URL
       password: process.env.REDIS_PASSWORD,
     };
 
-// Create Bull queue for notification processing
-export const notificationQueue =
-  typeof redisConfig === 'string'
-    ? new Queue('smart-notifications', redisConfig)
-    : new Queue('smart-notifications', { redis: redisConfig });
+// LAZY INITIALIZATION: Queue is only created when first accessed
+// This prevents the Bull queue from connecting to Redis at module import time,
+// which would block the server startup if Redis is not yet ready.
+let _notificationQueue: Queue.Queue | null = null;
+let _queueInitialized = false;
+
+/**
+ * Get the notification queue (lazy initialization)
+ * The queue is created on first access, not at module load time.
+ */
+function getNotificationQueue(): Queue.Queue {
+  if (!_notificationQueue) {
+    _notificationQueue =
+      typeof redisConfig === 'string'
+        ? new Queue('smart-notifications', redisConfig)
+        : new Queue('smart-notifications', { redis: redisConfig });
+  }
+  return _notificationQueue;
+}
+
+/**
+ * Legacy export for backward compatibility - provides lazy access to the queue
+ * The queue is not created until one of these methods is called.
+ */
+export const notificationQueue = {
+  get process() {
+    return getNotificationQueue().process.bind(getNotificationQueue());
+  },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Bull queue has complex generic types for job data
+  add: async (name: string, data: any, opts?: Queue.JobOptions) => {
+    return getNotificationQueue().add(name, data, opts);
+  },
+  on: (event: string, callback: (...args: unknown[]) => void) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-argument -- Bull queue event callbacks have dynamic signatures
+    return getNotificationQueue().on(event, callback as (...args: any[]) => void);
+  },
+  close: async () => {
+    if (_notificationQueue) {
+      return _notificationQueue.close();
+    }
+  },
+  getWaitingCount: async () => {
+    return getNotificationQueue().getWaitingCount();
+  },
+  getActiveCount: async () => {
+    return getNotificationQueue().getActiveCount();
+  },
+  getCompletedCount: async () => {
+    return getNotificationQueue().getCompletedCount();
+  },
+  getFailedCount: async () => {
+    return getNotificationQueue().getFailedCount();
+  },
+  clean: async (...args: Parameters<Queue.Queue['clean']>) => {
+    return getNotificationQueue().clean(...args);
+  },
+};
 
 /**
  * Process watched products and send notifications
@@ -134,47 +186,60 @@ async function processWatchedProducts(): Promise<{ processed: number; notified: 
 }
 
 /**
- * Process notification jobs
+ * Setup queue event handlers and processor
+ * Must be called once after queue is ready
  */
-void notificationQueue.process('check-watched-products', async (job) => {
-  log.info(`Processing notification job ${job.id} at ${new Date().toISOString()}`);
+function setupQueueHandlers() {
+  if (_queueInitialized) return;
+  
+  const queue = getNotificationQueue();
+  
+  // Process notification jobs
+  void queue.process('check-watched-products', async (job) => {
+    log.info(`Processing notification job ${job.id} at ${new Date().toISOString()}`);
 
-  try {
-    const result = await processWatchedProducts();
-    log.info(`Notification job ${job.id} completed successfully`, result);
+    try {
+      const result = await processWatchedProducts();
+      log.info(`Notification job ${job.id} completed successfully`, result);
 
-    return { success: true, ...result };
-  } catch (error) {
-    log.error(`Notification job ${job.id} failed`, {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    throw error;
-  }
-});
-
-// Handle job completion
-notificationQueue.on('completed', (job, result: unknown) => {
-  log.info(`Notification job ${job.id} completed`, result as Record<string, unknown>);
-});
-
-// Handle job failures
-notificationQueue.on('failed', (job, err) => {
-  log.error('Notification job failed', {
-    jobId: job?.id,
-    error: err.message,
+      return { success: true, ...result };
+    } catch (error) {
+      log.error(`Notification job ${job.id} failed`, {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
   });
-});
 
-// Handle job stalling
-notificationQueue.on('stalled', (job) => {
-  log.warn(`Notification job ${job.id} stalled`);
-});
+  // Handle job completion
+  queue.on('completed', (job, result: unknown) => {
+    log.info(`Notification job ${job.id} completed`, result as Record<string, unknown>);
+  });
+
+  // Handle job failures
+  queue.on('failed', (job, err) => {
+    log.error('Notification job failed', {
+      jobId: job?.id,
+      error: err.message,
+    });
+  });
+
+  // Handle job stalling
+  queue.on('stalled', (job) => {
+    log.warn(`Notification job ${job.id} stalled`);
+  });
+  
+  _queueInitialized = true;
+}
 
 /**
  * Initialize the notification processor scheduler
  * Runs every 15 minutes with distributed locking
  */
 export function initializeNotificationProcessor() {
+  // Setup queue handlers first
+  setupQueueHandlers();
+  
   const cronSchedule = process.env.NOTIFICATION_PROCESSOR_CRON || '*/15 * * * *';
 
   log.info(`Initializing notification processor with schedule: ${cronSchedule}`);
@@ -189,7 +254,7 @@ export function initializeNotificationProcessor() {
         'smart-notifications:processor',
         async () => {
           // Add job to queue
-          await notificationQueue.add(
+          await getNotificationQueue().add(
             'check-watched-products',
             {
               type: 'scheduled',
@@ -230,7 +295,7 @@ export function initializeNotificationProcessor() {
 export async function triggerManualNotificationProcessor(): Promise<void> {
   log.info('Manually triggering notification processor');
 
-  await notificationQueue.add(
+  await getNotificationQueue().add(
     'check-watched-products',
     {
       type: 'manual',
@@ -247,11 +312,12 @@ export async function triggerManualNotificationProcessor(): Promise<void> {
  * Get queue statistics
  */
 export async function getNotificationQueueStats() {
+  const queue = getNotificationQueue();
   const [waiting, active, completed, failed] = await Promise.all([
-    notificationQueue.getWaitingCount(),
-    notificationQueue.getActiveCount(),
-    notificationQueue.getCompletedCount(),
-    notificationQueue.getFailedCount(),
+    queue.getWaitingCount(),
+    queue.getActiveCount(),
+    queue.getCompletedCount(),
+    queue.getFailedCount(),
   ]);
 
   return {
@@ -267,10 +333,11 @@ export async function getNotificationQueueStats() {
  * Clean up old completed jobs
  */
 export async function cleanupNotificationJobs() {
+  const queue = getNotificationQueue();
   // Remove completed jobs older than 24 hours
-  await notificationQueue.clean(24 * 60 * 60 * 1000, 'completed');
+  await queue.clean(24 * 60 * 60 * 1000, 'completed');
   // Remove failed jobs older than 7 days
-  await notificationQueue.clean(7 * 24 * 60 * 60 * 1000, 'failed');
+  await queue.clean(7 * 24 * 60 * 60 * 1000, 'failed');
 
   log.info('Cleaned up old notification jobs');
 }

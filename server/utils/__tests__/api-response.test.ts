@@ -469,17 +469,20 @@ describe('API Response Helpers', () => {
       expect(statusMock).toHaveBeenCalledWith(400);
     });
 
-    it('should include stack trace in development mode', () => {
+    it('should never include stack trace in response (security)', () => {
+      // SECURITY: Stack traces should NEVER be sent to client, even in development
+      // They are logged server-side only via logger.debug()
       process.env.NODE_ENV = 'development';
       const error = new Error('Test error');
       error.stack = 'Error: Test error\n    at test.ts:10:5';
 
       sendErrorFromException(mockResponse as Response, error, 'TestOp');
 
+      // Stack trace should NOT be in response - only logged server-side
       expect(jsonMock).toHaveBeenCalledWith({
         success: false,
         error: 'Test error',
-        details: expect.stringContaining('Error: Test error'),
+        // No details - stack trace is logged server-side only
       });
     });
 

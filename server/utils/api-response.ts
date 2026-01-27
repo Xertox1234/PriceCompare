@@ -186,16 +186,16 @@ export function normalizeResponse<T>(legacyData: unknown): T {
  * Convenience function to send error from caught exception
  * Uses consolidated error utilities from errors.ts and integrates with Sentry
  *
+ * SECURITY: Stack traces and detailed error info are NEVER sent to clients.
+ * They are logged server-side and captured in Sentry for debugging.
+ *
  * @param res - Express response object
  * @param error - Caught error (unknown type)
  * @param context - Operation context for logging and Sentry tagging
  */
 export function sendErrorFromException(res: Response, error: unknown, context = 'Operation'): void {
-  const isDevelopment = process.env.NODE_ENV === 'development';
-
   let message = `${context} failed`;
   let status = 500;
-  let details: string | undefined;
   let isOperational = false;
 
   // Handle Zod validation errors explicitly
@@ -203,9 +203,8 @@ export function sendErrorFromException(res: Response, error: unknown, context = 
     message = error.issues[0]?.message || 'Validation failed';
     status = 400;
     isOperational = true; // Validation errors are operational (expected)
-    if (isDevelopment) {
-      details = JSON.stringify(error.issues, null, 2);
-    }
+    // Log validation details server-side only
+    logger.debug(`${context} validation error:`, { issues: error.issues });
   } else if (error instanceof Error) {
     // Use consolidated error utilities
     message = getErrorMessage(error);
@@ -220,8 +219,10 @@ export function sendErrorFromException(res: Response, error: unknown, context = 
       isOperational = isOperationalError(error);
     }
 
-    if (isDevelopment && error.stack) {
-      details = error.stack;
+    // SECURITY: Stack traces are logged but NEVER sent to client
+    // Log stack trace for debugging (server-side only)
+    if (error.stack) {
+      logger.debug(`${context} stack trace:`, { stack: error.stack });
     }
   } else {
     // Non-Error types (strings, objects, etc.)
@@ -246,5 +247,5 @@ export function sendErrorFromException(res: Response, error: unknown, context = 
     });
   }
 
-  sendError(res, message, status, details);
-}
+  // SECURITY: Never pass stack trace to client - only message and status
+  sendError(res, message, status);}

@@ -1,8 +1,9 @@
 # Frontend Patterns
 
-**Version:** 2.12
-**Last Updated:** 2026-01-23
+**Version:** 2.13
+**Last Updated:** 2026-01-26
 **Changelog:**
+- 2.13 (2026-01-26): Added Hybrid Persistence (Server + localStorage) pattern and Login Migration pattern - guest-to-authenticated user data migration, unified interface for localStorage/server backing stores (from TODO_290 comparison list implementation)
 - 2.12 (2026-01-23): Added Context Value Memoization Pattern and Component Memoization for Lists (from TODO 260 code review)
 - 2.11 (2026-01-18): Added URL Query Parameter Sync with Component State pattern - documents useEffect-based sync for wouter client-side navigation, preventing stale state when URL changes via Link components (from header navigation fix)
 - 2.10 (2026-01-16): Added Toast Notifications: WCAG Compliance pattern - documents Radix Toast type prop mapping for proper ARIA live region announcements (aria-live="assertive" for destructive, aria-live="polite" for default), WCAG AA color contrast verification, and E2E testing strategy (from TODO_231 Phase 6)
@@ -44,6 +45,8 @@
 5. [State Management](#state-management)
   - [Local State vs Server State](#local-state-vs-server-state)
   - [URL Query Parameter Sync with Component State](#url-query-parameter-sync-with-component-state-new---2026-01-18)
+  - [Hybrid Persistence (Server + localStorage) (NEW)](#hybrid-persistence-server--localstorage-new---2026-01-26) ⭐ **NEW**
+  - [Login Migration Pattern (NEW)](#login-migration-pattern-new---2026-01-26) ⭐ **NEW**
   - [Component Integration Pattern](#component-integration-pattern)
 6. [API Integration Patterns](#api-integration-patterns)
   - [Centralized API Client](#centralized-api-client)
@@ -2587,6 +2590,398 @@ function ProductsPage() {
    ```
 
 **Real-World Example:** See `client/src/pages/products-new.tsx` for the full implementation with header navigation integration.
+
+---
+
+### Hybrid Persistence (Server + localStorage) (NEW - 2026-01-26)
+
+**When:** Features that need persistence for authenticated users but must also support guest users (comparison lists, shopping carts, preferences).
+
+**Problem:** Guest users need immediate functionality with localStorage, but authenticated users expect data to persist across devices and sessions. Switching between localStorage and server state on login/logout creates complexity.
+
+**Solution:** Unified interface with conditional backing store based on authentication state.
+
+#### ✅ CORRECT - Hybrid Persistence Pattern
+
+```typescript
+import { useState, useEffect, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { useAuth } from '@/hooks/use-auth';
+import type { Product } from '@shared/schema';
+
+const STORAGE_KEY = 'comparison-items';
+const MAX_ITEMS = 4;
+
+export function useComparison() {
+  const { data: user } = useAuth();
+  const queryClient = useQueryClient();
+
+  // Server-backed for authenticated users
+  const { data: serverData, isLoading: isServerLoading } = useQuery({
+    queryKey: ['/api/user/compare'],
+    queryFn: async () => apiRequest<{ items: Product[] }>('/api/user/compare'),
+    enabled: !!user,  // Only fetch if authenticated
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const serverItems = serverData?.items ?? [];
+
+  // localStorage for guest users
+  const [localItems, setLocalItems] = useState<Product[]>(() => {
+    if (user) return [];  // Don't use localStorage for authenticated users
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      return stored ? JSON.parse(stored).slice(0, MAX_ITEMS) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Sync localStorage when it changes (guest users only)
+  useEffect(() => {
+    if (!user) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(localItems));
+      } catch {
+        // Silently fail if localStorage unavailable
+      }
+    }
+  }, [localItems, user]);
+
+  // Server mutations (authenticated users)
+  const addMutation = useMutation({
+    mutationFn: async (productId: number) =>
+      apiRequest('/api/user/compare', {
+        method: 'POST',
+        body: JSON.stringify({ productId }),
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['/api/user/compare'] });
+    },
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: async (productId: number) =>
+      apiRequest(`/api/user/compare/${productId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['/api/user/compare'] });
+    },
+  });
+
+  // Unified interface - routes to server or localStorage based on auth state
+  const items = user ? serverItems : localItems;
+  const isLoading = user ? isServerLoading : false;
+
+  const addItem = useCallback(
+    (product: Product) => {
+      if (user) {
+        // Server-backed
+        addMutation.mutate(product.id);
+      } else {
+        // Guest user - localStorage
+        setLocalItems((current) => {
+          if (current.length >= MAX_ITEMS) return current;
+          if (current.some((item) => item.id === product.id)) return current;
+          return [...current, product];
+        });
+      }
+    },
+    [user, addMutation]
+  );
+
+  const removeItem = useCallback(
+    (productId: number) => {
+      if (user) {
+        removeMutation.mutate(productId);
+      } else {
+        setLocalItems((current) => current.filter((item) => item.id !== productId));
+      }
+    },
+    [user, removeMutation]
+  );
+
+  return {
+    items,
+    addItem,
+    removeItem,
+    isLoading,
+  };
+}
+```
+
+#### ❌ WRONG - Single Backing Store
+
+```typescript
+// ❌ Forces guests to create account to use feature
+export function useComparison() {
+  const { data: user } = useAuth();
+
+  // Only works for authenticated users
+  const { data } = useQuery({
+    queryKey: ['/api/user/compare'],
+    queryFn: async () => apiRequest('/api/user/compare'),
+    enabled: !!user,
+  });
+
+  // Guest users get nothing
+  if (!user) {
+    return {
+      items: [],
+      addItem: () => console.warn('Login required'),
+      removeItem: () => {},
+      isLoading: false,
+    };
+  }
+
+  return { items: data?.items ?? [], ... };
+}
+```
+
+**Rationale:**
+
+- **Guest experience**: Instant functionality without account creation
+- **Progressive enhancement**: Guest data migrates to server on login
+- **Type consistency**: Same interface regardless of backing store
+- **Performance**: localStorage is instant for guests (no API latency)
+- **Seamless transition**: User doesn't notice switch from localStorage to server
+- **Data persistence**: Authenticated users get cross-device sync
+
+**Key Implementation Details:**
+
+1. **Conditional query enabling**: `enabled: !!user` prevents unnecessary requests
+2. **Initial state guard**: `if (user) return []` prevents localStorage reads for authenticated users
+3. **Sync effect guard**: `if (!user)` only syncs localStorage for guests
+4. **Unified return interface**: Consumers don't need to know about backing store
+5. **Max items enforcement**: Apply limit at read time (`.slice(0, MAX_ITEMS)`)
+
+**When to Use:**
+
+- ✅ Features that should work without authentication (comparison, cart, preferences)
+- ✅ Data that benefits from cross-device sync for logged-in users
+- ✅ User experience where forcing login would reduce engagement
+- ✅ Non-sensitive data safe to store in localStorage
+
+**When NOT to Use:**
+
+- ❌ Sensitive data (use server-only with authentication gate)
+- ❌ Features requiring authentication (watchlists, orders, payment methods)
+- ❌ Data too large for localStorage (5-10MB limit)
+- ❌ Collaborative features requiring real-time sync
+
+**Related Patterns:**
+
+- **Login Migration Pattern** (below) - Migrating localStorage to server
+- **Authentication Guards for React Query Hooks** (above) - Preventing API calls for guests
+- **Local State vs Server State** (above) - When to use each
+
+*Source: TODO_290 - Comparison list server persistence with guest support*
+*Added: 2026-01-26*
+
+---
+
+### Login Migration Pattern (NEW - 2026-01-26)
+
+**When:** User logs in after accumulating data in localStorage (comparison items, cart items, preferences). Need to migrate guest data to their account without data loss.
+
+**Problem:** Guest users build up state in localStorage. When they create an account or log in, this data should seamlessly transfer to their server-backed account. Without migration, they lose their work and have to re-add items.
+
+**Solution:** Automatic migration on login using useEffect to detect authentication state change.
+
+#### ✅ CORRECT - Automatic Migration Pattern
+
+```typescript
+import { useEffect } from 'react';
+import { useAuth } from '@/hooks/use-auth';
+import { useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
+
+export function useComparison() {
+  const { data: user } = useAuth();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [localItems, setLocalItems] = useState<Product[]>(() => {
+    // ... localStorage initialization
+  });
+
+  // Login migration: Move localStorage items to server
+  useEffect(() => {
+    if (user && localItems.length > 0) {
+      const migrateItems = async () => {
+        try {
+          // 1. Fetch current server items to avoid duplicates
+          const serverData = await apiRequest<{ items: Product[] }>(
+            '/api/user/compare'
+          );
+          const existingProductIds = new Set(
+            serverData.items.map((item) => item.id)
+          );
+
+          // 2. Filter out items already on server
+          const itemsToMigrate = localItems.filter(
+            (item) => !existingProductIds.has(item.id)
+          );
+
+          if (itemsToMigrate.length === 0) {
+            // All items already on server - just clear localStorage
+            setLocalItems([]);
+            localStorage.removeItem(STORAGE_KEY);
+            return;
+          }
+
+          // 3. Migrate each item (respecting max items limit)
+          const maxAllowed = MAX_ITEMS - existingProductIds.size;
+          const toMigrate = itemsToMigrate.slice(0, maxAllowed);
+
+          for (const item of toMigrate) {
+            try {
+              await apiRequest('/api/user/compare', {
+                method: 'POST',
+                body: JSON.stringify({ productId: item.id }),
+              });
+            } catch {
+              // Skip items that fail (e.g., list full, product deleted)
+            }
+          }
+
+          // 4. Clear localStorage after migration
+          setLocalItems([]);
+          localStorage.removeItem(STORAGE_KEY);
+
+          // 5. Invalidate server query to refresh
+          void queryClient.invalidateQueries({ queryKey: ['/api/user/compare'] });
+
+          // 6. Show success toast
+          toast({
+            title: 'Items migrated',
+            description: `${toMigrate.length} item(s) moved to your account.`,
+            variant: 'default',
+          });
+        } catch {
+          // Silently fail migration - user can still use localStorage
+        }
+      };
+
+      void migrateItems();
+    }
+  }, [user, localItems, queryClient, toast]);
+
+  // ... rest of hook implementation
+}
+```
+
+#### ❌ WRONG - No Migration (Data Loss)
+
+```typescript
+export function useComparison() {
+  const { data: user } = useAuth();
+
+  // ❌ No migration - guest data is abandoned on login
+  const [localItems, setLocalItems] = useState(() => {
+    if (user) return [];  // Guest data lost!
+    return loadFromLocalStorage();
+  });
+
+  // User logs in, loses 4 items they added as guest
+  // Must re-add everything manually
+}
+```
+
+#### ❌ WRONG - Manual Migration (Poor UX)
+
+```typescript
+export function useComparison() {
+  const { data: user } = useAuth();
+  const [showMigrationPrompt, setShowMigrationPrompt] = useState(false);
+
+  useEffect(() => {
+    if (user && localItems.length > 0) {
+      // ❌ Forces user to click button to migrate
+      setShowMigrationPrompt(true);
+    }
+  }, [user, localItems]);
+
+  // User sees: "You have 4 items in your comparison. Click to save to account."
+  // Adds friction, user might dismiss and lose data
+}
+```
+
+**Rationale:**
+
+- **Seamless UX**: Migration happens automatically, user doesn't notice
+- **No data loss**: Guest work is preserved when creating account
+- **Duplicate prevention**: Checks server first to avoid duplicate adds
+- **Max limit respect**: Only migrates items that fit within limit
+- **Error resilience**: Individual item failures don't block entire migration
+- **User feedback**: Toast notification confirms successful migration
+- **Silent failure**: Migration errors don't interrupt login flow
+
+**Key Implementation Details:**
+
+1. **Dependency array**: `[user, localItems, queryClient, toast]` triggers on login
+2. **Duplicate check**: Fetch server items first to avoid duplicate API calls
+3. **Limit enforcement**: `maxAllowed = MAX_ITEMS - existingProductIds.size`
+4. **Individual error handling**: `try/catch` per item, not entire migration
+5. **Cleanup timing**: Clear localStorage AFTER successful migration
+6. **Query invalidation**: Refresh server data to show migrated items
+7. **Silent catch**: Top-level catch prevents migration errors from breaking app
+
+**Migration Flow:**
+
+```
+Guest adds items → localStorage [A, B, C, D]
+          ↓
+User logs in → useEffect detects user && localItems.length > 0
+          ↓
+Fetch server items → {items: [B]}  (user already had B on another device)
+          ↓
+Filter duplicates → [A, C, D]
+          ↓
+Check limit → maxAllowed = 4 - 1 = 3 items can migrate
+          ↓
+Migrate items → POST /api/user/compare for A, C, D
+          ↓
+Clear localStorage → Remove guest data
+          ↓
+Invalidate query → Refetch server items [A, B, C, D]
+          ↓
+Show toast → "3 item(s) moved to your account"
+```
+
+**When to Use:**
+
+- ✅ After implementing hybrid persistence pattern
+- ✅ Features where guest data has value (comparison, cart, preferences)
+- ✅ Account creation or login flows
+- ✅ Data that can be duplicated safely (idempotent adds)
+
+**When NOT to Use:**
+
+- ❌ Sensitive data that shouldn't be in localStorage
+- ❌ Features requiring authentication (can't have guest state)
+- ❌ Data with complex server-side dependencies
+- ❌ Collaborative features requiring conflict resolution
+
+**Testing Checklist:**
+
+- ✅ Migration triggers on login with localStorage items
+- ✅ No migration triggered if localStorage is empty
+- ✅ Duplicate items on server are not re-added
+- ✅ Max items limit is respected during migration
+- ✅ localStorage is cleared after successful migration
+- ✅ Failed item migrations don't block successful ones
+- ✅ Toast notification appears after migration
+- ✅ Server query is invalidated to show migrated items
+
+**Related Patterns:**
+
+- **Hybrid Persistence Pattern** (above) - The pattern this extends
+- **Authentication Guards for React Query Hooks** - Preventing premature queries
+- **Optimistic Updates with Rollback** - Instant UI feedback during migration
+
+*Source: TODO_290 - Comparison list login migration implementation*
+*Added: 2026-01-26*
 
 ---
 

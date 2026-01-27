@@ -22,9 +22,10 @@ import {
  * Usage (via flexibleAuth):
  *   app.post('/api/watchlists', flexibleAuth, csrfProtection, withAuth, handler);
  *
- * Direct usage (legacy, not recommended):
- *   // CSRF exempt: Basic Auth requests are stateless - no browser cookies, immune to CSRF
- *   app.post('/api/v1/scraping/discover-trends', basicAuth, withAdmin, handler);
+ * Direct usage (legacy, not recommended - prefer flexibleAuth):
+ *   app.post('/api/v1/scraping/discover-trends',
+ *     // CSRF exempt: Basic Auth requests are stateless - no browser cookies, immune to CSRF
+ *     basicAuth, withAdmin, handler);
  *
  * Client example:
  *   curl -u "admin:password" https://api.pricecompare.com/api/watchlists

@@ -34,10 +34,12 @@ export function HeroSection() {
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             className="border-border focus:ring-primary w-full rounded-full border-2 px-6 py-4 transition duration-300 focus:ring-2 focus:outline-none"
+            data-testid="hero-search-input"
           />
           <Button
             onClick={handleSearch}
             className="bg-primary text-primary-foreground hover:bg-primary/90 absolute top-1/2 right-2 -translate-y-1/2 rounded-full px-8 py-3 font-semibold transition duration-300"
+            data-testid="hero-search-button"
           >
             Search
           </Button>

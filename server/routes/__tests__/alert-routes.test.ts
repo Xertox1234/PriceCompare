@@ -133,7 +133,12 @@ describe('Price Alert Routes - Integration Tests', () => {
         secret: 'test-secret-key-for-testing-only',
         resave: false,
         saveUninitialized: false,
-        cookie: { httpOnly: true, secure: false, maxAge: 24 * 60 * 60 * 1000 },
+        cookie: {
+          httpOnly: true,
+          // Use secure cookies in production, not in test
+          secure: process.env.NODE_ENV === 'production',
+          maxAge: 24 * 60 * 60 * 1000,
+        },
       })
     );
 

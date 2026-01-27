@@ -77,7 +77,10 @@ describe('Flexible Auth Integration Tests', () => {
         secret: 'test-secret',
         resave: false,
         saveUninitialized: false,
-        cookie: { secure: false }, // Allow HTTP in tests
+        cookie: {
+          // Use secure cookies in production, not in test
+          secure: process.env.NODE_ENV === 'production',
+        },
       })
     );
 
