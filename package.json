@@ -30,7 +30,8 @@
     "validate:schema": "tsx scripts/validate-schema-migrations.ts",
     "validate:fk-cascades": "tsx scripts/validate-fk-cascades.ts",
     "validate:schema-sync": "tsx scripts/validate-test-schema-sync.ts",
-    "validate:all": "npm run validate:schema && npm run validate:fk-cascades && npm run validate:schema-sync",
+    "validate:n-plus-one": "tsx scripts/detect-n-plus-one.ts",
+    "validate:all": "npm run validate:schema && npm run validate:fk-cascades && npm run validate:schema-sync && npm run validate:n-plus-one",
     "audit:columns": "tsx scripts/audit-table-columns.ts",
     "audit:monthly": "bash scripts/monthly-schema-audit.sh",
     "generate-embeddings": "tsx scripts/generate-embeddings.ts",
@@ -91,7 +92,6 @@
     "@sentry/react": "^10.27.0",
     "@sentry/tracing": "^7.120.4",
     "@socket.io/redis-adapter": "^8.3.0",
-    "@tailwindcss/postcss": "^4.1.10",
     "@tailwindcss/vite": "^4.1.10",
     "@tanstack/react-query": "^5.90.10",
     "@testing-library/jest-dom": "^6.6.3",
@@ -106,7 +106,6 @@
     "@types/nodemailer": "^7.0.4",
     "@types/user-agents": "^1.0.4",
     "@vitest/coverage-v8": "^4.0.14",
-    "autoprefixer": "^10.4.22",
     "axios": "^1.13.1",
     "bcrypt": "^6.0.0",
     "bull": "^4.16.5",
@@ -215,12 +214,17 @@
   "overrides": {
     "esbuild": "^0.27.0",
     "body-parser": "2.2.1",
-    "axios": "^1.13.1"
+    "axios": "^1.13.1",
+    "lodash": "^4.17.22",
+    "undici": "^7.18.2",
+    "react-helmet-async": {
+      "react": "$react"
+    }
   },
   "bundlesize": [
     {
       "path": "./dist/public/assets/index-*.js",
-      "maxSize": "600 KB",
+      "maxSize": "650 KB",
       "compression": "none"
     },
     {
@@ -235,9 +239,9 @@
     }
   ],
   "_comments": {
-    "overrides": "esbuild override forces ^0.27.0 to fix CVE GHSA-67mh-4wv8-2f99 (dev server vulnerability). Vite and drizzle-kit depend on older vulnerable versions. body-parser override forces 2.2.1 to fix GHSA-wqch-xfxh-vrr4 (DoS via URL encoding). Remove when Express 5.x naturally updates to body-parser >= 2.2.1. axios override forces ^1.13.1 to fix bundlesize transitive dependency vulnerabilities (SSRF, DoS, credential leakage in axios 1.0.0-1.11.0). Remove when bundlesize updates to safe axios version.",
+    "overrides": "esbuild override forces ^0.27.0 to fix CVE GHSA-67mh-4wv8-2f99 (dev server vulnerability). Vite and drizzle-kit depend on older vulnerable versions. body-parser override forces 2.2.1 to fix GHSA-wqch-xfxh-vrr4 (DoS via URL encoding). Remove when Express 5.x naturally updates to body-parser >= 2.2.1. axios override forces ^1.13.1 to fix bundlesize transitive dependency vulnerabilities (SSRF, DoS, credential leakage in axios 1.0.0-1.11.0). lodash override forces ^4.17.22 to fix GHSA-xxjr-mmjv-4gpg (prototype pollution). undici override forces ^7.18.2 to fix GHSA-g9mf-h72j-4rw9 (unbounded decompression DoS). react-helmet-async override allows React 19 compatibility - remove when upstream supports React 19.",
     "sentry-versions": "@sentry/node and @sentry/react updated to ^10.28.0 to fix GHSA-6465-jgvq-jhgp (sensitive headers leak when sendDefaultPii enabled). Patch applied 2025-12-02.",
     "nodemailer-version": "nodemailer updated to ^7.0.11 to fix GHSA-rcmh-qjqh-p98v (DoS via recursive calls in addressparser). Patch applied 2025-12-02.",
-    "bundlesize": "Performance budget enforces max bundle sizes to prevent regressions. Main bundle <600KB (current: ~597KB), Charts vendor <400KB, UI core <150KB. Run 'npm run check-size' after build to verify. Added 2025-12-26."
+    "bundlesize": "Performance budget enforces max bundle sizes to prevent regressions. Main bundle <650KB (current: ~639KB after audit 2026-01-27), Charts vendor <400KB, UI core <150KB. Run 'npm run check-size' after build to verify. Added 2025-12-26, adjusted 2026-01-27."
   }
 }

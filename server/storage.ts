@@ -322,6 +322,11 @@ export interface IStorage {
   ): Promise<NotificationPreferences>;
   getRecentPriceDrops(userId: number, days?: number): Promise<Notification[]>;
   getRecentPriceAlerts(userId: number, days?: number): Promise<Notification[]>;
+  // Batch methods for N+1 prevention
+  getUserEmailsBatch(
+    userIds: number[]
+  ): Promise<Map<number, { email: string; username: string }>>;
+  getUserPreferencesBatch(userIds: number[]): Promise<Map<number, NotificationPreferences>>;
 
   // Admin Product/Retailer Management
   getAdminProducts(): Promise<AdminProduct[]>;
@@ -2931,6 +2936,16 @@ export class MemStorage implements IStorage {
   async getRecentPriceAlerts(_userId: number, _days?: number): Promise<Notification[]> {
     return []; // Stub implementation for testing
   }
+  async getUserEmailsBatch(
+    _userIds: number[]
+  ): Promise<Map<number, { email: string; username: string }>> {
+    return new Map(); // Stub implementation for testing
+  }
+  async getUserPreferencesBatch(
+    _userIds: number[]
+  ): Promise<Map<number, NotificationPreferences>> {
+    return new Map(); // Stub implementation for testing
+  }
   async getProductOffersByProductId(_productId: number): Promise<ProductOffer[]> {
     return []; // Stub implementation for testing
   }
@@ -4638,6 +4653,18 @@ export class DatabaseStorage implements IStorage {
 
   async getRecentPriceAlerts(userId: number, days?: number): Promise<Notification[]> {
     return this.notificationStorage.getRecentPriceAlerts(userId, days);
+  }
+
+  async getUserEmailsBatch(
+    userIds: number[]
+  ): Promise<Map<number, { email: string; username: string }>> {
+    return this.notificationStorage.getUserEmailsBatch(userIds);
+  }
+
+  async getUserPreferencesBatch(
+    userIds: number[]
+  ): Promise<Map<number, NotificationPreferences>> {
+    return this.notificationStorage.getUserPreferencesBatch(userIds);
   }
 
   // ============================================================================

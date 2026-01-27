@@ -289,7 +289,8 @@ export class CoordinationAgent extends BaseAgent {
     }));
 
     if (jobsToCreate.length > 0) {
-      // Create jobs individually through storage layer
+      // N+1-OK: Storage layer lacks batch createScrapingJobs method. Jobs are created sequentially
+      // to ensure proper error handling per job. TODO: Add batch method if this becomes a bottleneck.
       for (const job of jobsToCreate) {
         await storage.createScrapingJob(job);
       }

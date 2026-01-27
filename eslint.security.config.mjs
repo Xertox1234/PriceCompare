@@ -2,6 +2,11 @@ import js from '@eslint/js';
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
 import security from 'eslint-plugin-security';
+import { createRequire } from 'module';
+
+// Load local custom rules (CommonJS module)
+const require = createRequire(import.meta.url);
+const localRules = require('./scripts/eslint-rules/index.cjs');
 
 export default [
   js.configs.recommended,
@@ -9,7 +14,8 @@ export default [
     files: ['server/**/*.ts'],
     plugins: {
       '@typescript-eslint': tseslint,
-      'security': security
+      'security': security,
+      'local': localRules,
     },
     languageOptions: {
       parser: tsparser,
@@ -40,7 +46,9 @@ export default [
       'no-eval': 'error',
       'no-implied-eval': 'error',
       'no-new-func': 'error',
-      'no-console': ['warn', { allow: ['warn', 'error'] }]
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      // N+1 query detection - catches await storage.*/db.* in loops
+      'local/no-n-plus-one': 'warn'
     }
   }
 ];

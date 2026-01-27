@@ -169,6 +169,8 @@ async function checkAndAwardBadges(userId: number, reputation: UserReputation): 
   const userBadgeIdSet = new Set(userBadgeIds);
 
   // Step 4: Award only badges user doesn't have yet
+  // N+1-OK: Intentional sequential processing for transaction isolation. Each badge award
+  // is wrapped in its own transaction to ensure partial success (some badges awarded even if one fails).
   for (const badgeRecord of eligibleBadges) {
     if (!userBadgeIdSet.has(badgeRecord.id)) {
       try {

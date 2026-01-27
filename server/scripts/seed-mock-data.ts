@@ -224,6 +224,8 @@ async function seedMockData() {
       },
     ];
 
+    // N+1-OK: Seed script for development only. Sequential inserts ensure proper foreign key ordering
+    // and allow individual error handling. Not used in production.
     for (const productData of productsData) {
       const { offers: offerData, ...productInfo } = productData;
 

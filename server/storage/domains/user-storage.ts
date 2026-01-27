@@ -741,7 +741,7 @@ export class UserStorage extends BaseStorage {
       const {
         getUserSessionIds,
         cleanupStaleSessionsFromIndex,
-        removeSessionFromUserIndex,
+        removeSessionsFromUserIndex,
       } = await import('../../utils/session-index');
 
       // Cleanup stale sessions from index before using it
@@ -763,10 +763,10 @@ export class UserStorage extends BaseStorage {
       if (keysToDelete.length > 0) {
         await redisClient.del(keysToDelete);
 
-        // Remove deleted sessions from index
-        for (const sessionId of sessionIdsToDelete) {
-          await removeSessionFromUserIndex(userId, sessionId);
-        }
+        // PERFORMANCE FIX: Batch remove all sessions from index in single Redis call
+        // Previously: N sequential SREM calls (N+1 pattern)
+        // Now: Single SREM call with all session IDs
+        await removeSessionsFromUserIndex(userId, sessionIdsToDelete);
 
         const duration = Date.now() - startTime;
 

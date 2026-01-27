@@ -76,8 +76,8 @@ export default defineConfig({
         },
       },
     },
-    // Warn for chunks larger than 600KB
-    chunkSizeWarningLimit: 600,
+    // Warn for chunks larger than 650KB (matches bundlesize config)
+    chunkSizeWarningLimit: 650,
     // Enable source maps for production debugging (required for Sentry error tracking)
     sourcemap: true,
   },

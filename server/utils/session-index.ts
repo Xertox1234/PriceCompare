@@ -129,6 +129,62 @@ export async function removeSessionFromUserIndex(
 }
 
 /**
+ * Remove multiple sessions from user's session index (batch operation)
+ *
+ * PERFORMANCE: Uses single Redis SREM call with multiple members instead of N+1 calls.
+ * Called during session invalidation (password change, security logout).
+ *
+ * @param userId - User ID
+ * @param sessionIds - Array of session IDs to remove (without "sess:" prefix)
+ * @returns Number of sessions actually removed
+ */
+export async function removeSessionsFromUserIndex(
+  userId: number,
+  sessionIds: string[]
+): Promise<number> {
+  if (sessionIds.length === 0) {
+    return 0;
+  }
+
+  const redisClient = getRedisSessionClient();
+  if (!redisClient) {
+    logger.warn('[SessionIndex] Cannot remove sessions: Redis not available', { userId, count: sessionIds.length });
+    return 0;
+  }
+
+  try {
+    const key = getUserSessionsKey(userId);
+
+    // PERFORMANCE: Single SREM call with all session IDs (O(1) instead of O(N))
+    const removed = await redisClient.sRem(key, sessionIds);
+
+    if (removed > 0) {
+      logger.debug('[SessionIndex] Batch removed sessions from user index', { 
+        userId, 
+        requestedCount: sessionIds.length,
+        actuallyRemoved: removed,
+      });
+
+      // If SET is now empty, delete the key to save memory
+      const remainingCount = await redisClient.sCard(key);
+      if (remainingCount === 0) {
+        await redisClient.del(key);
+        logger.debug('[SessionIndex] Removed empty user sessions key', { userId });
+      }
+    }
+
+    return removed;
+  } catch (error) {
+    logger.error('[SessionIndex] Failed to batch remove sessions from index', {
+      userId,
+      sessionCount: sessionIds.length,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return 0;
+  }
+}
+
+/**
  * Get all session IDs for a user
  *
  * Returns session IDs WITHOUT the "sess:" prefix.

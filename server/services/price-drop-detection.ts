@@ -202,7 +202,18 @@ export async function checkPriceAlertsForDrop(
 
   if (triggeredAlerts.length === 0) return 0;
 
+  // PERFORMANCE FIX: Batch fetch user preferences and emails to eliminate N+1 queries
+  // Previously: 2N queries (1 getUserPreferences + 1 getUserEmailById per alert)
+  // Now: 2 batch queries total regardless of number of alerts
+  const userIds = triggeredAlerts.map((alert) => alert.userId);
+  const [userPreferencesMap, userEmailsMap] = await Promise.all([
+    storage.getUserPreferencesBatch(userIds),
+    storage.getUserEmailsBatch(userIds),
+  ]);
+
   // Create notifications for each triggered alert
+  // N+1-OK: This .map(async) is wrapped in Promise.all below (line ~270), making it parallel
+  // execution, not sequential N+1. Each alert notification is independent.
   const notificationPromises = triggeredAlerts.map(async (alert) => {
     const notification: InsertNotification = {
       userId: alert.userId,
@@ -247,9 +258,9 @@ export async function checkPriceAlertsForDrop(
 
       // Send email notification if user has email notifications enabled
       try {
-        // Get user preferences and email
-        const userPreferences = await storage.getUserPreferences(alert.userId);
-        const userEmail = await storage.getUserEmailById(alert.userId);
+        // Use batch-fetched preferences and emails (N+1 fix)
+        const userPreferences = userPreferencesMap.get(alert.userId);
+        const userEmail = userEmailsMap.get(alert.userId);
 
         // Only send email if:
         // 1. User has preferences set

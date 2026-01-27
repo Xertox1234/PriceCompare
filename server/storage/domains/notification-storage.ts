@@ -534,4 +534,71 @@ export class NotificationStorage extends BaseStorage {
   async getRecentPriceAlerts(userId: number, days = 7): Promise<Notification[]> {
     return this.getRecentNotificationsByType(userId, 'price_alert', days);
   }
+
+  /**
+   * Batch get user emails and usernames by user IDs
+   * Used to eliminate N+1 queries when sending notifications to multiple users
+   *
+   * @param userIds - Array of user IDs to fetch
+   * @returns Map of userId to { email, username }
+   */
+  async getUserEmailsBatch(
+    userIds: number[]
+  ): Promise<Map<number, { email: string; username: string }>> {
+    if (userIds.length === 0) {
+      return new Map();
+    }
+
+    try {
+      const { users } = await import('@shared/schema');
+      const results = await this.db
+        .select({
+          id: users.id,
+          email: users.email,
+          username: users.username,
+        })
+        .from(users)
+        .where(inArray(users.id, userIds));
+
+      const map = new Map<number, { email: string; username: string }>();
+      for (const row of results) {
+        map.set(row.id, { email: row.email, username: row.username });
+      }
+      return map;
+    } catch (error) {
+      this.handleError(error, 'getUserEmailsBatch');
+      return new Map();
+    }
+  }
+
+  /**
+   * Batch get user notification preferences by user IDs
+   * Used to eliminate N+1 queries when checking notification settings for multiple users
+   *
+   * @param userIds - Array of user IDs to fetch
+   * @returns Map of userId to NotificationPreferences
+   */
+  async getUserPreferencesBatch(
+    userIds: number[]
+  ): Promise<Map<number, NotificationPreferences>> {
+    if (userIds.length === 0) {
+      return new Map();
+    }
+
+    try {
+      const results = await this.db
+        .select()
+        .from(notificationPreferences)
+        .where(inArray(notificationPreferences.userId, userIds));
+
+      const map = new Map<number, NotificationPreferences>();
+      for (const row of results) {
+        map.set(row.userId, row);
+      }
+      return map;
+    } catch (error) {
+      this.handleError(error, 'getUserPreferencesBatch');
+      return new Map();
+    }
+  }
 }

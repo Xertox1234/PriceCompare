@@ -9,6 +9,7 @@ import type { RedisClientType } from 'redis';
 import {
   addSessionToUserIndex,
   removeSessionFromUserIndex,
+  removeSessionsFromUserIndex,
   getUserSessionIds,
   cleanupStaleSessionsFromIndex,
 } from '../session-index';
@@ -133,6 +134,56 @@ describe('Session Index Operations', () => {
       const result = await removeSessionFromUserIndex(userId, sessionId);
 
       expect(result).toBe(false);
+    });
+  });
+
+  describe('removeSessionsFromUserIndex (batch)', () => {
+    it('should remove multiple sessions in single Redis call', async () => {
+      const userId = 123;
+      const sessionIds = ['session-1', 'session-2', 'session-3'];
+
+      mockSRem.mockResolvedValue(3);
+      vi.mocked(mockSCard).mockResolvedValue(2); // Still has other sessions
+
+      const result = await removeSessionsFromUserIndex(userId, sessionIds);
+
+      expect(result).toBe(3);
+      expect(mockRedisClient.sRem).toHaveBeenCalledWith('user_sessions:123', sessionIds);
+      expect(mockDel).not.toHaveBeenCalled();
+    });
+
+    it('should delete key when all sessions removed', async () => {
+      const userId = 123;
+      const sessionIds = ['session-1', 'session-2'];
+
+      mockSRem.mockResolvedValue(2);
+      vi.mocked(mockSCard).mockResolvedValue(0); // No sessions left
+      vi.mocked(mockDel).mockResolvedValue(1);
+
+      const result = await removeSessionsFromUserIndex(userId, sessionIds);
+
+      expect(result).toBe(2);
+      expect(mockDel).toHaveBeenCalledWith('user_sessions:123');
+    });
+
+    it('should return 0 for empty session array', async () => {
+      const userId = 123;
+
+      const result = await removeSessionsFromUserIndex(userId, []);
+
+      expect(result).toBe(0);
+      expect(mockSRem).not.toHaveBeenCalled();
+    });
+
+    it('should handle Redis errors gracefully', async () => {
+      const userId = 123;
+      const sessionIds = ['session-1', 'session-2'];
+
+      mockSRem.mockRejectedValue(new Error('Redis error'));
+
+      const result = await removeSessionsFromUserIndex(userId, sessionIds);
+
+      expect(result).toBe(0);
     });
   });
 
