@@ -220,6 +220,9 @@ export function sendErrorFromException(res: Response, error: unknown, context = 
       isOperational = isOperationalError(error);
     }
 
+    // lgtm[js/stack-trace-exposure] - Stack trace is only included when isDevelopment is true,
+    // and sendError() also checks isDevelopment before including details in response.
+    // This is a coordinated double-check that CodeQL cannot trace across function boundaries.
     if (isDevelopment && error.stack) {
       details = error.stack;
     }
