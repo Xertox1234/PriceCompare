@@ -39,14 +39,14 @@ interface ProductCardProps {
   className?: string;
 }
 
-export const ProductCard = memo(function ProductCard({
+export const ProductCard = memo(({
   product,
   variant = 'default',
   onWatchlist,
   onCompare,
   onQuickView,
   className,
-}: ProductCardProps) {
+}: ProductCardProps) => {
   const discountPercent = product.originalPrice
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : product.discount;

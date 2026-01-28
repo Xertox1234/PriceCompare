@@ -80,44 +80,49 @@ const CANADIAN_RETAILERS: RetailerSearchConfig[] = [
     searchUrlTemplate: 'https://www.bestbuy.ca/en-ca/search?search={query}',
     currency: 'CAD',
     productLinkSelectors: [
-      'a[href*="/product/"]',
-      '.productItemName_3IZ3c a',
-      '[data-automation="productItemLink"]',
+      // Best Buy uses /en-ca/product/ path with CSS module classes
+      'a[href*="/en-ca/product/"][class*="productInfoLink"]',
+      'a[href*="/en-ca/product/"]',
+      '[class*="productLine"] a[href*="/product/"]',
     ],
     productTitleSelectors: [
-      '.productItemName_3IZ3c',
-      '[data-automation="productItemName"]',
-      '.productItemTextContainer_3I5p6 h3',
+      // CSS module classes - match partial class names
+      '[class*="productInfoLink"]',
+      '[class*="productLine"] a[class*="productInfoLink"]',
+      '[class*="productItemName"]',
     ],
     productPriceSelectors: [
-      '[data-automation="product-price"]',
-      '.price_FHDfG',
-      '.productPricingContainer_3gTS3 span',
+      // CSS module price classes
+      '[class*="style-module_price"]',
+      '[class*="price__"]',
+      '[class*="productPrice"]',
     ],
-    waitForSelector: '[data-automation="productItem"]',
+    // Wait for product lines to render (React hydration)
+    waitForSelector: '[class*="productLine"]',
   },
   {
     domain: 'canadacomputers.com',
     name: 'Canada Computers',
-    searchUrlTemplate:
-      'https://www.canadacomputers.com/search/results.php?keywords={query}',
+    // New URL structure as of 2024
+    searchUrlTemplate: 'https://www.canadacomputers.com/en/search?q={query}',
     currency: 'CAD',
     productLinkSelectors: [
-      'a.productImageLink',
-      '.productTemplate_container a[href*="/product/"]',
-      '.productInfo a',
+      // New site structure uses different classes
+      'a[href*="/en/product/"]',
+      'a[href*="/product/"]',
+      '.product-card a',
     ],
     productTitleSelectors: [
-      '.productTemplate_title a',
-      '.productInfo .productTitle',
-      'h4.productTemplate_title',
+      '.product-title',
+      '.product-card h3',
+      '[class*="productTitle"]',
     ],
     productPriceSelectors: [
-      '.price span',
-      '.productTemplate_price strong',
-      '.price-show-panel strong',
+      '[class*="product-price"]',
+      '.price',
+      '[class*="Price"]',
     ],
-    waitForSelector: '.productTemplate_container',
+    waitForSelector: '.product-card, [class*="product-list"]',
   },
   {
     domain: 'newegg.ca',
@@ -239,10 +244,9 @@ class DirectRetailerSearchService {
             selector: config.waitForSelector,
             error: waitError instanceof Error ? waitError.message : String(waitError),
           });
-          // Try waiting for network idle as fallback
-          await page.waitForLoadState('networkidle', {
-            timeout: SCRAPER.NETWORK_IDLE_TIMEOUT_MS,
-          });
+          // For React SPAs, networkidle never completes due to constant activity.
+          // Just wait a fixed time for hydration instead.
+          await page.waitForTimeout(5000);
         }
 
         // Extract products from search results

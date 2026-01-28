@@ -190,8 +190,8 @@ export const SCRAPER = {
   NAVIGATION_TIMEOUT_MS: 30000,
   /** Time to wait for price/product selectors to appear */
   SELECTOR_TIMEOUT_MS: 10000,
-  /** Time to wait for network to become idle */
-  NETWORK_IDLE_TIMEOUT_MS: 5000,
+  /** Time to wait for network to become idle (React apps need longer) */
+  NETWORK_IDLE_TIMEOUT_MS: 15000,
   /** Time to wait when extracting text/attributes from elements */
   ELEMENT_TIMEOUT_MS: 2000,
   /** Delay between requests to same domain */
