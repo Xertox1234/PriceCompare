@@ -29,6 +29,7 @@ import { transformProduct } from '@/hooks/use-home-data';
 import { categories } from '@/data/template-data';
 import { useToast } from '@/hooks/use-toast';
 import { useAddProductToWatchList, useWatchLists } from '@/hooks/use-community';
+import { useProductDiscovery } from '@/hooks/use-product-discovery';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import {
@@ -94,6 +95,7 @@ function ProductsContent() {
   const { data: watchlistsData } = useWatchLists();
   const watchlists = watchlistsData ?? [];
   const addToWatchList = useAddProductToWatchList();
+  const productDiscovery = useProductDiscovery();
   const searchParams = useSearch();
   const urlParams = new URLSearchParams(searchParams);
   const initialCategory = urlParams.get('category');
@@ -647,6 +649,61 @@ function ProductsContent() {
                     </span>
                   )}
                 </p>
+
+                {/* Discover button - always visible when there's a search query */}
+                {filters.query && (
+                  <button
+                    onClick={() => {
+                      const query = filters.query;
+                      if (!query) return;
+                      productDiscovery.mutate(
+                        { query, maxResultsPerRetailer: 5 },
+                        {
+                          onSuccess: (data) => {
+                            if (data.discoveredProducts && data.discoveredProducts.length > 0) {
+                              toast({
+                                title: 'Products Discovered!',
+                                description: `Found ${data.count} products from Canadian retailers`,
+                              });
+                            } else if (data.products && data.products.length > 0) {
+                              toast({
+                                title: 'Products Found',
+                                description: `Found ${data.count} existing products`,
+                              });
+                            } else {
+                              toast({
+                                title: 'No Products Found',
+                                description: 'No products found from retailers. Try a different search.',
+                                variant: 'destructive',
+                              });
+                            }
+                          },
+                          onError: (error) => {
+                            toast({
+                              title: 'Discovery Failed',
+                              description: error.message || 'Please try again later',
+                              variant: 'destructive',
+                            });
+                          },
+                        }
+                      );
+                    }}
+                    disabled={productDiscovery.isPending}
+                    className="bg-primary hover:bg-primary/90 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {productDiscovery.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Searching...
+                      </>
+                    ) : (
+                      <>
+                        <Grid3X3 className="h-4 w-4" />
+                        Discover from Retailers
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
 
               <div className="flex items-center gap-4">
@@ -863,12 +920,130 @@ function ProductsContent() {
                 <p className="text-muted-foreground mb-6">
                   Try adjusting your filters or search terms
                 </p>
-                <button
-                  onClick={clearAllFilters}
-                  className="bg-primary hover:bg-primary-hover rounded-xl px-6 py-3 font-medium text-white transition-colors"
-                >
-                  Clear All Filters
-                </button>
+                <div className="flex flex-col gap-4 items-center">
+                  <button
+                    onClick={clearAllFilters}
+                    className="bg-secondary hover:bg-secondary/80 rounded-xl px-6 py-3 font-medium text-secondary-foreground transition-colors"
+                  >
+                    Clear All Filters
+                  </button>
+
+                  {/* Discover from retailers button - only show when there's a search query */}
+                  {filters.query && (
+                    <button
+                      onClick={() => {
+                        const query = filters.query;
+                        if (!query) return;
+                        productDiscovery.mutate(
+                          { query, maxResultsPerRetailer: 5 },
+                          {
+                            onSuccess: (data) => {
+                              if (data.discoveredProducts && data.discoveredProducts.length > 0) {
+                                toast({
+                                  title: 'Products Discovered!',
+                                  description: `Found ${data.count} products from Canadian retailers`,
+                                });
+                              } else if (data.products && data.products.length > 0) {
+                                toast({
+                                  title: 'Products Found',
+                                  description: `Found ${data.count} existing products`,
+                                });
+                              } else {
+                                toast({
+                                  title: 'No Products Found',
+                                  description: 'No products found from retailers. Try a different search.',
+                                  variant: 'destructive',
+                                });
+                              }
+                            },
+                            onError: (error) => {
+                              toast({
+                                title: 'Discovery Failed',
+                                description: error.message || 'Please try again later',
+                                variant: 'destructive',
+                              });
+                            },
+                          }
+                        );
+                      }}
+                      disabled={productDiscovery.isPending}
+                      className="bg-primary hover:bg-primary-hover rounded-xl px-6 py-3 font-medium text-white transition-colors disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {productDiscovery.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Searching Retailers...
+                        </>
+                      ) : (
+                        <>
+                          <Grid3X3 className="h-4 w-4" />
+                          Discover from Canadian Retailers
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+
+                {/* Show discovered products */}
+                {productDiscovery.data?.discoveredProducts && productDiscovery.data.discoveredProducts.length > 0 && (
+                  <div className="mt-8 text-left">
+                    <h3 className="text-lg font-semibold mb-4">
+                      Discovered {productDiscovery.data.count} Products from Retailers
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {productDiscovery.data.discoveredProducts.map((product, idx) => (
+                        <a
+                          key={idx}
+                          href={product.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block p-4 border rounded-lg hover:shadow-md transition-shadow bg-card"
+                        >
+                          <p className="font-medium text-sm line-clamp-2 mb-2">{product.title}</p>
+                          <div className="flex justify-between items-center">
+                            <span className="text-primary font-bold">
+                              {product.price ? `C$${product.price.toFixed(2)}` : 'Price N/A'}
+                            </span>
+                            <span className="text-muted-foreground text-xs">{product.retailer}</span>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Discovered Products Section - Show when discovery has results */}
+            {productDiscovery.data?.discoveredProducts && productDiscovery.data.discoveredProducts.length > 0 && (
+              <div className="mt-8 border-t border-border pt-8">
+                <h3 className="text-lg font-semibold mb-4">
+                  Discovered {productDiscovery.data.count} Products from Canadian Retailers
+                </h3>
+                <p className="text-muted-foreground text-sm mb-4">
+                  These products were found directly from retailer websites. Click to view on retailer site.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {productDiscovery.data.discoveredProducts.map((product, idx) => (
+                    <a
+                      key={idx}
+                      href={product.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block p-4 border border-border rounded-lg hover:shadow-md transition-shadow bg-card hover:border-primary"
+                    >
+                      <p className="font-medium text-sm line-clamp-2 mb-2">{product.title}</p>
+                      <div className="flex justify-between items-center">
+                        <span className="text-primary font-bold">
+                          {product.price ? `C$${product.price.toFixed(2)}` : 'Price N/A'}
+                        </span>
+                        <span className="text-muted-foreground text-xs bg-muted px-2 py-1 rounded">
+                          {product.retailer}
+                        </span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
               </div>
             )}
 
