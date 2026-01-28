@@ -1,0 +1,1046 @@
+#!/bin/bash
+
+# PriceCompare Pre-Commit Hook - Enhanced Edition with TypeScript Check
+# Automated code review checks before committing changes
+#
+# This hook enforces critical security and quality standards:
+# - BLOCKERS: Security vulnerabilities, type safety violations, data integrity issues
+# - WARNINGS: Code quality improvements, best practice violations
+#
+# Version: 3.5.0 (Phase 5 Complete + UTC Timezone Detection: Pattern 7 added for server-side date handling)
+
+set -e
+
+# Optional debug tracing (helps diagnose perceived "hangs" in long-running commands).
+# Usage: PRECOMMIT_TRACE=1 git commit ...
+if [ "${PRECOMMIT_TRACE:-0}" = "1" ]; then
+    export PS4='+[${BASH_SOURCE##*/}:${LINENO}] '
+    set -x
+fi
+
+echo "🔍 Running pre-commit code review checks..."
+echo ""
+
+# Colors for output
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+
+# Track if any checks fail
+CHECKS_FAILED=0
+SECURITY_ISSUES=0
+WARNINGS=0
+
+# Get list of staged files
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+
+# Check if there are any TypeScript/JavaScript files staged
+TS_FILES=$(echo "$STAGED_FILES" | grep -E '\.(ts|tsx|js|jsx)$' || true)
+
+if [ -z "$TS_FILES" ]; then
+    echo -e "${GREEN}✓${NC} No TypeScript/JavaScript files changed, skipping checks"
+    exit 0
+fi
+
+echo -e "${YELLOW}Staged files to review:${NC}"
+echo "$TS_FILES" | sed 's/^/  - /'
+echo ""
+
+# ============================================================================
+# SECTION 1: TypeScript Type Checking (MANDATORY - BLOCKS COMMIT)
+# ============================================================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${BLUE}▶${NC} TypeScript type check (full codebase)..."
+echo -e "${YELLOW}ℹ${NC}  Running 'npm run check' - all type errors must be fixed before commit"
+echo -e "${YELLOW}ℹ${NC}  (If this looks stuck, it's usually just running silently)"
+
+# Run type check and block commit if errors found
+if npm run check >/dev/null 2>&1; then
+    echo -e "${GREEN}✓${NC} No TypeScript errors detected"
+else
+    echo -e "${RED}✗ BLOCKER: TypeScript errors detected in codebase${NC}"
+    echo ""
+    echo "  ${RED}RISK:${NC} Type errors can hide bugs and cause runtime failures"
+    echo "  ${CYAN}ACTION:${NC} Fix all TypeScript errors before committing:"
+    echo ""
+    npm run check 2>&1 | grep "error TS" | head -20
+    echo ""
+    if [ $(npm run check 2>&1 | grep -c "error TS") -gt 20 ]; then
+        echo "  ... and $(($(npm run check 2>&1 | grep -c "error TS") - 20)) more errors"
+        echo ""
+    fi
+    echo "  ${CYAN}TIP:${NC} Run 'npm run check' to see all errors with file paths"
+    echo ""
+    SECURITY_ISSUES=1
+fi
+echo ""
+
+# ============================================================================
+# Proactive Lint Pattern Detection (Fast checks before full lint)
+# ============================================================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${BLUE}▶${NC} Proactive lint pattern detection..."
+echo -e "${YELLOW}ℹ${NC}  Checking for common patterns that cause lint failures"
+echo ""
+
+# Get diff of staged changes (only new/modified lines)
+STAGED_DIFF=$(echo "$TS_FILES" | xargs git diff --cached 2>/dev/null || echo "")
+
+# Pattern 1: Floating Promises (React Query invalidation, service calls)
+FLOATING_PROMISES=$(echo "$STAGED_DIFF" | grep -E "^\+" | grep -E "queryClient\.invalidateQueries|Service\.[a-z]+\(|emailService\.|notificationService\." | grep -v "await " | grep -v "void " | wc -l | tr -d ' ')
+if [ "$FLOATING_PROMISES" != "0" ]; then
+    echo -e "${YELLOW}⚠ Pattern 1: Potential floating promises detected ($FLOATING_PROMISES instances)${NC}"
+    echo "  ${CYAN}QUICK FIX:${NC} Add 'void' prefix for fire-and-forget operations"
+    echo "  ${CYAN}EXAMPLE:${NC}"
+    echo "    ❌ queryClient.invalidateQueries({ queryKey: [...] });"
+    echo "    ✅ void queryClient.invalidateQueries({ queryKey: [...] });"
+    echo "    ✅ await emailService.send(...);  // If you need to wait"
+    echo ""
+fi
+
+# Pattern 2: Misused Promises in Event Handlers (async in onClick without wrapper)
+MISUSED_PROMISES=$(echo "$STAGED_DIFF" | grep -E "^\+" | grep -E "onClick.*=.*async|onSubmit.*=.*async" | grep -v "void " | wc -l | tr -d ' ')
+if [ "$MISUSED_PROMISES" != "0" ]; then
+    echo -e "${YELLOW}⚠ Pattern 2: Async event handlers without void wrapper ($MISUSED_PROMISES instances)${NC}"
+    echo "  ${CYAN}QUICK FIX:${NC} Wrap async handlers with void IIFE or arrow function"
+    echo "  ${CYAN}EXAMPLE:${NC}"
+    echo "    ❌ onClick={handleSubmit}  // async function"
+    echo "    ✅ onClick={() => void handleSubmit()}"
+    echo "    ✅ onClick={async () => { await handleSubmit(); }}"
+    echo ""
+fi
+
+# Pattern 3: Explicit 'any' types in new code
+EXPLICIT_ANY=$(echo "$STAGED_DIFF" | grep -E "^\+" | grep -E ":\s*any[^a-zA-Z]|\sany\s*=" | grep -v "eslint-disable" | grep -v "// eslint" | wc -l | tr -d ' ')
+if [ "$EXPLICIT_ANY" != "0" ]; then
+    echo -e "${YELLOW}⚠ Pattern 3: Explicit 'any' types detected ($EXPLICIT_ANY instances)${NC}"
+    echo "  ${CYAN}QUICK FIX:${NC} Replace with proper types from @shared/schema"
+    echo "  ${CYAN}EXAMPLE:${NC}"
+    echo "    ❌ const data: any = await fetch(...);"
+    echo "    ✅ const data: Product = await fetch(...);"
+    echo "    ✅ const data: unknown = await fetch(...); // Then type guard"
+    echo ""
+fi
+
+# Pattern 4: Missing await before async operations
+MISSING_AWAIT=$(echo "$STAGED_DIFF" | grep -E "^\+" | grep -E "= (fetch|db\.(select|insert|update|delete)|storage\.[a-z]+)\(" | grep -v "await " | grep -v "void " | wc -l | tr -d ' ')
+if [ "$MISSING_AWAIT" != "0" ]; then
+    echo -e "${YELLOW}⚠ Pattern 4: Async operations without await ($MISSING_AWAIT instances)${NC}"
+    echo "  ${CYAN}QUICK FIX:${NC} Add 'await' keyword before async calls"
+    echo "  ${CYAN}EXAMPLE:${NC}"
+    echo "    ❌ const result = db.select().from(users);"
+    echo "    ✅ const result = await db.select().from(users);"
+    echo "    ✅ void db.insert(logs).values({...});  // Fire-and-forget"
+    echo ""
+fi
+
+# Pattern 5: Unused variables (common after refactoring)
+UNUSED_VARS=$(echo "$STAGED_DIFF" | grep -E "^\+" | grep -E "^(const|let|var) [a-z]+ =" | wc -l | tr -d ' ')
+# Only warn if there are many new variable declarations
+if [ "$UNUSED_VARS" -gt 10 ]; then
+    echo -e "${YELLOW}⚠ Pattern 5: Many new variables declared ($UNUSED_VARS) - check for unused vars${NC}"
+    echo "  ${CYAN}QUICK CHECK:${NC} Run 'npx eslint --fix <file>' to remove unused variables"
+    echo ""
+fi
+
+# Pattern 6: console.log in non-test files
+CONSOLE_LOGS=$(echo "$TS_FILES" | grep -v "test\|spec\|__tests__" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep "console\.log" | wc -l | tr -d ' ')
+if [ "$CONSOLE_LOGS" != "0" ]; then
+    echo -e "${YELLOW}⚠ Pattern 6: console.log in production code ($CONSOLE_LOGS instances)${NC}"
+    echo "  ${CYAN}QUICK FIX:${NC} Replace with structured logger"
+    echo "  ${CYAN}EXAMPLE:${NC}"
+    echo "    ❌ console.log('User created', user);"
+    echo "    ✅ import { createLogger } from '@/utils/logger';"
+    echo "    ✅ const log = createLogger('ModuleName');"
+    echo "    ✅ log.info('User created', { userId: user.id });"
+    echo ""
+fi
+
+# Pattern 7: Local timezone date methods in server code (NEW - 2025-12-09)
+# Detects local timezone Date methods that should use UTC equivalents
+# See: docs/LEARNINGS_TODO_179_UTC_TIMEZONE_SERVICE_FIX.md
+SERVER_FILES=$(echo "$TS_FILES" | grep "^server/" | grep -v "test\|spec\|__tests__" || true)
+if [ -n "$SERVER_FILES" ]; then
+    # Check for local timezone Date constructor: new Date(year, month, day)
+    LOCAL_DATE_CONSTRUCTOR=$(echo "$SERVER_FILES" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep -E "new Date\([0-9]+,\s*[0-9]+" | grep -v "Date.UTC" | grep -v "// UTC:" | wc -l | tr -d ' ')
+
+    # Check for local timezone getters: .getFullYear(), .getMonth(), .getDate()
+    LOCAL_GETTERS=$(echo "$SERVER_FILES" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep -E "\.(getFullYear|getMonth|getDate)\(" | grep -v "getUTC" | grep -v "// UTC:" | wc -l | tr -d ' ')
+
+    # Check for local timezone setters: .setDate(), .setHours(), .setMinutes()
+    LOCAL_SETTERS=$(echo "$SERVER_FILES" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep -E "\.(setDate|setHours|setMinutes|setSeconds)\(" | grep -v "setUTC" | grep -v "// UTC:" | wc -l | tr -d ' ')
+
+    TIMEZONE_ISSUES=$((LOCAL_DATE_CONSTRUCTOR + LOCAL_GETTERS + LOCAL_SETTERS))
+
+    if [ "$TIMEZONE_ISSUES" != "0" ]; then
+        echo -e "${YELLOW}⚠ Pattern 7: Local timezone date methods in server code ($TIMEZONE_ISSUES instances)${NC}"
+        echo "  ${CYAN}RISK:${NC} Tests pass in one timezone but fail in another (e.g., PST vs UTC)"
+        echo "  ${CYAN}QUICK FIX:${NC} Use UTC date methods for server-side date handling"
+        echo "  ${CYAN}EXAMPLES:${NC}"
+        if [ "$LOCAL_DATE_CONSTRUCTOR" != "0" ]; then
+            echo "    ❌ new Date(2024, 0, 1)  // Uses local timezone"
+            echo "    ✅ new Date(Date.UTC(2024, 0, 1, 0, 0, 0))  // Explicit UTC"
+        fi
+        if [ "$LOCAL_GETTERS" != "0" ]; then
+            echo "    ❌ date.getFullYear(), date.getMonth(), date.getDate()"
+            echo "    ✅ date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()"
+        fi
+        if [ "$LOCAL_SETTERS" != "0" ]; then
+            echo "    ❌ date.setDate(date.getDate() + 1)"
+            echo "    ✅ date.setUTCDate(date.getUTCDate() + 1)"
+        fi
+        echo "  ${CYAN}BYPASS:${NC} Add '// UTC:' comment if local timezone is intentional"
+        echo "  ${CYAN}DOCS:${NC} See docs/LEARNINGS_TODO_179_UTC_TIMEZONE_SERVICE_FIX.md"
+        echo ""
+    fi
+else
+    TIMEZONE_ISSUES=0
+fi
+
+# Summary
+TOTAL_PATTERN_WARNINGS=$((FLOATING_PROMISES + MISUSED_PROMISES + EXPLICIT_ANY + MISSING_AWAIT + CONSOLE_LOGS + TIMEZONE_ISSUES))
+if [ "$TOTAL_PATTERN_WARNINGS" = "0" ]; then
+    echo -e "${GREEN}✓${NC} No common lint patterns detected"
+else
+    echo -e "${YELLOW}⚠ Total: $TOTAL_PATTERN_WARNINGS potential lint issues detected${NC}"
+    echo "  ${CYAN}TIP:${NC} Fix these patterns now to avoid ESLint errors"
+fi
+echo ""
+
+# ============================================================================
+# ESLint Check (MANDATORY - BLOCKS COMMIT)
+# ============================================================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${BLUE}▶${NC} ESLint type safety check..."
+echo -e "${YELLOW}ℹ${NC}  Checking for 'any' types and unsafe operations"
+
+TS_FILE_COUNT=$(echo "$TS_FILES" | wc -l | tr -d ' ')
+echo -e "${YELLOW}ℹ${NC}  Running ESLint on $TS_FILE_COUNT staged file(s)..."
+
+# Run ESLint on staged TypeScript files
+ESLINT_OUTPUT=$(echo "$TS_FILES" | xargs npx eslint --quiet 2>&1 || true)
+
+if [ -z "$ESLINT_OUTPUT" ]; then
+    echo -e "${GREEN}✓${NC} No ESLint errors detected"
+else
+    echo -e "${RED}✗ BLOCKER: ESLint errors detected${NC}"
+    echo ""
+    echo "  ${RED}RISK:${NC} 'any' types defeat TypeScript safety, unsafe operations hide bugs"
+    echo "  ${CYAN}ACTION:${NC} Fix ESLint errors:"
+    echo ""
+    echo "$ESLINT_OUTPUT" | grep -E "(error|@typescript-eslint)" | head -20
+    echo ""
+    if [ $(echo "$ESLINT_OUTPUT" | grep -c "error") -gt 20 ]; then
+        echo "  ... and $(($(echo "$ESLINT_OUTPUT" | grep -c "error") - 20)) more errors"
+        echo ""
+    fi
+    echo "  ${CYAN}COMMON FIXES:${NC}"
+    echo "    • Replace 'any' with proper types from @shared/schema"
+    echo "    • Use 'unknown' for truly unknown types + type guards"
+    echo "    • Import types: import { type Product } from '@shared/schema'"
+    echo ""
+    echo "  ${CYAN}TIP:${NC} Run 'npx eslint <file>' for detailed error messages"
+    echo ""
+    SECURITY_ISSUES=1
+fi
+echo ""
+
+# ============================================================================
+# SECTION 2: Security and Code Quality Checks
+# ============================================================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${BLUE}▶${NC} Security and code quality checks..."
+echo ""
+
+# Get the diff for checks (code files only)
+CODE_DIFF_OUTPUT=$(echo "$TS_FILES" | xargs git diff --cached 2>/dev/null || echo "")
+
+# ============================================================================
+# CRITICAL BLOCKERS (Will fail commit if found)
+# ============================================================================
+
+# BLOCKER 1: Password hash exposure (CRITICAL - data breach risk)
+# Exclude scripts/ directory (dev-only utilities that legitimately set passwordHash)
+SERVER_CODE_DIFF=$(echo "$TS_FILES" | grep -v "^scripts/" | xargs git diff --cached 2>/dev/null || echo "")
+if echo "$SERVER_CODE_DIFF" | grep -E "^\+" | grep -i "passwordHash" | grep -v "NEVER" | grep -v "SECURITY:" | grep -v "//" >/dev/null 2>&1; then
+    echo -e "${RED}✗ BLOCKER 1: Potential passwordHash exposure detected${NC}"
+    echo "  ${RED}RISK:${NC} Exposing password hashes can lead to credential theft"
+    echo "  ${CYAN}FIX:${NC} Use explicit field selection and exclude passwordHash"
+    echo "  ${CYAN}EXAMPLE:${NC} db.select({ id: users.id, email: users.email }) // Don't include passwordHash"
+    echo ""
+    SECURITY_ISSUES=1
+fi
+
+# BLOCKER 2: console.log in production code (CRITICAL - info leak)
+if echo "$STAGED_FILES" | grep -v "test" | grep -v "spec" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep "console\.(log|debug)" >/dev/null 2>&1; then
+    echo -e "${RED}✗ BLOCKER 2: console.log detected in non-test code${NC}"
+    echo "  ${RED}RISK:${NC} Console output can leak sensitive data in production"
+    echo "  ${CYAN}FIX:${NC} Use structured logger: import { createLogger } from './utils/logger'"
+    echo "  ${CYAN}EXAMPLE:${NC} const log = createLogger('ModuleName'); log.info('message', { data })"
+    echo ""
+    SECURITY_ISSUES=1
+fi
+
+# BLOCKER 3: 'any' types in new code (CRITICAL - defeats type safety)
+if echo "$TS_FILES" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep -E ":\s*any[^a-zA-Z]" >/dev/null 2>&1; then
+    echo -e "${RED}✗ BLOCKER 3: 'any' types detected in new code${NC}"
+    echo "  ${RED}RISK:${NC} Defeats TypeScript type safety and hides bugs"
+    echo "  ${CYAN}FIX:${NC} Use proper TypeScript types (string, number, MyInterface, etc.)"
+    echo "  ${CYAN}EXAMPLE:${NC} const data: UserData = {...} // Not: const data: any = {...}"
+    echo ""
+    SECURITY_ISSUES=1
+fi
+
+# BLOCKER 4: N+1 query patterns (CRITICAL - performance killer)
+# Enhanced detection: Check for database queries within 5 lines of loop constructs
+N1_PATTERN_FOUND=0
+if echo "$STAGED_FILES" | grep -E "\.(ts|js)$" | grep -v "__tests__" | grep -v "\.test\." >/dev/null 2>&1; then
+    # Search for await db. or await tx. calls near loop constructs
+    N1_PATTERNS=$(echo "$TS_FILES" | grep -v "__tests__" | grep -v "\.test\." | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep -B5 -A5 "await (db|tx|storage)\." | grep -E "(for\s*\(|\.forEach\(|\.map\(async|while\s*\()" | grep -v "// N+1 safe:" | head -3)
+
+    if [ -n "$N1_PATTERNS" ]; then
+        N1_PATTERN_FOUND=1
+    fi
+fi
+
+if [ $N1_PATTERN_FOUND -eq 1 ]; then
+    echo -e "${RED}✗ BLOCKER 4: Potential N+1 query pattern detected${NC}"
+    echo "  ${RED}RISK:${NC} Queries in loops cause severe performance degradation (100 items = 100 queries)"
+    echo ""
+    echo "  ${CYAN}PATTERN FOUND:${NC}"
+    echo "$N1_PATTERNS" | sed 's/^/    /'
+    echo ""
+    echo "  ${CYAN}FIX OPTIONS:${NC}"
+    echo "    1. Use JOINs:    db.select().leftJoin(related, eq(table.id, related.tableId))"
+    echo "    2. Use inArray(): db.select().where(inArray(users.id, arrayOfIds))"
+    echo "    3. Use array_agg(): Aggregate in SQL instead of multiple queries"
+    echo ""
+    echo "  ${CYAN}EXAMPLE - Before (N+1):${NC}"
+    echo "    for (const product of products) {"
+    echo "      const offers = await db.select().from(offers).where(eq(offers.productId, product.id));"
+    echo "    }"
+    echo ""
+    echo "  ${CYAN}EXAMPLE - After (Fixed):${NC}"
+    echo "    const productIds = products.map(p => p.id);"
+    echo "    const allOffers = await db.select().from(offers).where(inArray(offers.productId, productIds));"
+    echo ""
+    echo "  ${CYAN}EXEMPTION:${NC} If intentional sequential processing:"
+    echo "    // N+1 safe: Rate-limited API calls, intentional sequential processing"
+    echo "    for (const item of items) { await processOne(item); }"
+    echo ""
+    echo "  ${CYAN}DOCS:${NC} docs/02_DATABASE_PATTERNS.md#n1-query-pattern"
+    echo ""
+    SECURITY_ISSUES=1
+fi
+
+# BLOCKER 5: Foreign key without cascade rule (CRITICAL - data integrity)
+if echo "$STAGED_FILES" | grep "schema.ts" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep -F ".references(" | grep -v "onDelete:" >/dev/null 2>&1; then
+    echo -e "${RED}✗ BLOCKER 5: Foreign key without cascade rule detected${NC}"
+    echo "  ${RED}RISK:${NC} Can cause orphaned records and data integrity violations"
+    echo "  ${CYAN}FIX:${NC} All foreign keys MUST specify onDelete behavior"
+    echo "  ${CYAN}EXAMPLE:${NC} .references(() => users.id, { onDelete: 'cascade' })"
+    echo "  ${CYAN}OPTIONS:${NC} 'cascade' (delete children) | 'set null' (nullify) | 'restrict' (prevent)"
+    echo ""
+    SECURITY_ISSUES=1
+fi
+
+# BLOCKER 5.5: Timestamp without timezone (CRITICAL - timezone bugs)
+if echo "$STAGED_FILES" | grep "schema.ts" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep -F "timestamp(" | grep -v "withTimezone: true" >/dev/null 2>&1; then
+    echo -e "${RED}✗ BLOCKER 5.5: Timestamp without timezone detected${NC}"
+    echo "  ${RED}RISK:${NC} Causes ambiguous timezone handling, expired tokens appear valid/invalid incorrectly"
+    echo "  ${CYAN}FIX:${NC} All timestamp columns MUST use timestamptz (with timezone)"
+    echo "  ${CYAN}EXAMPLE:${NC} timestamp('expires_at', { withTimezone: true }).notNull()"
+    echo "  ${CYAN}WHY:${NC} PostgreSQL 'timestamp' has no timezone metadata, comparisons with NOW() are ambiguous"
+    echo "  ${CYAN}IMPACT:${NC} Different behavior in dev (UTC) vs production (non-UTC timezone)"
+    echo "  ${CYAN}DOCS:${NC} See docs/02_DATABASE_PATTERNS.md#53-timestamp-vs-timestamptz-critical"
+    echo ""
+    SECURITY_ISSUES=1
+fi
+
+# BLOCKER 6: Hardcoded secrets/API keys (CRITICAL - credential leak)
+if echo "$TS_FILES" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep -iE "(api_key|apikey|password|secret|token|auth_token|private_key).*=.*['\"][a-zA-Z0-9]{16,}" | grep -v "process.env" | grep -v "import.meta.env" | grep -v "TODO" | grep -v "//" >/dev/null 2>&1; then
+    echo -e "${RED}✗ BLOCKER 6: Potential hardcoded secret detected${NC}"
+    echo "  ${RED}RISK:${NC} Committing secrets can lead to complete system compromise"
+    echo "  ${CYAN}FIX:${NC} Use environment variables for all secrets"
+    echo "  ${CYAN}EXAMPLE:${NC} const apiKey = process.env.API_KEY // Not: const apiKey = 'sk-abc123...'"
+    echo "  ${CYAN}ACTION:${NC} If secret already committed, rotate it IMMEDIATELY"
+    echo ""
+    SECURITY_ISSUES=1
+fi
+
+# BLOCKER 7: SQL injection vulnerability (CRITICAL - database compromise)
+if echo "$TS_FILES" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep -E "sql\s*\`.*\$\{.*\}\`" | grep -v "sql<" >/dev/null 2>&1; then
+    echo -e "${RED}✗ BLOCKER 7: Potential SQL injection vulnerability${NC}"
+    echo "  ${RED}RISK:${NC} Attackers can execute arbitrary SQL queries"
+    echo "  ${CYAN}FIX:${NC} Never use template literals with user input in SQL"
+    echo "  ${CYAN}EXAMPLE:${NC} db.select().where(eq(users.id, userId)) // Not: sql\`SELECT * WHERE id = \${userId}\`"
+    echo ""
+    SECURITY_ISSUES=1
+fi
+
+# BLOCKER 8: Route registration order (CRITICAL - endpoint 404s)
+if echo "$STAGED_FILES" | grep "routes/" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep -E "app\.(get|post|put|patch|delete).*/:.*\)" >/dev/null 2>&1; then
+    # Check if parameterized route is followed by specific routes in same file
+    ROUTE_FILES=$(echo "$STAGED_FILES" | grep "routes/" || true)
+    for file in $ROUTE_FILES; do
+        if git diff --cached "$file" 2>/dev/null | grep -E "^\+" | grep -E "/:id.*\)" >/dev/null 2>&1; then
+            if git diff --cached "$file" 2>/dev/null | grep -A 20 "/:id" | grep -E "^\+" | grep -E "/[a-z]+(stats|products|actions)" >/dev/null 2>&1; then
+                echo -e "${RED}✗ BLOCKER 8: Route registration order violation detected${NC}"
+                echo "  ${RED}RISK:${NC} Specific routes after :id will never be reached (404 errors)"
+                echo "  ${CYAN}FIX:${NC} Register specific routes (/stats, /products) BEFORE parameterized routes (/:id)"
+                echo "  ${CYAN}EXAMPLE:${NC} app.get('/api/watchlists/stats', ...); // BEFORE app.get('/api/watchlists/:id', ...);"
+                echo "  ${CYAN}RULE:${NC} Routes are matched in order - most specific to least specific"
+                echo ""
+                SECURITY_ISSUES=1
+                break
+            fi
+        fi
+    done
+fi
+
+# BLOCKER 9: Unsafe parseInt usage (CRITICAL - validation bypass)
+# Enhanced in Phase 3: Focus on request params (req.params, req.query, req.body)
+UNSAFE_PARSEINT=$(echo "$TS_FILES" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep -E "parseInt\(req\.|Number\(req\." | grep -v "parseIntSafe" | grep -v "parseIntOptional" || true)
+
+if [ -n "$UNSAFE_PARSEINT" ]; then
+    echo -e "${RED}✗ BLOCKER 9: Unsafe parseInt() or Number() on request params detected${NC}"
+    echo "  ${RED}RISK:${NC} Accepts NaN, negative numbers, and floats without validation"
+    echo ""
+    echo "  ${CYAN}VIOLATIONS FOUND:${NC}"
+    echo "$UNSAFE_PARSEINT" | head -5 | sed 's/^/    /'
+    echo ""
+    echo "  ${CYAN}FIX:${NC} Use parseIntSafe() or parseIntOptional() from validation-helpers"
+    echo "  ${CYAN}EXAMPLES:${NC}"
+    echo "    ❌ const id = parseInt(req.params.id);  // Accepts NaN, negative, float"
+    echo "    ❌ const limit = Number(req.query.limit);  // No validation"
+    echo ""
+    echo "    ✅ const id = parseIntSafe(req.params.id, 'userId', { min: 1 });"
+    echo "    ✅ const limit = parseIntOptional(req.query.limit, 'limit', { min: 1, max: 100 });"
+    echo ""
+    echo "  ${CYAN}WHY:${NC} parseInt() and Number() return NaN for invalid input, causing runtime errors"
+    echo "  ${CYAN}DOCS:${NC} docs/04_SECURITY_PATTERNS.md#safe-integer-parsing"
+    echo ""
+    SECURITY_ISSUES=1
+fi
+
+# BLOCKER 10: Global CSRF protection (CRITICAL - causes double protection)
+if echo "$STAGED_FILES" | grep "server/index.ts" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep "app\.use.*csrfProtection" >/dev/null 2>&1; then
+    echo -e "${RED}✗ BLOCKER 10: Global CSRF middleware detected (CRITICAL ANTI-PATTERN)${NC}"
+    echo "  ${RED}RISK:${NC} Causes double-protection, blocks GET requests, breaks legitimate flows"
+    echo "  ${CYAN}FIX:${NC} Remove app.use(csrfProtection) and apply per-route instead"
+    echo "  ${CYAN}CORRECT:${NC} app.post('/api/resource', csrfProtection, handler)"
+    echo "  ${CYAN}DOCS:${NC} docs/04_SECURITY_PATTERNS.md#csrf-protection"
+    echo "  ${CYAN}WHY:${NC} CSRF must be per-route to avoid double-protection in nested routes"
+    echo ""
+    SECURITY_ISSUES=1
+fi
+
+# BLOCKER 11: Missing CSRF on mutations (CRITICAL - CSRF vulnerability)
+# NOTE: macOS/BSD grep has different escaping rules than GNU grep and many routes
+# are defined across multiple lines. To avoid false positives, scan the staged
+# route file contents and look for csrfProtection within the middleware window.
+CSRF_VIOLATIONS=""
+ROUTE_FILES=$(echo "$STAGED_FILES" | grep -E "^server/routes/.*\.ts$" || true)
+
+for file in $ROUTE_FILES; do
+    # Read the staged version of the file (not working tree)
+    content=$(git show ":$file" 2>/dev/null || true)
+    if [ -z "$content" ]; then
+        continue
+    fi
+
+    # Find route definitions and inspect the next few lines for csrfProtection
+    route_lines=$(echo "$content" | awk '/(app|router)\.(post|put|patch|delete)\(/ { print NR }')
+    for ln in $route_lines; do
+        snippet=$(echo "$content" | sed -n "${ln},$((ln+10))p")
+        route_line=$(echo "$content" | sed -n "${ln}p")
+
+        # Ignore explicit exemptions
+        if echo "$snippet" | grep -q "// CSRF exempt:"; then
+            continue
+        fi
+
+        # Ignore known public endpoints
+        if echo "$snippet" | grep -qiE "health|webhook|track-click|csrf-token|csp-violation"; then
+            continue
+        fi
+
+        if echo "$snippet" | grep -q "csrfProtection"; then
+            continue
+        fi
+
+        CSRF_VIOLATIONS+="+  $file:$ln:  $route_line\n"
+    done
+done
+
+if [ -n "$CSRF_VIOLATIONS" ]; then
+    echo -e "${RED}✗ BLOCKER 11: POST/PUT/PATCH/DELETE routes without csrfProtection${NC}"
+    echo "  ${RED}RISK:${NC} Attackers can forge requests to modify/delete user data"
+    echo "  ${CYAN}VIOLATIONS FOUND:${NC}"
+    echo -e "$CSRF_VIOLATIONS" | head -20
+    echo ""
+    echo "  ${CYAN}FIX:${NC} Add csrfProtection middleware to ALL state-changing routes"
+    echo "  ${CYAN}EXAMPLE:${NC}"
+    echo "    import { csrfProtection } from '../middleware/security';"
+    echo "    app.post('/api/resource', csrfProtection, withAuth(handler));"
+    echo ""
+    echo "  ${CYAN}EXEMPTIONS:${NC} Add comment if truly exempt:"
+    echo "    // CSRF exempt: Public webhook with signature verification"
+    echo "    app.post('/api/webhook', webhookHandler);"
+    echo ""
+    echo "  ${CYAN}DOCS:${NC} docs/04_SECURITY_PATTERNS.md#csrf-protection---single-source-of-truth"
+    echo ""
+    SECURITY_ISSUES=1
+fi
+
+# ============================================================================
+# HIGH PRIORITY WARNINGS (Strong recommendations, not blockers)
+# ============================================================================
+
+# WARNING 1: Missing transaction boundaries (can cause data corruption)
+if echo "$TS_FILES" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep -E "await db\.(insert|update|delete)" | grep -B 3 -A 3 "await db\.(insert|update|delete)" | grep -v "db.transaction" | grep -v "^\-\-" | wc -l | tr -d ' ' | grep -v "^[012]$" >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠ WARNING 1: Multiple DB operations without transaction detected${NC}"
+    echo "  ${YELLOW}RISK:${NC} Multi-step operations can leave database in inconsistent state"
+    echo "  ${CYAN}FIX:${NC} Wrap related operations in db.transaction() for atomicity"
+    echo "  ${CYAN}EXAMPLE:${NC} await db.transaction(async (tx) => { await tx.insert(...); await tx.update(...); })"
+    echo "  ${CYAN}DOCS:${NC} See docs/DATABASE_PATTERNS.md for transaction guidelines"
+    echo ""
+    WARNINGS=$((WARNINGS + 1))
+fi
+
+# WARNING 2: Missing input validation (Zod schema)
+if echo "$STAGED_FILES" | grep "routes/" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep "req\.body" | grep -v "\.parse\|\.safeParse" >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠ WARNING 2: req.body usage without Zod validation${NC}"
+    echo "  ${YELLOW}RISK:${NC} Invalid data can reach business logic and cause errors"
+    echo "  ${CYAN}FIX:${NC} Validate all inputs with Zod schemas"
+    echo "  ${CYAN}EXAMPLE:${NC} const data = insertUserSchema.parse(req.body)"
+    echo ""
+    WARNINGS=$((WARNINGS + 1))
+fi
+
+# WARNING 3: Missing authentication on protected routes
+if echo "$STAGED_FILES" | grep "routes/" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep -E "app\.(post|put|delete|patch).*['\"].*/(admin|user)/" | grep -v "requireAuth" | grep -v "requireAdmin" >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠ WARNING 3: Protected route without authentication middleware${NC}"
+    echo "  ${YELLOW}RISK:${NC} Unauthorized users may access protected resources"
+    echo "  ${CYAN}FIX:${NC} Add requireAuth or requireAdmin middleware"
+    echo "  ${CYAN}EXAMPLE:${NC} app.post('/api/admin/users', requireAdmin, async (req, res) => {...})"
+    echo ""
+    WARNINGS=$((WARNINGS + 1))
+fi
+
+# WARNING 4: Missing error handling in async routes
+if echo "$STAGED_FILES" | grep "routes/" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep "async.*\(req.*res\)" | head -5 | grep -v "try" >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠ WARNING 4: Async route handler without try/catch${NC}"
+    echo "  ${YELLOW}RISK:${NC} Unhandled promise rejections can crash the server"
+    echo "  ${CYAN}FIX:${NC} Wrap async route handlers in try/catch blocks"
+    echo "  ${CYAN}EXAMPLE:${NC} try { await operation(); } catch (error) { const err = createErrorResponse(error); }"
+    echo ""
+    WARNINGS=$((WARNINGS + 1))
+fi
+
+# ============================================================================
+# MEDIUM PRIORITY WARNINGS (Code quality improvements)
+# ============================================================================
+
+# WARNING 5: Direct db imports in routes (should use storage.ts abstraction)
+if echo "$STAGED_FILES" | grep "routes/" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep "from.*['\"].*\/db['\"]" >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠ WARNING 5: Direct db import in routes detected${NC}"
+    echo "  ${YELLOW}REASON:${NC} Routes should use storage.ts abstraction layer"
+    echo "  ${CYAN}FIX:${NC} Import { storage } from './storage' instead of direct db"
+    echo ""
+    WARNINGS=$((WARNINGS + 1))
+fi
+
+# WARNING 6: Hardcoded colors in UI code (should use design tokens)
+if echo "$STAGED_FILES" | grep -E "client/.*\.(tsx|jsx)$" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep -E "#[0-9A-Fa-f]{6}" >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠ WARNING 6: Hardcoded hex colors detected${NC}"
+    echo "  ${YELLOW}REASON:${NC} Use design tokens for consistency and theme support"
+    echo "  ${CYAN}FIX:${NC} Use Tailwind classes (bg-primary, text-secondary) instead of hex colors"
+    echo ""
+    WARNINGS=$((WARNINGS + 1))
+fi
+
+# WARNING 7: Missing error sanitization (should use createErrorResponse)
+if echo "$STAGED_FILES" | grep -E "routes/.*\.ts$" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep "error\.message" | grep -v "createErrorResponse" >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠ WARNING 7: Direct error.message usage detected${NC}"
+    echo "  ${YELLOW}REASON:${NC} Error messages can leak sensitive information in production"
+    echo "  ${CYAN}FIX:${NC} Use createErrorResponse() to sanitize errors"
+    echo "  ${CYAN}EXAMPLE:${NC} const errorResponse = createErrorResponse(error, 'OperationName')"
+    echo ""
+    WARNINGS=$((WARNINGS + 1))
+fi
+
+# WARNING 8: Unoptimized database queries (SELECT * without field specification)
+if echo "$TS_FILES" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep -F "db.select()" | grep -v "from(" >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠ WARNING 8: db.select() without field specification${NC}"
+    echo "  ${YELLOW}REASON:${NC} Can expose sensitive fields and hurt performance"
+    echo "  ${CYAN}FIX:${NC} Use explicit field selection"
+    echo "  ${CYAN}EXAMPLE:${NC} db.select({ id: users.id, email: users.email }) // Not: db.select()"
+    echo ""
+    WARNINGS=$((WARNINGS + 1))
+fi
+
+# WARNING 9: Client-side data aggregation (frontend N+1 pattern)
+if echo "$STAGED_FILES" | grep -E "client/.*hooks/.*\.ts" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep -E "for.*of.*\)" | grep -A 3 "for" | grep "\.map\|\.filter\|\.push" >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠ WARNING 9: Potential client-side data aggregation detected${NC}"
+    echo "  ${YELLOW}REASON:${NC} Aggregating data client-side can cause massive overfetch"
+    echo "  ${CYAN}FIX:${NC} Create dedicated backend endpoint for aggregated data"
+    echo "  ${CYAN}EXAMPLE:${NC} GET /api/watchlists/products instead of fetching all lists + aggregating"
+    echo "  ${CYAN}DOCS:${NC} See docs/FRONTEND_PATTERNS.md for client-side anti-patterns"
+    echo ""
+    WARNINGS=$((WARNINGS + 1))
+fi
+
+# WARNING 10: Background jobs without rate limiting
+JOB_FILES=$(echo "$STAGED_FILES" | grep "jobs/" || true)
+if [ -n "$JOB_FILES" ]; then
+    JOB_DIFF=$(echo "$JOB_FILES" | xargs git diff --cached 2>/dev/null || true)
+    if echo "$JOB_DIFF" | grep -qE "^\+.*(sendNotification|createNotification|emailService)"; then
+        if ! echo "$JOB_DIFF" | grep -qE "^\+.*MAX_.*PER"; then
+            echo -e "${YELLOW}⚠ WARNING 10: Background job without rate limiting detected${NC}"
+            echo "  ${YELLOW}REASON:${NC} Jobs without circuit breakers can spam if logic malfunctions"
+            echo "  ${CYAN}FIX:${NC} Add per-run limit: const MAX_NOTIFICATIONS_PER_RUN = 5;"
+            echo "  ${CYAN}EXAMPLE:${NC} if (sentThisRun >= MAX_PER_RUN) break; // Safety valve"
+            echo "  ${CYAN}DOCS:${NC} See docs/BACKGROUND_JOBS_PATTERNS.md for job safety patterns"
+            echo ""
+            WARNINGS=$((WARNINGS + 1))
+        fi
+    fi
+fi
+
+# WARNING 11: Check-then-act patterns without SERIALIZABLE isolation (Race conditions)
+echo "🔒 Checking for race condition patterns..."
+CHECK_THEN_ACT=$(grep -rn -A10 -F ".select(" server/ --include="*.ts" 2>/dev/null | \
+    grep -B5 -E "\.(insert|update|delete)" | \
+  grep "count\|length\|>=" | \
+  grep -v "serializable" | \
+  grep -v "__tests__" | \
+  grep -v "\.test\." || true)
+
+if [ -n "$CHECK_THEN_ACT" ]; then
+    echo -e "${YELLOW}⚠ WARNING 11: Potential check-then-act without SERIALIZABLE isolation detected${NC}"
+    echo "  ${YELLOW}RISK:${NC} Race conditions in concurrent operations (e.g., first user check, counter increments)"
+    echo ""
+    echo "  ${CYAN}PATTERN FOUND (first 10 lines):${NC}"
+    echo "$CHECK_THEN_ACT" | head -10 | sed 's/^/    /'
+    echo ""
+    echo "  ${CYAN}FIX:${NC} Use SERIALIZABLE isolation for check-then-act patterns"
+    echo "  ${CYAN}EXAMPLE:${NC}"
+    echo "    await db.transaction(async (tx) => {"
+    echo "      const count = await tx.select({ count: sql\`count(*)\` }).from(users);"
+    echo "      const isFirstUser = parseInt(count[0].count as string) === 0;"
+    echo "      await tx.insert(users).values({ role: isFirstUser ? 'admin' : 'user' });"
+    echo "    }, { isolationLevel: 'serializable' });"
+    echo ""
+    echo "  ${CYAN}DOCS:${NC} docs/02_DATABASE_PATTERNS.md#serializable-isolation"
+    echo ""
+    WARNINGS=$((WARNINGS + 1))
+fi
+
+# WARNING 12: Hardcoded password lengths (should use PASSWORD constants)
+echo "🔑 Checking password constant usage..."
+HARDCODED_PW=$(grep -rn "\.min(8)\|\.min(12)" server/ --include="*.ts" 2>/dev/null | \
+  grep -i "password" | \
+  grep -v "PASSWORD\." || true)
+
+if [ -n "$HARDCODED_PW" ]; then
+    echo -e "${YELLOW}⚠ WARNING 12: Hardcoded password lengths found${NC}"
+    echo "  ${YELLOW}RISK:${NC} Password requirements should be centralized for consistency"
+    echo ""
+    echo "  ${CYAN}VIOLATIONS FOUND:${NC}"
+    echo "$HARDCODED_PW" | sed 's/^/    /'
+    echo ""
+    echo "  ${CYAN}FIX:${NC} Use PASSWORD.MIN_LENGTH from utils/constants"
+    echo "  ${CYAN}EXAMPLE:${NC}"
+    echo "    import { PASSWORD } from './utils/constants';"
+    echo "    z.string().min(PASSWORD.MIN_LENGTH) // Not: z.string().min(8)"
+    echo ""
+    echo "  ${CYAN}DOCS:${NC} docs/04_SECURITY_PATTERNS.md#password-security"
+    echo ""
+    WARNINGS=$((WARNINGS + 1))
+fi
+
+# WARNING 13: Hardcoded bcrypt rounds (should use PASSWORD.BCRYPT_ROUNDS)
+HARDCODED_BCRYPT=$(grep -rn "bcrypt\.hash.*[0-9]\+)" server/ --include="*.ts" 2>/dev/null | \
+  grep -v "PASSWORD\.BCRYPT_ROUNDS" || true)
+
+if [ -n "$HARDCODED_BCRYPT" ]; then
+    echo -e "${YELLOW}⚠ WARNING 13: Hardcoded bcrypt rounds found${NC}"
+    echo "  ${YELLOW}RISK:${NC} Bcrypt cost should be centralized for security updates"
+    echo ""
+    echo "  ${CYAN}VIOLATIONS FOUND:${NC}"
+    echo "$HARDCODED_BCRYPT" | sed 's/^/    /'
+    echo ""
+    echo "  ${CYAN}FIX:${NC} Use PASSWORD.BCRYPT_ROUNDS from utils/constants"
+    echo "  ${CYAN}EXAMPLE:${NC}"
+    echo "    import { PASSWORD } from './utils/constants';"
+    echo "    await bcrypt.hash(password, PASSWORD.BCRYPT_ROUNDS) // Not: bcrypt.hash(password, 10)"
+    echo ""
+    echo "  ${CYAN}DOCS:${NC} docs/04_SECURITY_PATTERNS.md#password-security"
+    echo ""
+    WARNINGS=$((WARNINGS + 1))
+fi
+
+# WARNING 14: Type assertions without documentation (Phase 3 - Type Safety)
+echo "📋 Checking type assertion documentation..."
+# Find all type assertions, then check if previous line has a comment
+TYPE_ASSERTIONS=""
+for file in $(echo "$TS_FILES" | grep -v "__tests__" | grep -v "\.test\."); do
+  # Get assertions with previous line context
+  ASSERTIONS_WITH_CONTEXT=$(git diff --cached -U1 "$file" 2>/dev/null | grep -B 1 -E "^\+.*( as [A-Z]| as$)" | grep -v " as const" || true)
+
+  if [ -n "$ASSERTIONS_WITH_CONTEXT" ]; then
+    # Check each assertion pair (previous line + assertion line)
+    while IFS= read -r line; do
+      # Skip separator lines
+      if [ "$line" = "--" ]; then
+        continue
+      fi
+
+      # If this line has an assertion
+            if echo "$line" | grep -qE "^\+.*( as [A-Z]| as$)"; then
+                # Allow inline documentation on the same line as the assertion.
+                if echo "$line" | grep -qE "//.*(Type assertion|Cast|SAFETY|Validated by schema)"; then
+                    PREV_HAS_COMMENT=""
+                    continue
+                fi
+        # Check if we have a comment marker from previous iteration
+        if [ -z "$PREV_HAS_COMMENT" ]; then
+          # No comment on previous line, this is a violation
+          TYPE_ASSERTIONS="$TYPE_ASSERTIONS$line"$'\n'
+        fi
+        PREV_HAS_COMMENT=""
+      # Check if this is a comment line (will apply to next assertion)
+      elif echo "$line" | grep -qE "^\+.*//.*(Type assertion|Cast|SAFETY|Validated by schema)"; then
+        PREV_HAS_COMMENT="yes"
+      else
+        PREV_HAS_COMMENT=""
+      fi
+    done <<< "$ASSERTIONS_WITH_CONTEXT"
+  fi
+done
+
+TYPE_ASSERTIONS=$(echo "$TYPE_ASSERTIONS" | grep -v "^$" || true)
+
+if [ -n "$TYPE_ASSERTIONS" ]; then
+    echo -e "${YELLOW}⚠ WARNING 14: Type assertions without documentation detected${NC}"
+    echo "  ${YELLOW}RISK:${NC} Undocumented type assertions hide potential type safety issues"
+    echo ""
+    echo "  ${CYAN}VIOLATIONS FOUND (first 5):${NC}"
+    echo "$TYPE_ASSERTIONS" | head -5 | sed 's/^/    /'
+    echo ""
+    echo "  ${CYAN}FIX:${NC} Add comment explaining why type assertion is safe"
+    echo "  ${CYAN}RECOMMENDED COMMENT FORMATS:${NC}"
+    echo "    // Type assertion: <reason>"
+    echo "    // Cast needed: <reason>"
+    echo "    // SAFETY: <reason>"
+    echo "    // Validated by schema: <schema_name>"
+    echo ""
+    echo "  ${CYAN}EXAMPLE:${NC}"
+    echo "    ❌ const data = result as ProductData;"
+    echo ""
+    echo "    ✅ // Type assertion: Drizzle returns unknown for JSON fields, validated by schema"
+    echo "    ✅ const data = result as ProductData;"
+    echo ""
+    echo "    ✅ // SAFETY: Response validated by productSchema.parse() above"
+    echo "    ✅ const product = apiResponse as Product;"
+    echo ""
+    echo "  ${CYAN}ALTERNATIVES TO TYPE ASSERTIONS:${NC}"
+    echo "    • Use type guards: if (isProductData(result)) { ... }"
+    echo "    • Use Zod schema: productDataSchema.parse(result)"
+    echo "    • Use 'as const' for literal types (automatically allowed)"
+    echo ""
+    echo "  ${CYAN}DOCS:${NC} docs/01_TYPESCRIPT_PATTERNS.md#type-assertions"
+    echo ""
+    WARNINGS=$((WARNINGS + 1))
+fi
+
+# WARNING 15: Return type consistency - null vs undefined (Phase 3 - Type Safety)
+echo "📦 Checking storage/service return type consistency..."
+UNDEFINED_RETURNS=$(grep -rn "| undefined" server/storage*.ts server/storage/ server/services/ --include="*.ts" 2>/dev/null | \
+  grep "Promise<" | \
+  grep -v "options\|config\|params\|args\|props" | \
+  grep -v " \* \| //" || true)
+
+if [ -n "$UNDEFINED_RETURNS" ]; then
+    echo -e "${YELLOW}⚠ WARNING 15: Storage/service methods returning | undefined (should use | null)${NC}"
+    echo "  ${YELLOW}RISK:${NC} Inconsistent return types make null checks harder to maintain"
+    echo ""
+    echo "  ${CYAN}VIOLATIONS FOUND (first 5):${NC}"
+    echo "$UNDEFINED_RETURNS" | head -5 | sed 's/^/    /'
+    echo ""
+    echo "  ${CYAN}FIX:${NC} Use | null for database 'not found' and data layer scenarios"
+    echo "  ${CYAN}CONVENTION:${NC}"
+    echo "    • Use 'null' for database queries that may return no results"
+    echo "    • Use 'null' for service methods that interact with data layer"
+    echo "    • Use 'undefined' for optional function parameters/config only"
+    echo ""
+    echo "  ${CYAN}EXAMPLE:${NC}"
+    echo "    ❌ async getProductById(id: number): Promise<Product | undefined>"
+    echo "    ✅ async getProductById(id: number): Promise<Product | null>"
+    echo ""
+    echo "  ${CYAN}WHY:${NC} SQL returns NULL for missing records, TypeScript should mirror this"
+    echo "  ${CYAN}SCOPE:${NC} Applies to storage layer AND services that interact with data"
+    echo "  ${CYAN}DOCS:${NC} docs/02_DATABASE_PATTERNS.md#null-vs-undefined-consistency"
+    echo ""
+    WARNINGS=$((WARNINGS + 1))
+fi
+
+# WARNING 16: Storage layer architecture (Phase 4 - Architecture Enforcement)
+echo "🏗️  Checking storage layer architecture..."
+DIRECT_DB=$(grep -rn "from ['\"].*\/db['\"]" server/services/ --include="*.ts" 2>/dev/null | \
+  grep -v "price-aggregation-service" | \
+  grep -v "__tests__" | \
+  grep -v "\.test\." || true)
+
+if [ -n "$DIRECT_DB" ]; then
+    echo -e "${YELLOW}⚠ WARNING 16: Services importing db directly (should use storage layer)${NC}"
+    echo "  ${YELLOW}RISK:${NC} Bypassing storage layer reduces maintainability and testability"
+    echo ""
+    echo "  ${CYAN}VIOLATIONS FOUND (first 5):${NC}"
+    echo "$DIRECT_DB" | head -5 | sed 's/^/    /'
+    echo ""
+    echo "  ${CYAN}FIX:${NC} Import storage abstraction instead of direct db access"
+    echo "  ${CYAN}EXAMPLE:${NC}"
+    echo "    ❌ import { db } from '../db';"
+    echo "    ✅ import { storage } from '../storage';"
+    echo ""
+    echo "  ${CYAN}WHY:${NC} Storage layer provides:"
+    echo "    • Consistent data access patterns"
+    echo "    • Easier testing (can mock storage interface)"
+    echo "    • Single place to update query logic"
+    echo "    • Better separation of concerns"
+    echo ""
+    echo "  ${CYAN}DOCUMENTED EXCEPTION:${NC} price-aggregation-service.ts (complex transaction context passing)"
+    echo "  ${CYAN}DOCS:${NC} docs/02_DATABASE_PATTERNS.md#storage-layer-architecture"
+    echo ""
+    WARNINGS=$((WARNINGS + 1))
+fi
+
+# WARNING 17: Middleware order validation (Phase 4 - Architecture Enforcement)
+echo "🔧 Checking middleware order patterns..."
+AUTH_BEFORE_CSRF=$(echo "$TS_FILES" | grep "routes/" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep -E "withAuth.*csrfProtection|requireAuth.*csrfProtection" || true)
+
+if [ -n "$AUTH_BEFORE_CSRF" ]; then
+    echo -e "${YELLOW}⚠ WARNING 17: Auth middleware before CSRF detected (should be CSRF first)${NC}"
+    echo "  ${YELLOW}RISK:${NC} Incorrect middleware order can cause performance issues"
+    echo ""
+    echo "  ${CYAN}VIOLATIONS FOUND:${NC}"
+    echo "$AUTH_BEFORE_CSRF" | head -3 | sed 's/^/    /'
+    echo ""
+    echo "  ${CYAN}FIX:${NC} Apply CSRF protection before authentication"
+    echo "  ${CYAN}CORRECT ORDER:${NC}"
+    echo "    app.post('/api/resource', csrfProtection, withAuth(handler))"
+    echo ""
+    echo "  ${CYAN}WHY:${NC}"
+    echo "    • CSRF check is fast (token validation)"
+    echo "    • Auth check may hit database/session store"
+    echo "    • Fail fast with CSRF before expensive auth operations"
+    echo ""
+    echo "  ${CYAN}EXAMPLE - Before (Wrong):${NC}"
+    echo "    app.post('/api/products', withAuth(csrfProtection(handler)))"
+    echo ""
+    echo "  ${CYAN}EXAMPLE - After (Correct):${NC}"
+    echo "    app.post('/api/products', csrfProtection, withAuth(handler))"
+    echo ""
+    echo "  ${CYAN}DOCS:${NC} CLAUDE.md#middleware-pipeline-order"
+    echo ""
+    WARNINGS=$((WARNINGS + 1))
+fi
+
+# WARNING 18: Test cleanup pattern (Phase 5 - Test Quality Enforcement)
+echo "🧹 Checking test cleanup patterns..."
+# Find test files with db.delete, then check if they appear in cleanup hooks
+# NOTE: Conservative detection - flags any db.delete() in files with cleanup hooks
+# May have false positives for tests validating delete() functionality
+# Add comment "// Testing delete functionality" to bypass if intentional
+TEST_DELETE=""
+for file in $(find server/ -name "*.test.ts" 2>/dev/null); do
+  # Check if file has both db.delete AND cleanup hooks
+  if grep -q "await db\.delete\|db\.delete(" "$file" 2>/dev/null && \
+     grep -q "beforeEach\|afterEach\|beforeAll\|afterAll" "$file" 2>/dev/null; then
+    # Get the actual violations (excluding lines with bypass comment)
+    VIOLATIONS=$(grep -n "await db\.delete\|db\.delete(" "$file" 2>/dev/null | \
+      grep -v "Testing delete functionality" | \
+      head -3)
+    if [ -n "$VIOLATIONS" ]; then
+      TEST_DELETE="$TEST_DELETE$VIOLATIONS"$'\n'
+    fi
+  fi
+done
+TEST_DELETE=$(echo "$TEST_DELETE" | grep -v "^$" || true)
+
+if [ -n "$TEST_DELETE" ]; then
+    echo -e "${YELLOW}⚠ WARNING 18: Test cleanup using db.delete() detected${NC}"
+    echo "  ${YELLOW}RISK:${NC} Slow cleanup, cascade issues, and incomplete data removal"
+    echo ""
+    echo "  ${CYAN}VIOLATIONS FOUND:${NC}"
+    echo "$TEST_DELETE" | sed 's/^/    /'
+    echo ""
+    echo "  ${CYAN}FIX:${NC} Use TRUNCATE CASCADE for fast, complete cleanup"
+    echo "  ${CYAN}RECOMMENDED PATTERN:${NC}"
+    echo "    afterEach(async () => {"
+    echo "      await db.execute(sql\`TRUNCATE TABLE products RESTART IDENTITY CASCADE\`);"
+    echo "    });"
+    echo ""
+    echo "  ${CYAN}WHY TRUNCATE CASCADE:${NC}"
+    echo "    • Faster - resets entire table vs deleting row-by-row"
+    echo "    • Complete - CASCADE removes related records automatically"
+    echo "    • Clean - RESTART IDENTITY resets auto-increment counters"
+    echo "    • Reliable - No orphaned foreign key references"
+    echo ""
+    echo "  ${CYAN}EXAMPLE - Before (Slow):${NC}"
+    echo "    await db.delete(products);"
+    echo "    await db.delete(productOffers);"
+    echo ""
+    echo "  ${CYAN}EXAMPLE - After (Fast):${NC}"
+    echo "    await db.execute(sql\`TRUNCATE TABLE products RESTART IDENTITY CASCADE\`);"
+    echo ""
+    echo "  ${CYAN}BYPASS (if testing delete functionality):${NC}"
+    echo "    await db.delete(users).where(eq(users.id, 1)); // Testing delete functionality"
+    echo ""
+    echo "  ${CYAN}DOCS:${NC} docs/02_DATABASE_PATTERNS.md#test-database-cleanup"
+    echo ""
+    WARNINGS=$((WARNINGS + 1))
+fi
+
+# WARNING 19: Test data type safety (Phase 5 - Test Quality Enforcement)
+echo "📊 Checking test data type safety..."
+# Look for field assignments with string-wrapped integers (amount: "1500")
+# NOTE: DECIMAL columns (e.g. price/targetPrice) are represented as strings in Drizzle/Postgres.
+STRING_NUMBERS=$(grep -rnE "(amount)[[:space:]]*:[[:space:]]*['\"][0-9]" server/ --include="*.test.ts" 2>/dev/null | \
+  grep -v "priceString\|formatted" | \
+  head -5 || true)
+
+if [ -n "$STRING_NUMBERS" ]; then
+    echo -e "${YELLOW}⚠ WARNING 19: String numbers in test data detected${NC}"
+    echo "  ${YELLOW}RISK:${NC} Type mismatches cause Zod validation failures and confusing test errors"
+    echo ""
+    echo "  ${CYAN}VIOLATIONS FOUND:${NC}"
+    echo "$STRING_NUMBERS" | sed 's/^/    /'
+    echo ""
+    echo "  ${CYAN}FIX:${NC} Use actual numbers, not strings, for numeric fields"
+    echo "  ${CYAN}CORRECT TYPES:${NC}"
+    echo "    • amount: Use 1500 (not \"1500\")"
+    echo ""
+    echo "  ${CYAN}WHY PROPER TYPES:${NC}"
+    echo "    • Zod schemas validate types strictly"
+    echo "    • Database expects numeric types for DECIMAL/INTEGER columns"
+    echo "    • String numbers cause silent conversion issues"
+    echo "    • Tests should match production data types"
+    echo ""
+    echo "  ${CYAN}EXAMPLE - Before (Wrong):${NC}"
+    echo "    const testProduct = {"
+    echo "      name: 'iPhone 15',"
+    echo "      price: \"999.99\"  // ❌ String"
+    echo "    };"
+    echo ""
+    echo "  ${CYAN}EXAMPLE - After (Correct):${NC}"
+    echo "    const testProduct = {"
+    echo "      name: 'iPhone 15',"
+    echo "      price: 999.99  // ✅ Number"
+    echo "    };"
+    echo ""
+    echo "  ${CYAN}DOCS:${NC} docs/02_DATABASE_PATTERNS.md#test-data-type-safety"
+    echo ""
+    WARNINGS=$((WARNINGS + 1))
+fi
+
+# ============================================================================
+# INFORMATIONAL (Tracking only, no action required)
+# ============================================================================
+
+# INFO: Track TODO/FIXME comments (helps measure technical debt)
+NEW_TODOS=$(echo "$TS_FILES" | xargs git diff --cached 2>/dev/null | grep -E "^\+" | grep -iE "TODO|FIXME" | wc -l | tr -d ' ')
+if [ "$NEW_TODOS" -gt 0 ]; then
+    echo -e "${CYAN}ℹ INFO: $NEW_TODOS new TODO/FIXME comment(s) added${NC}"
+    echo "  ${CYAN}NOTE:${NC} TODOs are tracked for technical debt management"
+    echo ""
+fi
+
+# ============================================================================
+# SECTION 3: Test Files Detection
+# ============================================================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+if echo "$STAGED_FILES" | grep -E "(test|spec)\." >/dev/null 2>&1; then
+    echo -e "${BLUE}▶${NC} Test files detected - recommending test run..."
+    echo -e "${YELLOW}ℹ${NC}  Run 'npm test' to verify your changes don't break existing tests"
+    echo ""
+fi
+
+# ============================================================================
+# SECTION 4: Final Summary
+# ============================================================================
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+if [ $SECURITY_ISSUES -eq 0 ]; then
+    echo -e "${GREEN}✓ All critical checks passed!${NC}"
+    echo ""
+    echo "📋 BLOCKERS enforced (commit will fail if found):"
+    echo "  ✓ No TypeScript errors"
+    echo "  ✓ No ESLint errors (any types, unsafe operations)"
+    echo "  ✓ No passwordHash exposure"
+    echo "  ✓ No 'any' types in new code"
+    echo "  ✓ No console.log in production code"
+    echo "  ✓ No N+1 query patterns (queries in loops)"
+    echo "  ✓ No foreign keys without cascade rules"
+    echo "  ✓ No timestamps without timezone"
+    echo "  ✓ No hardcoded secrets/API keys"
+    echo "  ✓ No SQL injection vulnerabilities"
+    echo "  ✓ No route registration order issues"
+    echo "  ✓ No unsafe parseInt() usage"
+    echo "  ✓ No global CSRF middleware (anti-pattern)"
+    echo "  ✓ No mutations without CSRF protection"
+
+    if [ $WARNINGS -gt 0 ]; then
+        echo ""
+        echo -e "${YELLOW}⚠ ${WARNINGS} warning(s) detected - review recommended:${NC}"
+        echo "  • Missing transaction boundaries (data integrity)"
+        echo "  • Missing input validation (data quality)"
+        echo "  • Missing authentication checks (access control)"
+        echo "  • Missing error handling (stability)"
+        echo "  • Direct db imports in routes (architecture)"
+        echo "  • Hardcoded colors (design consistency)"
+        echo "  • Missing error sanitization (security)"
+        echo "  • Unoptimized queries (performance)"
+        echo "  • Client-side data aggregation (performance)"
+        echo "  • Background jobs without rate limiting (safety)"
+        echo "  • Check-then-act without SERIALIZABLE isolation (race conditions)"
+        echo "  • Hardcoded password lengths (security consistency)"
+        echo "  • Hardcoded bcrypt rounds (security consistency)"
+        echo "  • Type assertions without documentation (type safety)"
+        echo "  • Return type inconsistency - null vs undefined (maintainability)"
+        echo "  • Services importing db directly (architecture - use storage layer)"
+        echo "  • Auth middleware before CSRF (middleware order - CSRF should be first)"
+        echo ""
+        echo "  ${CYAN}TIP:${NC} While warnings don't block commits, addressing them improves code quality"
+    fi
+    echo ""
+    echo -e "${GREEN}✅ Proceeding with commit...${NC}"
+    exit 0
+else
+    echo -e "${RED}✗ COMMIT BLOCKED - ${SECURITY_ISSUES} CRITICAL ISSUE(S) FOUND!${NC}"
+    echo ""
+    echo "🚫 Your commit violates mandatory security/quality standards."
+    echo ""
+    echo "Quick fixes:"
+    echo "  ${CYAN}TypeScript errors${NC} → Run 'npm run check' and fix all type errors"
+    echo "  ${CYAN}any types${NC} → Use proper TypeScript types (string, number, MyInterface)"
+    echo "  ${CYAN}console.log${NC} → Use log() from utils/logger or remove"
+    echo "  ${CYAN}N+1 queries${NC} → Use JOINs, inArray(), or array_agg()"
+    echo "  ${CYAN}passwordHash${NC} → Never expose in database queries"
+    echo "  ${CYAN}Foreign keys${NC} → Add onDelete: 'cascade' | 'set null' | 'restrict'"
+    echo "  ${CYAN}Secrets${NC} → Use process.env.SECRET_NAME, never hardcode"
+    echo "  ${CYAN}SQL injection${NC} → Use Drizzle ORM methods, not template literals"
+    echo ""
+    echo "📚 Documentation:"
+    echo "  • Database patterns: docs/DATABASE_PATTERNS.md"
+    echo "  • Security patterns: docs/SECURITY_PATTERNS.md"
+    echo "  • TypeScript patterns: docs/TYPESCRIPT_PATTERNS.md"
+    echo ""
+    echo "⚠️  To bypass (NOT RECOMMENDED): git commit --no-verify"
+    echo ""
+    exit 1
+fi
