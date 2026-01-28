@@ -87,3 +87,4 @@ docs/html-dump-*.html
 
 # Manual test scripts (not part of automated test suite)
 server/agents/test-*.ts
+.playwright-mcp/
