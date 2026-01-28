@@ -28,6 +28,7 @@ import { registerAgentLimitsRoutes } from './agent-limits-routes';
 import { registerApiV1Routes } from './api-v1-routes';
 import { registerUserStateRoutes } from './user-state-routes';
 import { registerNewsletterRoutes } from './newsletter-routes';
+import { registerProductDiscoveryRoutes } from './product-discovery-routes';
 
 /**
  * Register all application routes
@@ -123,6 +124,9 @@ export function registerRoutes(app: Express): Server {
 
   // Newsletter routes (TODO 258: Agent-Native APIs)
   registerNewsletterRoutes(app);
+
+  // Product discovery routes (user-facing Canadian retailer search)
+  registerProductDiscoveryRoutes(app);
 
   // Create HTTP server
   const httpServer = createServer(app);

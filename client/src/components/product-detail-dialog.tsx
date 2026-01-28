@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Price } from '@/components/ui/price';
 import { ProductWithOffers } from '@shared/schema';
 import { PriceHistoryChart } from './price-history/PriceHistoryChart';
 import { TimeRangeSelector, type TimeRange } from './price-history/TimeRangeSelector';
@@ -159,7 +160,7 @@ export function ProductDetailDialog({ product, open, onOpenChange }: ProductDeta
           onSuccess: () => {
             toast({
               title: 'Price Alert Created',
-              description: `You'll be notified when the price at ${retailer?.name || 'this retailer'} drops below $${price.toFixed(2)}`,
+              description: `You'll be notified when the price at ${retailer?.name || 'this retailer'} drops below the target price`,
             });
           },
           onError: (error: Error) => {
@@ -364,14 +365,18 @@ export function ProductDetailDialog({ product, open, onOpenChange }: ProductDeta
                       </div>
                       <div className="flex items-center gap-4">
                         <div className="text-right">
-                          <div className="text-2xl font-bold">
-                            ${parseFloat(offer.price).toFixed(2)}
-                          </div>
+                          <Price
+                            value={parseFloat(offer.price)}
+                            size="lg"
+                            className="text-2xl font-bold"
+                          />
                           {offer.originalPrice &&
                             parseFloat(offer.originalPrice) > parseFloat(offer.price) && (
-                              <div className="text-muted-foreground text-sm line-through">
-                                ${parseFloat(offer.originalPrice).toFixed(2)}
-                              </div>
+                              <Price
+                                value={parseFloat(offer.originalPrice)}
+                                size="sm"
+                                strikethrough
+                              />
                             )}
                         </div>
                         <a

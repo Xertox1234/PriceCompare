@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Price } from '@/components/ui/price';
 import { Bell, ExternalLink, TrendingDown, TrendingUp, Calendar } from 'lucide-react';
 
 interface TooltipDataPoint {
@@ -138,7 +139,7 @@ export function InteractiveTooltip({
                 )}
               </div>
               <div className="text-right">
-                <div className="text-sm font-semibold">${point.price.toFixed(2)}</div>
+                <Price value={point.price} className="text-sm font-semibold" />
                 {priceDiff && expanded && (
                   <div
                     className={`text-xs ${priceDiff.diff < 0 ? 'text-success' : 'text-destructive'}`}
@@ -163,21 +164,15 @@ export function InteractiveTooltip({
               <div className="grid grid-cols-3 gap-2 text-center">
                 <div className="rounded bg-background p-2">
                   <div className="text-xs text-muted-foreground">Avg</div>
-                  <div className="text-sm font-semibold">
-                    ${historicalContext.averagePrice.toFixed(2)}
-                  </div>
+                  <Price value={historicalContext.averagePrice} className="text-sm font-semibold" />
                 </div>
                 <div className="rounded bg-background p-2">
                   <div className="text-xs text-success">Low</div>
-                  <div className="text-sm font-semibold text-success">
-                    ${historicalContext.lowestPrice.toFixed(2)}
-                  </div>
+                  <Price value={historicalContext.lowestPrice} className="text-sm font-semibold text-success" />
                 </div>
                 <div className="rounded bg-background p-2">
                   <div className="text-xs text-destructive">High</div>
-                  <div className="text-sm font-semibold text-destructive">
-                    ${historicalContext.highestPrice.toFixed(2)}
-                  </div>
+                  <Price value={historicalContext.highestPrice} className="text-sm font-semibold text-destructive" />
                 </div>
               </div>
             </div>
@@ -219,7 +214,7 @@ export function InteractiveTooltip({
                 <div className="flex-1">
                   <p className="mb-1 font-semibold text-foreground">💡 Price Insight</p>
                   <p className="text-info">
-                    Save ${(highestPrice.price - lowestPrice.price).toFixed(2)} (
+                    Save <Price value={highestPrice.price - lowestPrice.price} size="sm" /> (
                     {(
                       ((highestPrice.price - lowestPrice.price) / highestPrice.price) *
                       100

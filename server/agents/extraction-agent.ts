@@ -150,6 +150,202 @@ export class DataExtractionAgent extends BaseAgent {
           brandSelectors: ['[data-test="product-brand"]', '.brand-name'],
         },
       ],
+      // ========================================================================
+      // Canadian Retailers (CAD currency)
+      // ========================================================================
+      [
+        'amazon.ca',
+        {
+          // Amazon Canada uses same selectors as Amazon US
+          titleSelectors: ['#productTitle', 'h1.a-size-large', '.product-title'],
+          priceSelectors: [
+            '.a-price-whole',
+            '.a-offscreen',
+            '[data-asin-price]',
+            '.a-price .a-offscreen',
+          ],
+          availabilitySelectors: [
+            '#availability span',
+            '.a-size-medium.a-color-success',
+            '.a-size-medium.a-color-price',
+          ],
+          imageSelectors: ['#landingImage', '.a-dynamic-image', '#main-image'],
+          ratingSelectors: ['.a-icon-alt', '[data-hook="average-star-rating"]'],
+          descriptionSelectors: ['#feature-bullets ul', '.a-unordered-list.a-vertical'],
+          brandSelectors: ['#bylineInfo', '.a-size-base.po-break-word'],
+        },
+      ],
+      [
+        'bestbuy.ca',
+        {
+          // Best Buy Canada product page selectors
+          titleSelectors: [
+            'h1.productName_2KoPa',
+            'h1[class*="productName"]',
+            '.pdp-product-name',
+            'h1',
+          ],
+          priceSelectors: [
+            '[data-automation="product-price"]',
+            '.price_FHDfG',
+            '[class*="price"]',
+            '.price-current',
+          ],
+          availabilitySelectors: [
+            '[data-automation="availability-message"]',
+            '.availabilityMessage_1DfmD',
+            '[class*="availability"]',
+          ],
+          imageSelectors: [
+            '[data-automation="product-gallery-image"]',
+            '.productImage_1NbKv img',
+            '.productImage img',
+            'img[src*="multimedia.bbycastatic.ca"]',
+          ],
+          ratingSelectors: ['[data-automation="review-summary"]', '.reviewRating_1Jcl0'],
+          descriptionSelectors: ['[data-automation="product-description"]', '.productDescription'],
+          brandSelectors: ['[data-automation="product-brand"]', '.productBrand'],
+        },
+      ],
+      [
+        'canadacomputers.com',
+        {
+          // Canada Computers electronics retailer
+          titleSelectors: ['h1.h3', 'h1.page_title', '.page_title', 'h1'],
+          priceSelectors: [
+            '.price-show-panel .h2-big strong',
+            '.price-show-panel .price',
+            '[itemprop="price"]',
+            '.price strong',
+          ],
+          availabilitySelectors: [
+            '.pi-prod-availability',
+            '.stocklevel',
+            '.availability',
+            '[class*="stock"]',
+          ],
+          imageSelectors: [
+            '#pi-prod-img',
+            '.product-image img',
+            'img[src*="canadacomputers.com"]',
+            '.img-fluid',
+          ],
+          ratingSelectors: ['.pi-prod-rating', '[class*="rating"]'],
+          descriptionSelectors: ['#product-features', '.product-features', '#Overview'],
+          brandSelectors: ['.brand-name', '[itemprop="brand"]'],
+        },
+      ],
+      [
+        'memoryexpress.com',
+        {
+          // Memory Express Canadian computer hardware retailer
+          titleSelectors: ['h1.c-capr-header__name', 'h1', '.product-title'],
+          priceSelectors: [
+            '.c-capr-price__actual',
+            '.GrandTotal',
+            '[class*="price"]',
+            '.current-price',
+          ],
+          availabilitySelectors: [
+            '.c-capr-inventory__status',
+            '.ProductAvailabilityInStock',
+            '[class*="availability"]',
+          ],
+          imageSelectors: [
+            '.c-capr-gallery__slide img',
+            '.product-image img',
+            'img[src*="memoryexpress.com"]',
+          ],
+          ratingSelectors: ['.c-capr-header__rating', '[class*="rating"]'],
+          descriptionSelectors: ['.c-capr-description', '.product-description'],
+          brandSelectors: ['.c-capr-header__brand', '.brand'],
+        },
+      ],
+      [
+        'newegg.ca',
+        {
+          // Newegg Canada uses similar selectors to Newegg US
+          titleSelectors: ['h1.product-title', '.product-wrap h1', '.product-title', 'h1'],
+          priceSelectors: [
+            '.price-current strong',
+            '.price-current',
+            '[class*="price"]',
+            '.current-price',
+          ],
+          availabilitySelectors: [
+            '.product-inventory strong',
+            '.product-inventory',
+            '[class*="stock"]',
+            '.availability',
+          ],
+          imageSelectors: [
+            '.swiper-slide img',
+            '.product-view img',
+            'img[src*="newegg"]',
+            '.main-product-image',
+          ],
+          ratingSelectors: ['.rating-views', '.product-rating', '[class*="rating"]'],
+          descriptionSelectors: ['.product-bullets', '.product-wrap .desc', '.description'],
+          brandSelectors: ['.brand', '[itemprop="brand"]'],
+        },
+      ],
+      [
+        'walmart.ca',
+        {
+          // Walmart Canada
+          titleSelectors: [
+            'h1[data-automation="product-title"]',
+            'h1[class*="product-title"]',
+            '.product-title',
+            'h1',
+          ],
+          priceSelectors: [
+            '[data-automation="buybox-price"]',
+            '[class*="price-characteristic"]',
+            '.price-current',
+            '[itemprop="price"]',
+          ],
+          availabilitySelectors: [
+            '[data-automation="fulfillment-options-summary"]',
+            '.fulfillment-shipping-text',
+            '[class*="availability"]',
+          ],
+          imageSelectors: [
+            '[data-automation="hero-image-container"] img',
+            '.hero-image img',
+            'img[src*="walmartimages.ca"]',
+          ],
+          ratingSelectors: ['[data-automation="average-rating"]', '.average-rating'],
+          descriptionSelectors: ['[data-automation="product-description"]', '.about-product'],
+          brandSelectors: ['[data-automation="product-brand"]', '.product-brand'],
+        },
+      ],
+      [
+        'costco.ca',
+        {
+          // Costco Canada
+          titleSelectors: ['h1[automation-id="productName"]', 'h1.product-title', 'h1'],
+          priceSelectors: [
+            '[automation-id="productPriceOutput"]',
+            '.price-current',
+            '.your-price',
+            '[class*="price"]',
+          ],
+          availabilitySelectors: [
+            '[automation-id="inventoryStatus"]',
+            '.inventory-status',
+            '[class*="stock"]',
+          ],
+          imageSelectors: [
+            '.hero-image img',
+            'img[src*="costco.ca"]',
+            '.product-image-holder img',
+          ],
+          ratingSelectors: ['[automation-id="reviewRating"]', '.bv-rating'],
+          descriptionSelectors: ['[automation-id="productDetails"]', '.product-info-description'],
+          brandSelectors: ['[automation-id="productBrand"]', '.product-brand'],
+        },
+      ],
     ]);
   }
 
@@ -353,7 +549,7 @@ export class DataExtractionAgent extends BaseAgent {
         const extractedData: ExtractedProductData = {
           title: this.cleanText(title) || '',
           price,
-          currency: 'USD', // Default to USD, could be enhanced to detect currency
+          currency: this.detectCurrency(retailerDomain),
           availability,
           description: this.cleanText(description),
           imageUrl: imageUrl || undefined,
@@ -603,6 +799,31 @@ export class DataExtractionAgent extends BaseAgent {
     }
 
     return 'General';
+  }
+
+  /**
+   * Detect currency based on retailer domain
+   * Canadian retailers (.ca or known Canadian domains) use CAD
+   * US retailers use USD
+   */
+  private detectCurrency(retailerDomain: string): string {
+    // Canadian domains - use CAD
+    const canadianDomains = [
+      'amazon.ca',
+      'bestbuy.ca',
+      'canadacomputers.com',
+      'memoryexpress.com',
+      'newegg.ca',
+      'walmart.ca',
+      'costco.ca',
+    ];
+
+    if (canadianDomains.includes(retailerDomain) || retailerDomain.endsWith('.ca')) {
+      return 'CAD';
+    }
+
+    // Default to USD for US retailers
+    return 'USD';
   }
 }
 

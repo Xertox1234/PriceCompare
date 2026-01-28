@@ -2,6 +2,7 @@ import { ShoppingCart, Clock, TrendingDown, AlertCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Price } from '@/components/ui/price';
 
 interface BestTimeAnalysis {
   productId: number;
@@ -100,7 +101,7 @@ export function BestTimeToBuy({ data, isLoading }: BestTimeToBuyProps) {
         <div className="grid grid-cols-2 gap-4 border-t pt-4">
           <div className="space-y-2">
             <div className="text-muted-foreground text-sm">Current Price</div>
-            <div className="text-2xl font-bold">${data.currentPrice.toFixed(2)}</div>
+            <Price value={data.currentPrice} className="text-2xl font-bold" />
             {percentBelowAverage !== 0 && (
               <div
                 className={`text-sm font-medium ${percentBelowAverage > 0 ? 'text-success' : 'text-destructive'}`}
@@ -112,9 +113,7 @@ export function BestTimeToBuy({ data, isLoading }: BestTimeToBuyProps) {
           </div>
           <div className="space-y-2">
             <div className="text-muted-foreground text-sm">Lowest (90 days)</div>
-            <div className="text-2xl font-bold text-success">
-              ${data.lowestPriceLast90Days.toFixed(2)}
-            </div>
+            <Price value={data.lowestPriceLast90Days} className="text-2xl font-bold text-success" />
             <div className="text-muted-foreground text-sm">{data.daysSinceLowest} days ago</div>
           </div>
         </div>
@@ -123,14 +122,14 @@ export function BestTimeToBuy({ data, isLoading }: BestTimeToBuyProps) {
         <div className="space-y-2 border-t pt-4">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Historical Average</span>
-            <span className="font-medium">${data.historicalAverage.toFixed(2)}</span>
+            <Price value={data.historicalAverage} className="font-medium" />
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Difference from Lowest</span>
             <span
               className={`font-medium ${percentAboveLowest < 5 ? 'text-success' : 'text-foreground'}`}
             >
-              +${(data.currentPrice - data.lowestPriceLast90Days).toFixed(2)}(
+              +<Price value={data.currentPrice - data.lowestPriceLast90Days} size="sm" /> (
               {percentAboveLowest.toFixed(1)}%)
             </span>
           </div>
@@ -144,7 +143,7 @@ export function BestTimeToBuy({ data, isLoading }: BestTimeToBuyProps) {
               <span className="text-muted-foreground">
                 Price {data.priceChangeVelocity < 0 ? 'decreasing' : 'increasing'} by
                 <span className="ml-1 font-medium">
-                  ${Math.abs(data.priceChangeVelocity).toFixed(2)}/day
+                  <Price value={Math.abs(data.priceChangeVelocity)} size="sm" />/day
                 </span>
               </span>
             </div>

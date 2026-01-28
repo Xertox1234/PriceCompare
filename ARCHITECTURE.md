@@ -14,7 +14,18 @@
 
 ## System Overview
 
-PriceCompare is a full-stack price comparison platform that aggregates product prices from multiple retailers, provides price history tracking, and offers community features for deal sharing.
+PriceCompare is a full-stack **electronics price comparison platform** focused on the **Canadian market** (CAD/USD currencies). It aggregates product prices from Canadian retailers, provides price history tracking, and offers community features for deal sharing.
+
+**Market Scope**: Electronics (smartphones, laptops, gaming, audio, TVs)
+
+**Supported Canadian Retailers**:
+- Amazon Canada (`amazon.ca`)
+- Best Buy Canada (`bestbuy.ca`)
+- Canada Computers (`canadacomputers.com`)
+- Memory Express (`memoryexpress.com`)
+- Newegg Canada (`newegg.ca`)
+- Walmart Canada (`walmart.ca`)
+- Costco Canada (`costco.ca`)
 
 ### High-Level Architecture
 
@@ -367,6 +378,83 @@ PriceCompare implements multiple layers of security:
 ┌──────────────────┐
 │  Notification    │  Alerts users with price alerts
 │     Service      │
+└──────────────────┘
+```
+
+### Product Discovery Flow (User-Initiated)
+
+When a user searches for a product that isn't in the database, they can trigger a direct retailer search:
+
+```
+┌──────────────┐
+│    Client    │  User searches for "iPhone 15 Pro"
+└──────┬───────┘
+       │ POST /api/discover/search
+       ↓
+┌──────────────────┐
+│  Storage Check   │  Search existing products first
+└──────┬───────────┘
+       │ Not found in DB
+       ↓
+┌──────────────────────────────────┐
+│  Direct Retailer Search Service  │  Playwright-based search
+└──────┬───────────────────────────┘
+       │ Searches Canadian retailers directly:
+       │ - amazon.ca/s?k=iphone+15+pro
+       │ - bestbuy.ca/en-ca/search?search=iphone+15+pro
+       │ - canadacomputers.com/search/results.php?keywords=iphone+15+pro
+       │ - newegg.ca/p/pl?d=iphone+15+pro
+       │ - memoryexpress.com/Search/Products?Search=iphone+15+pro
+       ↓
+┌──────────────────┐
+│  Extraction      │  Extract product data from search results
+│     Agent        │
+└──────┬───────────┘
+       │
+       ↓
+┌──────────────────┐
+│  PostgreSQL DB   │  Save product + offers
+└──────┬───────────┘
+       │
+       ↓
+┌──────────────────┐
+│  Client Response │  Return discovered products
+└──────────────────┘
+```
+
+### Scheduled Price Refresh Flow (Nightly)
+
+Products are kept up-to-date via a scheduled Bull queue job:
+
+```
+┌──────────────────────┐
+│  node-cron Scheduler │  Triggers at 3 AM EST daily
+└──────┬───────────────┘
+       │ Adds job to Bull queue
+       ↓
+┌──────────────────────┐
+│  Price Refresh Queue │  With distributed lock
+└──────┬───────────────┘
+       │ Get stale offers (>24h since last check)
+       ↓
+┌──────────────────────┐
+│   Storage Layer      │  getPriceMonitoringOffers()
+└──────┬───────────────┘
+       │ For each stale offer:
+       ↓
+┌──────────────────┐
+│  Extraction      │  Re-scrape retailer page
+│     Agent        │
+└──────┬───────────┘
+       │
+       ↓
+┌──────────────────┐
+│  PostgreSQL DB   │  Update price, add to history
+└──────┬───────────┘
+       │ If price dropped:
+       ↓
+┌──────────────────┐
+│  Alert Service   │  Trigger price drop alerts
 └──────────────────┘
 ```
 

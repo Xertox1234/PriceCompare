@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { X, Trash2, BarChart2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Price } from '@/components/ui/price';
 import type { Product } from '@shared/schema';
 import { MAX_COMPARISON_ITEMS } from '@/lib/constants';
 import { useLocation } from 'wouter';
@@ -96,7 +97,7 @@ export function ComparisonModal({ items, onRemoveItem, onClear }: ComparisonModa
           <div key={item.id} className="flex items-center justify-between text-sm">
             <div className="min-w-0 flex-1">
               <p className="text-foreground truncate font-medium">{item.name}</p>
-              <p className="text-muted-foreground">${item.bestPrice?.toFixed(2)}</p>
+              <Price value={item.bestPrice} size="sm" className="text-muted-foreground" />
             </div>
             <Button
               variant="ghost"

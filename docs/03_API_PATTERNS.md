@@ -1,10 +1,11 @@
 # API & Route Patterns
 
-**Version:** 2.5
-**Last Updated:** 2026-01-20
+**Version:** 2.6
+**Last Updated:** 2026-01-28
 **Migrated From:** 6 source documents (see References)
 **Status:** Active - Mandatory for all API/route code
 **Changelog:**
+- 2.6 (2026-01-28): Added In-Memory Rate Limiting for User Actions pattern (from Phases 4-6 electronics scoping)
 - 2.5 (2026-01-20): Added Graceful Degradation (Filter-Not-Throw) pattern for client-side API consumption (from TODO 249)
 - 2.4 (2026-01-04): Added Backward Compatibility with Parallel Methods pattern and Avoid Client-Side Data Transformation pattern (from TODO 003 - highPriorityCount calculation)
 - 2.3 (2025-12-27): Added Unified Authentication Middleware Pattern (flexibleAuth + withAuth mandatory wrapper)
@@ -3125,6 +3126,280 @@ app.use('/api/scrape',
   userRateLimit(5, 60000) // 5 per minute per user
 );
 ```
+
+---
+
+### In-Memory Rate Limiting for User Actions (NEW - 2026-01-28)
+
+**Context:** Some user-initiated actions (like product discovery) need gentler rate limiting than general API protection, but don't warrant the complexity of per-action Redis rate limiters.
+
+**Problem:** Redis-based rate limiting is too aggressive for specific user actions (e.g., product discovery should allow 10/hour, not 100/15min like general API).
+
+**Solution:** In-memory Map-based rate limiting with per-user sliding windows for specific feature endpoints.
+
+**Source:** `server/routes/product-discovery-routes.ts` from Phases 4-6 electronics scoping work.
+
+#### ❌ WRONG - Reusing Global Rate Limiter
+
+```typescript
+// THIS IS TOO RESTRICTIVE!
+// General API rate limit (100 req/15min) applied to product discovery
+app.post('/api/discover/search',
+  apiLimiter,               // Wrong: Too aggressive for user-initiated actions
+  requireAuth,
+  async (req, res) => {
+    // User can trigger 100 searches in 15 minutes
+    // That's way too many for expensive scraping operations!
+  }
+);
+```
+
+**Problems:**
+- General API rate limit (100 req/15min) is too generous for expensive operations
+- Redis rate limiter requires network round-trip for every request
+- Can't provide user-friendly `retryAfter` metadata easily
+- Over-engineering when action is already gated by authentication
+
+#### ✅ CORRECT - In-Memory Per-User Rate Limiting
+
+```typescript
+// server/routes/product-discovery-routes.ts
+
+/**
+ * Rate limiting for discovery requests
+ * Prevents abuse while allowing legitimate product discovery
+ */
+const discoveryRateLimits = new Map<number, { count: number; resetAt: number }>();
+const MAX_DISCOVERIES_PER_HOUR = 10;
+
+function checkRateLimit(userId: number): boolean {
+  const now = Date.now();
+  const hourMs = 60 * 60 * 1000;
+
+  const userLimit = discoveryRateLimits.get(userId);
+
+  // No limit recorded or expired - create new window
+  if (!userLimit || now > userLimit.resetAt) {
+    discoveryRateLimits.set(userId, { count: 1, resetAt: now + hourMs });
+    return true; // Allow request
+  }
+
+  // Limit exceeded
+  if (userLimit.count >= MAX_DISCOVERIES_PER_HOUR) {
+    return false; // Reject request
+  }
+
+  // Increment count
+  userLimit.count++;
+  return true; // Allow request
+}
+
+// Apply in-memory rate limit
+app.post('/api/discover/search',
+  csrfProtection,
+  requireAuth,
+  async (req: Request, res: Response) => {
+    const userId = req.session.userId;
+    if (!userId) {
+      sendError(res, 'Authentication required', 401);
+      return;
+    }
+
+    // IN-MEMORY RATE LIMIT CHECK
+    if (!checkRateLimit(userId)) {
+      sendError(
+        res,
+        'Rate limit exceeded. Please wait before discovering more products.',
+        429,
+        { retryAfter: 3600 }  // User-friendly metadata for UI
+      );
+      return;
+    }
+
+    // Process expensive operation
+    const searchResults = await directRetailerSearchService.searchAllRetailers(query);
+    sendSuccess(res, { results: searchResults });
+  }
+);
+
+// Optional: Provide rate limit status endpoint
+app.get('/api/discover/rate-limit',
+  requireAuth,
+  (req: Request, res: Response) => {
+    const userId = req.session.userId;
+    if (!userId) {
+      sendError(res, 'Authentication required', 401);
+      return;
+    }
+
+    const now = Date.now();
+    const userLimit = discoveryRateLimits.get(userId);
+
+    if (!userLimit || now > userLimit.resetAt) {
+      sendSuccess(res, {
+        remaining: MAX_DISCOVERIES_PER_HOUR,
+        limit: MAX_DISCOVERIES_PER_HOUR,
+        resetsIn: 0,
+      });
+      return;
+    }
+
+    const remaining = Math.max(0, MAX_DISCOVERIES_PER_HOUR - userLimit.count);
+    const resetsIn = Math.max(0, Math.ceil((userLimit.resetAt - now) / 1000));
+
+    sendSuccess(res, {
+      remaining,
+      limit: MAX_DISCOVERIES_PER_HOUR,
+      resetsIn, // seconds until reset
+    });
+  }
+);
+```
+
+#### Pattern Benefits
+
+- Simple implementation (no Redis dependency)
+- Fast (in-memory lookup, no network round-trip)
+- User-friendly metadata (`retryAfter`, `remaining`, `resetsIn`)
+- Feature-specific limits (10/hour for discovery, not 100/15min general API)
+- Automatic memory cleanup (sliding window expires old entries)
+
+#### When to Use In-Memory Rate Limiting
+
+✅ **Use when:**
+- Action is expensive but infrequent (e.g., product discovery, report generation)
+- Already behind authentication (per-user limits)
+- Need gentler limits than global API rate limiting
+- Want to provide user-friendly rate limit status
+- Single-server deployment OR rate limit drift acceptable
+
+❌ **Use Redis rate limiting when:**
+- Multi-server deployment requires consistent limits
+- Unauthenticated endpoints (IP-based rate limiting)
+- Requires persistent state across server restarts
+- Need distributed rate limit enforcement
+
+#### Memory Management
+
+**Concern:** Map grows unbounded if users never hit limit reset.
+
+**Mitigation:**
+
+1. **Automatic cleanup via sliding window:** Expired entries are automatically replaced on next check
+   ```typescript
+   if (!userLimit || now > userLimit.resetAt) {
+     discoveryRateLimits.set(userId, { count: 1, resetAt: now + hourMs });
+     // Old entry overwritten, no manual cleanup needed
+   }
+   ```
+
+2. **Optional periodic cleanup** (for high-user-count systems):
+   ```typescript
+   // server/routes/product-discovery-routes.ts
+
+   // Clean up expired entries every hour
+   setInterval(() => {
+     const now = Date.now();
+     for (const [userId, limit] of discoveryRateLimits) {
+       if (now > limit.resetAt) {
+         discoveryRateLimits.delete(userId);
+       }
+     }
+   }, 60 * 60 * 1000);
+   ```
+
+3. **Size limit** (if user count is very high):
+   ```typescript
+   const MAX_CACHE_SIZE = 10000; // Limit to 10K users in memory
+
+   function checkRateLimit(userId: number): boolean {
+     // ... existing logic ...
+
+     // FIFO eviction if map too large
+     if (discoveryRateLimits.size > MAX_CACHE_SIZE) {
+       const oldestUserId = discoveryRateLimits.keys().next().value;
+       if (oldestUserId) discoveryRateLimits.delete(oldestUserId);
+     }
+
+     // ... rest of logic ...
+   }
+   ```
+
+#### Comparison: In-Memory vs Redis Rate Limiting
+
+| Aspect | In-Memory | Redis (express-rate-limit) |
+|--------|-----------|----------------------------|
+| **Latency** | <1ms (in-process) | 5-10ms (network round-trip) |
+| **Multi-Server** | Inconsistent limits | Consistent across servers |
+| **Persistence** | Lost on restart | Survives restarts |
+| **Complexity** | Simple Map | Requires Redis connection |
+| **Use Case** | Authenticated, per-user actions | General API, IP-based limits |
+| **Metadata** | Easy to provide | Requires custom logic |
+
+#### Testing Pattern
+
+```typescript
+// Test rate limiting enforcement
+describe('POST /api/discover/search - Rate Limiting', () => {
+  it('should allow up to MAX_DISCOVERIES_PER_HOUR requests', async () => {
+    const agent = request.agent(app);
+    await agent.post('/api/auth/login').send({ email, password });
+
+    // Make MAX_DISCOVERIES_PER_HOUR requests
+    for (let i = 0; i < 10; i++) {
+      const res = await agent.post('/api/discover/search').send({ query: 'test' });
+      expect(res.status).toBe(200);
+    }
+  });
+
+  it('should reject 11th request with 429', async () => {
+    const agent = request.agent(app);
+    await agent.post('/api/auth/login').send({ email, password });
+
+    // Exhaust limit
+    for (let i = 0; i < 10; i++) {
+      await agent.post('/api/discover/search').send({ query: 'test' });
+    }
+
+    // 11th request should fail
+    const res = await agent.post('/api/discover/search').send({ query: 'test' });
+    expect(res.status).toBe(429);
+    expect(res.body.error).toContain('Rate limit exceeded');
+    expect(res.body.retryAfter).toBe(3600);
+  });
+
+  it('should provide rate limit status', async () => {
+    const agent = request.agent(app);
+    await agent.post('/api/auth/login').send({ email, password });
+
+    // Make 3 requests
+    for (let i = 0; i < 3; i++) {
+      await agent.post('/api/discover/search').send({ query: 'test' });
+    }
+
+    // Check status
+    const res = await agent.get('/api/discover/rate-limit');
+    expect(res.status).toBe(200);
+    expect(res.body.data.remaining).toBe(7); // 10 - 3 = 7
+    expect(res.body.data.limit).toBe(10);
+    expect(res.body.data.resetsIn).toBeGreaterThan(0);
+  });
+});
+```
+
+#### Quality Checklist
+
+- [ ] Module-level Map with explicit type (`Map<number, { count, resetAt }>`)
+- [ ] Module-level constant for limit (`MAX_DISCOVERIES_PER_HOUR`)
+- [ ] Sliding window logic (auto-cleanup expired entries)
+- [ ] User-friendly 429 response with `retryAfter` metadata
+- [ ] Optional rate limit status endpoint for UX
+- [ ] Memory management strategy (sliding window OR periodic cleanup)
+- [ ] Integration tests verify limit enforcement
+- [ ] Documented trade-offs (single-server vs multi-server)
+
+**Source:** `server/routes/product-discovery-routes.ts` (Phases 4-6 electronics scoping)
+**Added:** 2026-01-28
 
 ---
 

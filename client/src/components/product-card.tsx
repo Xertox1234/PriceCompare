@@ -2,6 +2,7 @@ import { memo, useMemo, useCallback, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Price } from '@/components/ui/price';
 import { Star, ShoppingCart, ExternalLink, TrendingUp } from 'lucide-react';
 import { ProductWithOffers } from '@shared/schema';
 import { cn, getProductImageUrl, handleImageError } from '@/lib/utils';
@@ -158,16 +159,12 @@ export const ProductCard = memo(
           {/* Rating */}
           {starsElement}
 
-          {/* Pricing */}
+          {/* Pricing - Uses Price component for currency-aware display */}
           <div className="space-y-2">
             <div className="flex items-baseline space-x-2">
-              <span className="text-foreground text-3xl font-black">
-                ${currentPrice.toFixed(2)}
-              </span>
+              <Price value={currentPrice} size="xl" className="text-foreground font-black" />
               {savings > 0 && (
-                <span className="text-muted-foreground text-lg line-through">
-                  ${originalPrice.toFixed(2)}
-                </span>
+                <Price value={originalPrice} size="md" strikethrough className="text-lg" />
               )}
             </div>
 

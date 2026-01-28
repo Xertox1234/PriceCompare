@@ -7,6 +7,32 @@ import { logger } from '../utils/logger';
 import { safeTrendAnalysis, type AITrendAnalysis } from './ai-validation-schemas';
 import { agentQueryLimiter } from '../services/agent-query-limiter';
 
+// ============================================================================
+// ELECTRONICS SCOPE CONFIGURATION
+// ============================================================================
+// PriceCompare is scoped to Canadian electronics price comparison.
+// Only Electronics category products are processed by the discovery agent.
+// This reduces API costs and focuses the product catalog on the target market.
+// ============================================================================
+
+/**
+ * Allowed categories for product discovery.
+ * Currently scoped to Electronics only for Canadian market focus.
+ * All other categories are rejected during trend analysis.
+ */
+const ALLOWED_CATEGORIES = ['Electronics'] as const;
+type AllowedCategory = (typeof ALLOWED_CATEGORIES)[number];
+
+/**
+ * Check if a category is allowed for discovery.
+ * Used to filter out non-Electronics trends.
+ */
+function isAllowedCategory(category: string | undefined): category is AllowedCategory {
+  if (!category) return false;
+  // SAFETY: Type assertion needed for .includes() on const array; function is a type guard
+  return ALLOWED_CATEGORIES.includes(category as AllowedCategory);
+}
+
 // Local abstract base class for trend sources (distinct from the type in ./types)
 abstract class BaseTrendSource {
   abstract getTrends(categories?: string[], limit?: number): TrendData[] | Promise<TrendData[]>;
@@ -64,6 +90,26 @@ export class ProductDiscoveryAgent extends BaseAgent {
   private async discoverTrendingProducts(taskData: DiscoveryTaskData): Promise<TrendData[]> {
     const allTrends: TrendData[] = [];
 
+    // ELECTRONICS SCOPE: Override categories to Electronics only
+    // This ensures we only discover products relevant to Canadian electronics market
+    const electronicsCategories = ['Electronics'];
+    const filteredCategories =
+      taskData.categories?.filter((c) => isAllowedCategory(c)) || electronicsCategories;
+
+    if (filteredCategories.length === 0) {
+      logger.info('Discovery task filtered - no allowed categories requested', {
+        requestedCategories: taskData.categories,
+        allowedCategories: ALLOWED_CATEGORIES,
+      });
+      return [];
+    }
+
+    logger.info('Discovery task starting with electronics scope', {
+      requestedCategories: taskData.categories,
+      filteredCategories,
+      allowedCategories: ALLOWED_CATEGORIES,
+    });
+
     // Discover trends from each requested source
     for (const sourceName of taskData.sources) {
       const source = this.trendSources.get(sourceName);
@@ -73,7 +119,7 @@ export class ProductDiscoveryAgent extends BaseAgent {
       }
 
       try {
-        const trends = await source.getTrends(taskData.categories, taskData.limit);
+        const trends = await source.getTrends(filteredCategories, taskData.limit);
         allTrends.push(...trends);
       } catch (error) {
         logger.error(`Error getting trends from ${sourceName}`, {
@@ -86,10 +132,38 @@ export class ProductDiscoveryAgent extends BaseAgent {
     // Use AI to analyze and categorize trends
     const analyzedTrends = await this.analyzeTrendsWithAI(allTrends);
 
-    // Store trending products in database
-    await this.storeTrendingProducts(analyzedTrends);
+    // ELECTRONICS SCOPE: Filter analyzed trends to only include Electronics category
+    const electronicsTrends = analyzedTrends.filter((trend) => {
+      // Get category from trend or from AI analysis metadata
+      let category = trend.category;
+      if (!category && trend.metadata) {
+        // AI analysis stores category in metadata.aiAnalysis object
+        const aiAnalysis = trend.metadata.aiAnalysis;
+        if (typeof aiAnalysis === 'object' && aiAnalysis !== null && 'category' in aiAnalysis) {
+          category = String((aiAnalysis as { category: unknown }).category);
+        }
+      }
+      if (!isAllowedCategory(category)) {
+        logger.debug('Trend rejected - non-Electronics category', {
+          query: trend.query,
+          category,
+          allowedCategories: ALLOWED_CATEGORIES,
+        });
+        return false;
+      }
+      return true;
+    });
 
-    return analyzedTrends;
+    logger.info('Electronics filter applied to trends', {
+      totalTrends: analyzedTrends.length,
+      electronicsOnly: electronicsTrends.length,
+      filtered: analyzedTrends.length - electronicsTrends.length,
+    });
+
+    // Store trending products in database
+    await this.storeTrendingProducts(electronicsTrends);
+
+    return electronicsTrends;
   }
 
   private async analyzeTrendsWithAI(trends: TrendData[]): Promise<TrendData[]> {
@@ -352,8 +426,8 @@ CRITICAL: You must return ONLY valid JSON. No markdown, no explanation, no code 
 class GoogleTrendsSource extends BaseTrendSource {
   getTrends(categories?: string[], limit = 20): TrendData[] {
     // Note: This would require Google Trends API or web scraping
-    // For now, returning simulated trending products
-    const simulatedTrends = [
+    // For now, returning simulated trending electronics products (Canadian market focus)
+    const simulatedTrends: TrendData[] = [
       {
         query: 'iPhone 15 Pro',
         score: 95,
@@ -369,29 +443,55 @@ class GoogleTrendsSource extends BaseTrendSource {
         source: 'google_trends',
       },
       {
-        query: 'Air Fryer Ninja',
+        query: 'Samsung Galaxy S24 Ultra',
+        score: 86,
+        volume: 32000,
+        category: 'Electronics',
+        source: 'google_trends',
+      },
+      {
+        query: 'PlayStation 5',
+        score: 84,
+        volume: 30000,
+        category: 'Electronics',
+        source: 'google_trends',
+      },
+      {
+        query: 'MacBook Pro M3',
         score: 82,
         volume: 28000,
-        category: 'Home & Kitchen',
+        category: 'Electronics',
         source: 'google_trends',
       },
       {
-        query: 'Stanley Cup Tumbler',
+        query: 'AirPods Pro 2',
+        score: 80,
+        volume: 26000,
+        category: 'Electronics',
+        source: 'google_trends',
+      },
+      {
+        query: 'Sony WH-1000XM5',
         score: 78,
-        volume: 25000,
-        category: 'Home & Kitchen',
+        volume: 24000,
+        category: 'Electronics',
         source: 'google_trends',
       },
       {
-        query: 'Lululemon Leggings',
-        score: 75,
+        query: 'Meta Quest 3',
+        score: 76,
         volume: 22000,
-        category: 'Fashion',
+        category: 'Electronics',
         source: 'google_trends',
       },
     ];
 
-    return simulatedTrends.slice(0, limit);
+    // Filter by requested categories (should be Electronics only)
+    const filtered = categories
+      ? simulatedTrends.filter((t) => categories.includes(t.category || ''))
+      : simulatedTrends;
+
+    return filtered.slice(0, limit);
   }
 }
 
@@ -399,18 +499,44 @@ class GoogleTrendsSource extends BaseTrendSource {
 class SocialMediaSource extends BaseTrendSource {
   getTrends(categories?: string[], limit = 15): TrendData[] {
     // This would integrate with Twitter API, Reddit API, etc.
-    const socialTrends = [
-      { query: 'Viral TikTok LED Lights', score: 70, volume: 18000, source: 'social_media' },
+    // Electronics-focused trends for Canadian market
+    const socialTrends: TrendData[] = [
       {
-        query: 'Trending Skincare Routine Products',
-        score: 65,
-        volume: 15000,
+        query: 'Steam Deck OLED',
+        score: 70,
+        volume: 18000,
+        category: 'Electronics',
         source: 'social_media',
       },
-      { query: 'Popular Gaming Headset', score: 60, volume: 12000, source: 'social_media' },
+      {
+        query: 'Logitech G Pro X Superlight',
+        score: 65,
+        volume: 15000,
+        category: 'Electronics',
+        source: 'social_media',
+      },
+      {
+        query: 'Razer BlackWidow V4 Keyboard',
+        score: 60,
+        volume: 12000,
+        category: 'Electronics',
+        source: 'social_media',
+      },
+      {
+        query: 'LG C4 OLED TV',
+        score: 58,
+        volume: 11000,
+        category: 'Electronics',
+        source: 'social_media',
+      },
     ];
 
-    return socialTrends.slice(0, limit);
+    // Filter by requested categories (should be Electronics only)
+    const filtered = categories
+      ? socialTrends.filter((t) => categories.includes(t.category || ''))
+      : socialTrends;
+
+    return filtered.slice(0, limit);
   }
 }
 
@@ -418,12 +544,37 @@ class SocialMediaSource extends BaseTrendSource {
 class NewsSource extends BaseTrendSource {
   getTrends(categories?: string[], limit = 10): TrendData[] {
     // This would integrate with News API
-    const newsTrends = [
-      { query: 'CES 2024 Best Products', score: 85, volume: 30000, source: 'news' },
-      { query: 'Black Friday Top Deals', score: 90, volume: 40000, source: 'news' },
+    // Electronics-focused news trends
+    const newsTrends: TrendData[] = [
+      {
+        query: 'Apple Vision Pro',
+        score: 85,
+        volume: 30000,
+        category: 'Electronics',
+        source: 'news',
+      },
+      {
+        query: 'Samsung Galaxy Z Fold5',
+        score: 82,
+        volume: 28000,
+        category: 'Electronics',
+        source: 'news',
+      },
+      {
+        query: 'Google Pixel 8 Pro',
+        score: 80,
+        volume: 26000,
+        category: 'Electronics',
+        source: 'news',
+      },
     ];
 
-    return newsTrends.slice(0, limit);
+    // Filter by requested categories (should be Electronics only)
+    const filtered = categories
+      ? newsTrends.filter((t) => categories.includes(t.category || ''))
+      : newsTrends;
+
+    return filtered.slice(0, limit);
   }
 }
 
@@ -431,27 +582,114 @@ class NewsSource extends BaseTrendSource {
 class SeasonalSource extends BaseTrendSource {
   getTrends(categories?: string[], limit = 10): TrendData[] {
     const month = new Date().getMonth();
-    const seasonalTrends = this.getSeasonalProducts(month);
+    let seasonalTrends = this.getSeasonalProducts(month);
+
+    // Filter by requested categories (should be Electronics only)
+    if (categories) {
+      seasonalTrends = seasonalTrends.filter((t) => categories.includes(t.category || ''));
+    }
 
     return seasonalTrends.slice(0, limit);
   }
 
   private getSeasonalProducts(month: number): TrendData[] {
+    // Electronics-focused seasonal trends for Canadian market
     const seasonalMap: Record<number, TrendData[]> = {
       11: [
-        // December - Holiday season
-        { query: 'Christmas Gift Ideas Tech', score: 85, volume: 35000, source: 'seasonal' },
-        { query: 'Holiday Decoration Lights', score: 80, volume: 28000, source: 'seasonal' },
+        // December - Holiday season electronics
+        {
+          query: 'Nintendo Switch Bundle',
+          score: 90,
+          volume: 40000,
+          category: 'Electronics',
+          source: 'seasonal',
+        },
+        {
+          query: 'Apple Watch Series 9',
+          score: 85,
+          volume: 35000,
+          category: 'Electronics',
+          source: 'seasonal',
+        },
+        {
+          query: 'Bose QuietComfort Ultra',
+          score: 82,
+          volume: 30000,
+          category: 'Electronics',
+          source: 'seasonal',
+        },
       ],
       0: [
-        // January - New Year fitness
-        { query: 'Home Gym Equipment', score: 75, volume: 25000, source: 'seasonal' },
-        { query: 'Fitness Tracker Watches', score: 70, volume: 20000, source: 'seasonal' },
+        // January - New Year tech fitness
+        {
+          query: 'Fitbit Charge 6',
+          score: 75,
+          volume: 25000,
+          category: 'Electronics',
+          source: 'seasonal',
+        },
+        {
+          query: 'Apple Watch SE',
+          score: 72,
+          volume: 22000,
+          category: 'Electronics',
+          source: 'seasonal',
+        },
+        {
+          query: 'Samsung Galaxy Watch 6',
+          score: 70,
+          volume: 20000,
+          category: 'Electronics',
+          source: 'seasonal',
+        },
       ],
       5: [
-        // June - Summer products
-        { query: 'Portable Air Conditioner', score: 80, volume: 30000, source: 'seasonal' },
-        { query: 'Outdoor Grill BBQ', score: 75, volume: 25000, source: 'seasonal' },
+        // June - Summer tech
+        {
+          query: 'JBL Charge 5 Portable Speaker',
+          score: 80,
+          volume: 30000,
+          category: 'Electronics',
+          source: 'seasonal',
+        },
+        {
+          query: 'GoPro Hero 12',
+          score: 78,
+          volume: 28000,
+          category: 'Electronics',
+          source: 'seasonal',
+        },
+        {
+          query: 'Sonos Roam 2',
+          score: 75,
+          volume: 25000,
+          category: 'Electronics',
+          source: 'seasonal',
+        },
+      ],
+      8: [
+        // September - Back to school
+        {
+          query: 'iPad 10th Generation',
+          score: 85,
+          volume: 35000,
+          category: 'Electronics',
+          source: 'seasonal',
+        },
+        {
+          query: 'MacBook Air M2',
+          score: 83,
+          volume: 32000,
+          category: 'Electronics',
+          source: 'seasonal',
+        },
+        {
+          query: 'Dell XPS 13',
+          score: 80,
+          volume: 28000,
+          category: 'Electronics',
+          source: 'seasonal',
+        },
       ],
     };
 

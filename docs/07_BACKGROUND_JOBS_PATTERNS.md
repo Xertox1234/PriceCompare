@@ -1,11 +1,12 @@
 ---
 Pattern: Background Jobs Patterns
-Version: 2.4
-Last Updated: 2026-01-15
+Version: 2.5
+Last Updated: 2026-01-28
 Maintainer: Claude Code / Development Team
 Status: Active
 Related Patterns: [02_DATABASE_PATTERNS.md, 04_SECURITY_PATTERNS.md, 03_API_PATTERNS.md, 01_TYPESCRIPT_PATTERNS.md]
 Changelog:
+  - 2.5 (2026-01-28): Added Lazy Bull Queue Initialization and Fallback Selector Chain for Resilient Scraping patterns (from Phases 4-6 electronics scoping)
   - 2.4 (2026-01-15): Added Centralized Queue Job Options, Enhanced Queue Error Classification, and Type Guard for Queue Results patterns (from TODO_227)
   - 2.3 (2026-01-15): Added Smart Retry with Error Classification pattern (from TODO_217)
   - 2.2 (2026-01-14): Added Distributed URL Locking, Health Check Tiering, and Enhanced Graceful Shutdown patterns (from TODO_213, TODO_215, TODO_216)
@@ -185,6 +186,178 @@ const JOB_OPTIONS = {
 
 **Source:** TODO_227 retry logic implementation (price-snapshot-queue.ts)
 **Added:** 2026-01-15
+
+---
+
+### Lazy Bull Queue Initialization (NEW - 2026-01-28)
+
+**Context:** Bull queues attempt to connect to Redis immediately when instantiated. If Redis is not yet available during module import, the server startup will block or fail.
+
+**Problem:** Eagerly creating Bull queues at module load time causes startup failures when Redis is initializing or temporarily unavailable.
+
+**Source:** `server/jobs/price-refresh-queue.ts` from Phases 4-6 electronics scoping work.
+
+#### ❌ WRONG - Eager Queue Creation at Module Import
+
+```typescript
+// server/jobs/price-refresh-queue.ts
+
+// THIS BLOCKS SERVER STARTUP IF REDIS NOT READY!
+export const priceRefreshQueue = new Queue('price-refresh', redisConfig, {
+  defaultJobOptions: JOB_OPTIONS,
+});
+
+// Queue connects to Redis IMMEDIATELY when this module is imported
+// Server crashes if Redis unavailable during startup
+```
+
+**Problems:**
+- Server startup blocked until Redis is available
+- Import-time side effects (connects to Redis)
+- Cannot start server for non-Redis tasks if Redis is down
+- Hard to mock in tests (queue created before test setup)
+
+#### ✅ CORRECT - Lazy Initialization Pattern
+
+```typescript
+// server/jobs/price-refresh-queue.ts
+
+// LAZY INITIALIZATION: Queue is only created when first accessed
+let _priceRefreshQueue: Queue.Queue | null = null;
+let _queueInitialized = false;
+
+/**
+ * Get the price refresh queue (lazy initialization)
+ * The queue is created on first access, not at module load time.
+ */
+function getPriceRefreshQueue(): Queue.Queue {
+  if (!_priceRefreshQueue) {
+    _priceRefreshQueue = new Queue('price-refresh', redisConfig, {
+      defaultJobOptions: JOB_OPTIONS,
+    });
+  }
+  return _priceRefreshQueue;
+}
+
+/**
+ * Setup queue event handlers and processor
+ * Must be called once after queue is ready
+ */
+function setupQueueHandlers() {
+  if (_queueInitialized) return;
+
+  const queue = getPriceRefreshQueue();
+
+  // Process jobs with concurrency limit
+  void queue.process(1, async (job) => {
+    // Job processing logic
+  });
+
+  // Event handlers
+  queue.on('completed', (job, result) => { /* ... */ });
+  queue.on('failed', (job, err) => { /* ... */ });
+
+  _queueInitialized = true;
+}
+
+// Public API - lazy access to queue methods
+export const priceRefreshQueue = {
+  add: async (data: unknown, opts?: Queue.JobOptions) => {
+    return getPriceRefreshQueue().add(data, opts);
+  },
+  getWaitingCount: async () => {
+    return getPriceRefreshQueue().getWaitingCount();
+  },
+  close: async () => {
+    if (_priceRefreshQueue) {
+      return _priceRefreshQueue.close();
+    }
+  },
+};
+
+// Initialize scheduler (calls setupQueueHandlers first)
+export function initializePriceRefreshScheduler() {
+  setupQueueHandlers();
+
+  cron.schedule(cronSchedule, async () => {
+    await getPriceRefreshQueue().add({ type: 'scheduled' }, JOB_OPTIONS);
+  });
+}
+```
+
+#### Pattern Benefits
+
+✅ **Server startup resilience**: Server can start even if Redis is temporarily unavailable
+✅ **No import-time side effects**: Module can be imported without connecting to Redis
+✅ **Testability**: Easy to mock or skip queue initialization in tests
+✅ **Controlled initialization**: Queue only created when explicitly needed
+✅ **Graceful degradation**: Non-queue features work even if Redis is down
+
+#### When to Use Lazy Initialization
+
+✅ **Use when:**
+- Queue is used by scheduled jobs (not critical for server startup)
+- Queue is for background processing (non-blocking features)
+- Redis availability may vary in different environments
+- Testing requires isolation from external services
+
+❌ **NOT needed when:**
+- Queue MUST be available for core API functionality
+- Redis is guaranteed available before server starts
+- Queue is validated during startup health checks
+
+#### Related Pattern: CSRF Secret Lazy Initialization
+
+This pattern is similar to the **Lazy CSRF Secret Initialization** pattern in `01_TYPESCRIPT_PATTERNS.md`:
+
+```typescript
+// Both defer expensive/blocking operations until first use
+let _csrfSecret: string | null = null;
+
+function getCsrfSecret(): string {
+  if (!_csrfSecret) {
+    _csrfSecret = process.env.CSRF_SECRET || crypto.randomBytes(32).toString('hex');
+  }
+  return _csrfSecret;
+}
+```
+
+**Key difference**: CSRF is for avoiding circular dependencies, Bull queue lazy init is for avoiding startup blocking.
+
+#### Testing Pattern
+
+```typescript
+// Test without initializing queue
+describe('priceRefreshQueue', () => {
+  it('should not connect to Redis during module import', () => {
+    // Simply importing the module should not create queue
+    const module = require('./price-refresh-queue');
+    // No Redis connection attempted yet
+  });
+
+  it('should initialize queue on first access', async () => {
+    const { priceRefreshQueue } = require('./price-refresh-queue');
+
+    // First access triggers initialization
+    await priceRefreshQueue.add({ test: true });
+
+    // Now queue is created
+  });
+});
+```
+
+#### Quality Checklist
+
+- [ ] Queue instance is private module variable (`_queueName`)
+- [ ] Getter function (`getQueueName()`) handles lazy creation
+- [ ] Initialization flag prevents duplicate setup (`_queueInitialized`)
+- [ ] Public API uses getter, not direct queue access
+- [ ] `setupQueueHandlers()` uses initialization guard
+- [ ] Module exports wrapper object, not raw queue instance
+- [ ] Tests verify no Redis connection during import
+
+**Source:** `server/jobs/price-refresh-queue.ts` (Phases 4-6 electronics scoping)
+**Added:** 2026-01-28
 
 ---
 
@@ -2712,6 +2885,283 @@ async function scrapeProduct(url: string) {
   return price;
 }
 ```
+
+---
+
+### Fallback Selector Chain for Resilient Scraping (NEW - 2026-01-28)
+
+**Context:** Retailer websites frequently change their HTML structure and CSS class names during redesigns, breaking scrapers that rely on single selectors.
+
+**Problem:** Hardcoded single selectors cause total scraping failures when sites update their HTML, requiring manual fixes and downtime.
+
+**Source:** `server/services/direct-retailer-search.ts` from Phases 4-6 electronics scoping work.
+
+#### ❌ WRONG - Single Hardcoded Selector
+
+```typescript
+// THIS BREAKS WHEN AMAZON CHANGES CLASS NAMES!
+async function extractProductLinks(page: Page) {
+  const links = page.locator('a.a-link-normal.s-no-outline[href*="/dp/"]');
+  const count = await links.count();
+
+  if (count === 0) {
+    throw new Error('No products found'); // Total failure!
+  }
+
+  // Extract links...
+}
+```
+
+**Problems:**
+- Single point of failure (class name change breaks everything)
+- No fallback strategy for site redesigns
+- Requires immediate manual intervention when site changes
+- Downtime until selectors are updated
+
+#### ✅ CORRECT - Multiple Fallback Selectors
+
+```typescript
+// server/services/direct-retailer-search.ts
+
+export interface RetailerSearchConfig {
+  domain: string;
+  name: string;
+  searchUrlTemplate: string;
+
+  // RESILIENCE: Multiple selectors per data type
+  productLinkSelectors: string[];    // Try these in order until one works
+  productTitleSelectors: string[];
+  productPriceSelectors: string[];
+  waitForSelector: string;
+}
+
+const CANADIAN_RETAILERS: RetailerSearchConfig[] = [
+  {
+    domain: 'amazon.ca',
+    name: 'Amazon Canada',
+    searchUrlTemplate: 'https://www.amazon.ca/s?k={query}',
+
+    // Multiple selectors - resilient to site changes
+    productLinkSelectors: [
+      'a.a-link-normal.s-no-outline[href*="/dp/"]',        // Current selector (2026)
+      '[data-component-type="s-search-result"] h2 a',      // Fallback 1
+      '.s-result-item h2 a.a-link-normal',                 // Fallback 2
+    ],
+    productTitleSelectors: [
+      '[data-component-type="s-search-result"] h2 span',
+      '.s-result-item h2 span.a-text-normal',
+      'h2.a-size-mini span',
+    ],
+    productPriceSelectors: [
+      '.a-price .a-offscreen',
+      '.a-price-whole',
+      '[data-a-color="base"] .a-offscreen',
+    ],
+    waitForSelector: '[data-component-type="s-search-result"]',
+  },
+];
+
+// Extract with fallback selector strategy
+private async extractSearchResults(
+  page: Page,
+  config: RetailerSearchConfig,
+  maxResults: number
+): Promise<Product[]> {
+  const products: Product[] = [];
+
+  // TRY EACH LINK SELECTOR UNTIL ONE WORKS
+  for (const linkSelector of config.productLinkSelectors) {
+    try {
+      const links = page.locator(linkSelector);
+      const count = await links.count();
+
+      if (count === 0) {
+        logger.debug('Selector returned 0 results, trying next', {
+          retailer: config.name,
+          selector: linkSelector,
+        });
+        continue; // Try next selector
+      }
+
+      const linksToProcess = Math.min(count, maxResults);
+
+      for (let i = 0; i < linksToProcess; i++) {
+        try {
+          const link = links.nth(i);
+          const href = await link.getAttribute('href', {
+            timeout: SCRAPER.ELEMENT_TIMEOUT_MS,
+          });
+
+          if (!href) continue;
+
+          // Build full URL
+          const fullUrl = href.startsWith('http')
+            ? href
+            : `https://www.${config.domain}${href.startsWith('/') ? '' : '/'}${href}`;
+
+          // TRY EACH TITLE SELECTOR UNTIL ONE WORKS
+          let title = '';
+          for (const titleSelector of config.productTitleSelectors) {
+            try {
+              const titleElement = page.locator(titleSelector).nth(i);
+              title = (await titleElement.textContent({ timeout: 2000 })) || '';
+              if (title.trim()) break; // Found title, stop trying
+            } catch {
+              continue; // Try next title selector
+            }
+          }
+
+          // If no title found via selectors, try link text
+          if (!title.trim()) {
+            title = (await link.textContent({ timeout: 2000 })) || '';
+          }
+
+          // TRY EACH PRICE SELECTOR UNTIL ONE WORKS
+          let price: number | null = null;
+          for (const priceSelector of config.productPriceSelectors) {
+            try {
+              const priceElement = page.locator(priceSelector).nth(i);
+              const priceText = await priceElement.textContent({ timeout: 2000 });
+              if (priceText) {
+                price = this.parsePrice(priceText);
+                if (price !== null) break; // Found price, stop trying
+              }
+            } catch {
+              continue; // Try next price selector
+            }
+          }
+
+          if (title.trim() && fullUrl) {
+            products.push({
+              title: title.trim().substring(0, 500),
+              price,
+              url: fullUrl,
+            });
+          }
+        } catch (itemError) {
+          logger.debug('Failed to extract product item', {
+            retailer: config.name,
+            index: i,
+            error: itemError instanceof Error ? itemError.message : String(itemError),
+          });
+          continue; // Try next product
+        }
+      }
+
+      // IF WE FOUND PRODUCTS WITH THIS SELECTOR, STOP TRYING OTHERS
+      if (products.length > 0) {
+        logger.info('Selector successful', {
+          retailer: config.name,
+          selector: linkSelector,
+          productsFound: products.length,
+        });
+        break;
+      }
+    } catch (selectorError) {
+      logger.debug('Link selector failed, trying next', {
+        retailer: config.name,
+        selector: linkSelector,
+        error: selectorError instanceof Error ? selectorError.message : String(selectorError),
+      });
+      continue; // Try next selector
+    }
+  }
+
+  return products;
+}
+```
+
+#### Pattern Benefits
+
+- Resilience to site changes - Scraper continues working when primary selector changes
+- Graceful degradation - Returns partial results instead of total failure
+- Reduced downtime - Secondary selectors keep scraper running until manual update
+- Progressive extraction - Try all selectors for each data type (link, title, price)
+- Detailed logging - Debug logs show which selectors worked/failed
+
+#### Fallback Strategy Guidelines
+
+**Selector ordering (most specific to most generic):**
+
+1. **Current selector** (most specific, most likely to break):
+   ```typescript
+   'a.a-link-normal.s-no-outline[href*="/dp/"]'
+   ```
+
+2. **Fallback 1** (slightly more generic):
+   ```typescript
+   '[data-component-type="s-search-result"] h2 a'
+   ```
+
+3. **Fallback 2** (most generic, least likely to break):
+   ```typescript
+   '.s-result-item h2 a'
+   ```
+
+**How many fallback selectors:**
+- **Minimum**: 2 selectors per data type (primary plus 1 fallback)
+- **Recommended**: 3 selectors per data type (better resilience)
+- **Maximum**: 5 selectors (diminishing returns, complexity increases)
+
+#### When to Use Fallback Selector Chains
+
+✅ **Use when:**
+- Scraping sites that frequently redesign (e.g., Amazon, Best Buy)
+- Extraction is critical for business operations
+- Downtime cost exceeds maintenance cost
+- Site has multiple CSS class naming patterns
+
+❌ **NOT needed when:**
+- Scraping stable sites with rarely-changing HTML
+- Using official APIs (no HTML scraping)
+- Prototype or proof-of-concept scrapers
+- Single-use data extraction scripts
+
+#### Maintenance Pattern
+
+**When to update selectors:**
+
+1. **Monitor selector success rates** in logs:
+   ```typescript
+   logger.info('Selector successful', {
+     retailer: config.name,
+     selector: linkSelector,        // Which selector worked?
+     productsFound: products.length,
+   });
+   ```
+
+2. **Add new primary selector** when site redesigns:
+   ```typescript
+   productLinkSelectors: [
+     'a.new-class-after-redesign',      // NEW: Add to front
+     'a.old-class-before-redesign',     // Keep as fallback
+     '[data-component-type] h2 a',      // Generic fallback
+   ],
+   ```
+
+3. **Remove obsolete selectors** after 6+ months with 0% usage:
+   ```typescript
+   // Review logs quarterly, remove unused selectors
+   productLinkSelectors: [
+     'a.current-selector',
+     'a.fallback-selector',
+     // REMOVED: 'a.selector-not-used-in-6-months'
+   ],
+   ```
+
+#### Quality Checklist
+
+- [ ] At least 2 selectors per data type (link, title, price)
+- [ ] Selectors ordered from most specific to most generic
+- [ ] `continue` on selector failure (try next selector)
+- [ ] `break` on first successful selector (stop trying others)
+- [ ] Debug logging shows which selector succeeded
+- [ ] Graceful degradation (empty array, not exception)
+- [ ] Timeout on element operations (prevent hanging)
+- [ ] Fallback to element text when selectors fail
+
+**Source:** `server/services/direct-retailer-search.ts` (Phases 4-6 electronics scoping)
+**Added:** 2026-01-28
 
 ---
 

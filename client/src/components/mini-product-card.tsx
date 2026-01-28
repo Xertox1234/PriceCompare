@@ -1,5 +1,6 @@
 import { memo, useCallback } from 'react';
 import { cn } from '@/lib/utils';
+import { Price } from '@/components/ui/price';
 import type { MockProduct } from '@/lib/mock-deals';
 
 // ============================================================================
@@ -76,15 +77,11 @@ export const MiniProductCard = memo(
         <div className="mt-1.5 space-y-0.5">
           {/* Product Name */}
           <p className="text-foreground line-clamp-2 text-xs leading-tight">{product.name}</p>
-          {/* Price Display */}
+          {/* Price Display - Uses Price component for currency-aware display */}
           <div className="flex items-baseline gap-1">
-            <span className="text-foreground text-sm font-bold">
-              ${product.currentPrice.toFixed(2)}
-            </span>
+            <Price value={product.currentPrice} size="sm" className="text-foreground font-bold" />
             {product.originalPrice > product.currentPrice && (
-              <span className="text-muted-foreground text-2xs line-through">
-                ${product.originalPrice.toFixed(2)}
-              </span>
+              <Price value={product.originalPrice} size="sm" strikethrough className="text-2xs" />
             )}
           </div>
         </div>

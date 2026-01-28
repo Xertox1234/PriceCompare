@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Price } from '@/components/ui/price';
 import { LazyImage } from './optimized/lazy-image';
 import type { ProductWithOffers } from '@shared/schema';
 
@@ -272,9 +273,11 @@ export const EnhancedSearchResults = memo(
                           {bestOffer && (
                             <div className="flex items-center gap-2">
                               <span className="text-muted-foreground text-sm">Best Price:</span>
-                              <span className="text-primary text-lg font-semibold">
-                                ${Number(bestOffer.price).toFixed(2)}
-                              </span>
+                              <Price
+                                value={Number(bestOffer.price)}
+                                size="lg"
+                                className="text-primary font-semibold"
+                              />
                               {product.offers && product.offers.length > 1 && (
                                 <Badge variant="secondary" className="text-xs">
                                   +{product.offers.length - 1} more

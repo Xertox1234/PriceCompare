@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Price } from '@/components/ui/price';
 import {
   useAlertAnalytics,
   useAlertEffectiveness,
@@ -87,9 +88,7 @@ export function AlertManagementDashboard() {
           <CardContent>
             <div className="flex items-center gap-2">
               <DollarSign className="h-5 w-5 text-success" />
-              <span className="text-3xl font-bold text-success">
-                ${(stats?.totalSavings || 0).toFixed(2)}
-              </span>
+              <Price value={stats?.totalSavings || 0} className="text-3xl font-bold text-success" />
             </div>
           </CardContent>
         </Card>
@@ -232,16 +231,14 @@ function PredictiveAlertCard({ alert }: { alert: PredictiveAlert }) {
         </div>
         <div>
           <span className="text-muted-foreground">Current: </span>
-          <span className="font-medium">${alert.currentPrice.toFixed(2)}</span>
+          <Price value={alert.currentPrice} size="sm" className="font-medium" />
         </div>
       </div>
 
       {alert.predictedPrice && (
         <div className="mt-2 border-t pt-2">
           <span className="text-muted-foreground text-xs">Predicted Price: </span>
-          <span className="text-sm font-semibold text-success">
-            ${alert.predictedPrice.toFixed(2)}
-          </span>
+          <Price value={alert.predictedPrice} className="text-sm font-semibold text-success" />
         </div>
       )}
     </div>
@@ -261,7 +258,7 @@ function EffectivenessCard({ alert }: { alert: AlertEffectiveness }) {
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Target className="text-muted-foreground h-4 w-4" />
-          <span className="font-medium">${alert.targetPrice.toFixed(2)}</span>
+          <Price value={alert.targetPrice} className="font-medium" />
         </div>
         <Badge className={effectivenessColor[alert.effectiveness]}>{alert.effectiveness}</Badge>
       </div>
@@ -273,7 +270,7 @@ function EffectivenessCard({ alert }: { alert: AlertEffectiveness }) {
         </div>
         <div>
           <p className="text-muted-foreground">Savings</p>
-          <p className="font-semibold text-success">${alert.savingsRealized.toFixed(2)}</p>
+          <Price value={alert.savingsRealized} className="font-semibold text-success" size="sm" />
         </div>
         <div>
           <p className="text-muted-foreground">Age</p>

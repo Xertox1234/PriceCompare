@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Price } from '@/components/ui/price';
 import {
   TrendingDown,
   Award,
@@ -130,18 +131,16 @@ function BestDealSection({ deal, currentPrice }: { deal: Deal; currentPrice: num
 
       <div className="space-y-2">
         <div className="flex items-baseline gap-2">
-          <span className="text-3xl font-bold text-foreground">${deal.price.toFixed(2)}</span>
+          <Price value={deal.price} className="text-3xl font-bold text-foreground" />
           {deal.originalPrice && (
-            <span className="text-lg text-muted-foreground line-through">
-              ${deal.originalPrice.toFixed(2)}
-            </span>
+            <Price value={deal.originalPrice} strikethrough className="text-lg text-muted-foreground" />
           )}
         </div>
 
         <div className="grid grid-cols-2 gap-2 text-sm">
           <div>
             <p className="text-warning">Saved</p>
-            <p className="font-semibold text-foreground">${deal.savingsAmount.toFixed(2)}</p>
+            <Price value={deal.savingsAmount} className="font-semibold text-foreground" />
           </div>
           <div>
             <p className="text-warning">Date</p>
@@ -152,7 +151,7 @@ function BestDealSection({ deal, currentPrice }: { deal: Deal; currentPrice: num
         {savingsVsCurrent > 0 && (
           <div className="mt-2 border-t border-warning/20 pt-2">
             <p className="text-xs text-warning">
-              ${savingsVsCurrent.toFixed(2)} ({percentVsCurrent.toFixed(1)}%) cheaper than current
+              <Price value={savingsVsCurrent} size="sm" /> ({percentVsCurrent.toFixed(1)}%) cheaper than current
               price
             </p>
           </div>
@@ -275,7 +274,7 @@ function SavingsCalculatorSection({
             <div>
               <p className="text-muted-foreground mb-1 text-xs">vs. Lowest Price</p>
               <p className="text-lg font-semibold">
-                {potentialSavings > 0 ? '+' : ''}${Math.abs(potentialSavings).toFixed(2)}
+                {potentialSavings > 0 ? '+' : ''}<Price value={Math.abs(potentialSavings)} size="lg" />
               </p>
               <p className={`text-xs ${potentialSavings > 0 ? 'text-destructive' : 'text-success'}`}>
                 {potentialSavings > 0 ? '+' : ''}
@@ -286,7 +285,7 @@ function SavingsCalculatorSection({
             <div>
               <p className="text-muted-foreground mb-1 text-xs">vs. Average Price</p>
               <p className="text-lg font-semibold">
-                {vsAverage > 0 ? '+' : ''}${Math.abs(vsAverage).toFixed(2)}
+                {vsAverage > 0 ? '+' : ''}<Price value={Math.abs(vsAverage)} size="lg" />
               </p>
               <p className={`text-xs ${vsAverage > 0 ? 'text-destructive' : 'text-success'}`}>
                 {vsAverage > 0 ? '+' : ''}
@@ -299,7 +298,7 @@ function SavingsCalculatorSection({
         {potentialSavings > 5 && (
           <div className="rounded border border-warning/20 bg-warning/5 p-2">
             <p className="text-xs text-warning">
-              💰 You could save ${potentialSavings.toFixed(2)} by waiting for a better price
+              💰 You could save <Price value={potentialSavings} size="sm" /> by waiting for a better price
             </p>
           </div>
         )}
@@ -325,11 +324,9 @@ function RecentDealsSection({ deals }: { deals: Deal[] }) {
           <div key={index} className="bg-muted/30 flex items-center justify-between rounded-lg p-2">
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <span className="font-semibold">${deal.price.toFixed(2)}</span>
+                <Price value={deal.price} className="font-semibold" />
                 {deal.originalPrice && (
-                  <span className="text-muted-foreground text-xs line-through">
-                    ${deal.originalPrice.toFixed(2)}
-                  </span>
+                  <Price value={deal.originalPrice} strikethrough size="sm" className="text-muted-foreground" />
                 )}
               </div>
               <p className="text-muted-foreground text-xs">{deal.daysAgo} days ago</p>

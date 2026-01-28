@@ -2,6 +2,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Price } from '@/components/ui/price';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
 import { TrendingDown, X, ExternalLink, Bell, BellOff, Edit2, Check, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -146,9 +147,7 @@ export function WatchedProductCard({
 
             {/* Price and Badges */}
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-foreground text-2xl font-bold">
-                ${product.currentPrice.toFixed(2)}
-              </span>
+              <Price value={product.currentPrice} className="text-foreground text-2xl font-bold" />
 
               {hasPriceDrop && (
                 <Badge className="flex items-center gap-1 bg-green-600 text-white dark:bg-green-500">
@@ -161,7 +160,7 @@ export function WatchedProductCard({
             {/* Savings indicator */}
             {hasSavings && (
               <p className="mt-1 text-sm font-medium text-green-600 dark:text-green-400">
-                Save ${product.savingsPotential.toFixed(2)} vs. lowest price
+                Save <Price value={product.savingsPotential} size="sm" /> vs. lowest price
               </p>
             )}
           </div>
@@ -299,9 +298,7 @@ export function WatchedProductCard({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground text-sm">Target:</span>
-                    <span className="text-primary text-lg font-bold">
-                      ${product.alertTargetPrice.toFixed(2)}
-                    </span>
+                    <Price value={product.alertTargetPrice} className="text-primary text-lg font-bold" />
                     {product.currentPrice <= product.alertTargetPrice && (
                       <Badge className="bg-green-600 text-xs text-white dark:bg-green-500">
                         TARGET MET!

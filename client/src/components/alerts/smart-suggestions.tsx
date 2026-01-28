@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Price } from '@/components/ui/price';
 import {
   useSmartThresholdSuggestions,
   useCreateSuggestedAlert,
@@ -152,7 +153,7 @@ function SuggestionCard({
         <div className="flex items-center gap-2">
           <Icon className={`h-5 w-5 ${config.color}`} />
           <div>
-            <h4 className="text-lg font-semibold">${suggestion.targetPrice.toFixed(2)}</h4>
+            <Price value={suggestion.targetPrice} className="text-lg font-semibold" />
             <p className="text-muted-foreground text-xs">{config.label}</p>
           </div>
         </div>
@@ -170,13 +171,13 @@ function SuggestionCard({
         <div className="rounded bg-white/50 p-2">
           <p className="text-muted-foreground text-xs">Potential Savings</p>
           <p className="text-sm font-semibold text-success">
-            ${suggestion.savingsAmount.toFixed(2)} ({suggestion.savingsPercent.toFixed(1)}%)
+            <Price value={suggestion.savingsAmount} size="sm" /> ({suggestion.savingsPercent.toFixed(1)}%)
           </p>
         </div>
 
         <div className="rounded bg-white/50 p-2">
           <p className="text-muted-foreground text-xs">Alert Price</p>
-          <p className="text-sm font-semibold">${suggestion.targetPrice.toFixed(2)}</p>
+          <Price value={suggestion.targetPrice} className="text-sm font-semibold" />
         </div>
       </div>
 

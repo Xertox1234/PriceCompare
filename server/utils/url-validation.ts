@@ -362,6 +362,7 @@ export function validateScrapingUrl(
  * Maintained as a constant for consistency across the application
  */
 export const DEFAULT_ALLOWED_RETAILER_DOMAINS = [
+  // US Retailers
   'amazon.com',
   'walmart.com',
   'target.com',
@@ -376,4 +377,12 @@ export const DEFAULT_ALLOWED_RETAILER_DOMAINS = [
   'nordstrom.com',
   'costco.com',
   'samsclub.com',
+  // Canadian Retailers (CAD currency)
+  'amazon.ca',
+  'bestbuy.ca',
+  'canadacomputers.com',
+  'memoryexpress.com',
+  'newegg.ca',
+  'walmart.ca',
+  'costco.ca',
 ] as const;

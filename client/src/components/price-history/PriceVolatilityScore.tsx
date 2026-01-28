@@ -1,6 +1,7 @@
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Price } from '@/components/ui/price';
 import { TrendingUp, TrendingDown, Minus, Info } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -126,7 +127,7 @@ export function PriceVolatilityScore({ data, isLoading }: PriceVolatilityScorePr
             </div>
             <div className="text-right">
               <div className="text-muted-foreground text-sm">Std. Deviation</div>
-              <div className="text-lg font-semibold">${data.standardDeviation.toFixed(2)}</div>
+              <Price value={data.standardDeviation} className="text-lg font-semibold" />
             </div>
           </div>
         </div>
@@ -135,15 +136,15 @@ export function PriceVolatilityScore({ data, isLoading }: PriceVolatilityScorePr
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-muted/50 rounded-lg p-3 text-center">
             <div className="text-muted-foreground mb-1 text-xs">Min Price</div>
-            <div className="text-lg font-semibold">${data.priceRange.min.toFixed(2)}</div>
+            <Price value={data.priceRange.min} className="text-lg font-semibold" />
           </div>
           <div className="bg-muted/50 rounded-lg p-3 text-center">
             <div className="text-muted-foreground mb-1 text-xs">Avg Price</div>
-            <div className="text-lg font-semibold">${data.averagePrice.toFixed(2)}</div>
+            <Price value={data.averagePrice} className="text-lg font-semibold" />
           </div>
           <div className="bg-muted/50 rounded-lg p-3 text-center">
             <div className="text-muted-foreground mb-1 text-xs">Max Price</div>
-            <div className="text-lg font-semibold">${data.priceRange.max.toFixed(2)}</div>
+            <Price value={data.priceRange.max} className="text-lg font-semibold" />
           </div>
         </div>
 

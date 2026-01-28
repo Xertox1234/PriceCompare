@@ -154,6 +154,94 @@ export function registerProductRoutes(app: Express): void {
     }
   });
 
+  // Get featured products for homepage (public, no auth required)
+  // Returns products grouped by category for the homepage "busy hub" experience
+  // Scoped to Electronics category for Canadian market focus
+  app.get('/api/products/featured', async (req, res) => {
+    try {
+      // SECURITY: Safe limit parsing with validation
+      const limit = req.query.limit
+        ? parseIntSafe(req.query.limit as string, 'limit', { min: 1, max: 50 })
+        : 16;
+
+      // Get electronics products with best deals (sorted by savings)
+      const { products: allProducts } = await storageCache.searchProducts({
+        category: 'Electronics',
+        sortBy: 'price_low',
+        limit: limit * 2, // Get more to ensure variety
+      });
+
+      // Group products for homepage sections
+      // Note: All products are Electronics for Canadian market focus
+      const featuredData = {
+        topDeals: allProducts.slice(0, Math.min(limit, allProducts.length)),
+        trending: allProducts
+          .filter((p) => p.offers && p.offers.length >= 2)
+          .slice(0, Math.min(limit, allProducts.length)),
+        electronics: allProducts.slice(0, Math.min(limit, allProducts.length)),
+        // Gaming category filter (products with gaming-related names)
+        gaming: allProducts
+          .filter(
+            (p) =>
+              p.name.toLowerCase().includes('gaming') ||
+              p.name.toLowerCase().includes('playstation') ||
+              p.name.toLowerCase().includes('xbox') ||
+              p.name.toLowerCase().includes('nintendo') ||
+              p.name.toLowerCase().includes('switch') ||
+              p.name.toLowerCase().includes('quest') ||
+              p.name.toLowerCase().includes('steam deck')
+          )
+          .slice(0, Math.min(limit, allProducts.length)),
+        // Audio category filter
+        audio: allProducts
+          .filter(
+            (p) =>
+              p.name.toLowerCase().includes('headphone') ||
+              p.name.toLowerCase().includes('earbuds') ||
+              p.name.toLowerCase().includes('airpods') ||
+              p.name.toLowerCase().includes('speaker') ||
+              p.name.toLowerCase().includes('audio') ||
+              p.name.toLowerCase().includes('soundbar')
+          )
+          .slice(0, Math.min(limit, allProducts.length)),
+        // Phones category filter
+        phones: allProducts
+          .filter(
+            (p) =>
+              p.name.toLowerCase().includes('iphone') ||
+              p.name.toLowerCase().includes('galaxy') ||
+              p.name.toLowerCase().includes('pixel') ||
+              p.name.toLowerCase().includes('oneplus') ||
+              p.name.toLowerCase().includes('phone')
+          )
+          .slice(0, Math.min(limit, allProducts.length)),
+        // Laptops category filter
+        laptops: allProducts
+          .filter(
+            (p) =>
+              p.name.toLowerCase().includes('macbook') ||
+              p.name.toLowerCase().includes('laptop') ||
+              p.name.toLowerCase().includes('thinkpad') ||
+              p.name.toLowerCase().includes('xps') ||
+              p.name.toLowerCase().includes('zenbook') ||
+              p.name.toLowerCase().includes('zephyrus')
+          )
+          .slice(0, Math.min(limit, allProducts.length)),
+      };
+
+      sendSuccess(res, {
+        ...featuredData,
+        meta: {
+          totalProducts: allProducts.length,
+          scope: 'electronics',
+          market: 'CA',
+        },
+      });
+    } catch (error: unknown) {
+      sendErrorFromException(res, error, 'FetchFeaturedProducts');
+    }
+  });
+
   // Price History Endpoints
   // Get price history for a product (with caching)
   app.get('/api/products/:id/price-history', priceHistoryCacheMiddleware, async (req, res) => {

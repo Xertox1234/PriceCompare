@@ -4,7 +4,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PriceCompare is a full-stack price comparison platform with AI-powered product discovery, web scraping, price tracking, and community features built with TypeScript.
+PriceCompare is a full-stack **electronics price comparison platform** focused on **Canadian retailers** with AI-powered product discovery, web scraping, price tracking, and community features built with TypeScript.
+
+**Market Focus**: Canadian electronics market (CAD/USD currencies)
+
+**Supported Canadian Retailers**:
+- Amazon Canada (`amazon.ca`) - CAD
+- Best Buy Canada (`bestbuy.ca`) - CAD
+- Canada Computers (`canadacomputers.com`) - CAD
+- Memory Express (`memoryexpress.com`) - CAD
+- Newegg Canada (`newegg.ca`) - CAD
+- Walmart Canada (`walmart.ca`) - CAD
+- Costco Canada (`costco.ca`) - CAD
 
 **Tech Stack**: Express.js + React 19 + PostgreSQL + Redis + Drizzle ORM + Playwright (Chromium)
 

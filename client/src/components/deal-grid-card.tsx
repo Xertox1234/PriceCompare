@@ -4,6 +4,7 @@ import { ChevronRight } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { MiniProductCard } from '@/components/mini-product-card';
 import { cn } from '@/lib/utils';
+import { useCountry } from '@/context/country-context';
 import type { MockProduct } from '@/lib/mock-deals';
 
 // ============================================================================
@@ -38,6 +39,9 @@ export const DealGridCard = memo(
     onProductClick,
     className,
   }: DealGridCardProps) => {
+    // Get currency formatting from context
+    const { formatPrice } = useCountry();
+
     // Take only the first 4 products
     const displayProducts = useMemo(() => products.slice(0, 4), [products]);
 
@@ -54,10 +58,11 @@ export const DealGridCard = memo(
           return undefined; // MiniProductCard will use default
         }
 
-        // For text style, we could customize based on product properties
-        return `Save $${(product.originalPrice - product.currentPrice).toFixed(0)}`;
+        // For text style, use currency-aware formatting
+        const savings = product.originalPrice - product.currentPrice;
+        return `Save ${formatPrice(savings)}`;
       },
-      [badgeStyle, customBadges]
+      [badgeStyle, customBadges, formatPrice]
     );
 
     return (

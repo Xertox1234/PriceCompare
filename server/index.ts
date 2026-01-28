@@ -411,6 +411,18 @@ app.use(sanitizeInput);
     log(`Error initializing notification processor: ${error}`, 'error');
   }
 
+  // Initialize price refresh scheduler
+  // Runs daily at 3 AM EST to refresh stale product offers from Canadian retailers
+  // Dynamic import to defer Bull queue creation until Redis is confirmed ready
+  try {
+    log('Initializing price refresh scheduler...');
+    const { initializePriceRefreshScheduler } = await import('./jobs/price-refresh-queue');
+    initializePriceRefreshScheduler();
+    log('Price refresh scheduler initialized successfully');
+  } catch (error) {
+    log(`Error initializing price refresh scheduler: ${error}`, 'error');
+  }
+
   // Verify email service configuration and SMTP connection
   if (emailService.isReady()) {
     const smtpOk = await emailService.verifyConnection();
@@ -511,6 +523,19 @@ async function gracefulShutdown(signal: string) {
       }
     } catch (error) {
       serverLog.error('Error closing price snapshot queue', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    try {
+      // Dynamic import to avoid loading queues that may not have been initialized
+      const { priceRefreshQueue } = await import('./jobs/price-refresh-queue');
+      if (priceRefreshQueue) {
+        await priceRefreshQueue.close();
+        log('Price refresh queue closed');
+      }
+    } catch (error) {
+      serverLog.error('Error closing price refresh queue', {
         error: error instanceof Error ? error.message : String(error),
       });
     }
