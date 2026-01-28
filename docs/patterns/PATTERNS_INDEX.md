@@ -47,8 +47,8 @@ Patterns that span multiple domains:
 Specialized guides for multi-domain collaboration:
 
 - **[guides/testing-security-patterns.md](../guides/testing-security-patterns.md)** - v1.0 - Security testing checklist ✅ Active
-- **[guides/database-performance-review.md](../guides/database-performance-review.md)** - DB performance guide *(Planned - see TODO)*
-- **[guides/extension-security.md](../guides/extension-security.md)** - Extension security patterns *(Planned - see TODO)*
+- **[guides/database-performance-review.md](../guides/database-performance-review.md)** - v1.0 - DB performance review guide ✅ Active
+- **[guides/extension-security.md](../guides/extension-security.md)** - v1.0 - Chrome extension security patterns ✅ Active
 
 ## Quick Lookup by Topic
 
