@@ -45,7 +45,15 @@ Thank you for your interest in contributing to PriceCompare! This document provi
    PUPPETEER_SKIP_DOWNLOAD=true npm install --legacy-peer-deps
    ```
 
-3. **Set up environment variables**
+3. **Install git hooks**
+
+   ```bash
+   bash .github/hooks/install.sh
+   ```
+
+   This installs pre-commit hooks that enforce code quality and security standards.
+
+4. **Set up environment variables**
 
    ```bash
    cp .env.example .env
@@ -66,7 +74,7 @@ Thank you for your interest in contributing to PriceCompare! This document provi
 
    Update `.env` with these generated values.
 
-4. **Set up the database**
+5. **Set up the database**
 
    ```bash
    # Run migrations
@@ -76,7 +84,7 @@ Thank you for your interest in contributing to PriceCompare! This document provi
    npm run seed
    ```
 
-5. **Start the development server**
+6. **Start the development server**
 
    ```bash
    npm run dev
