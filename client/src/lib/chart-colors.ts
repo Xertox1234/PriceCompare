@@ -52,7 +52,24 @@ export const COLOR_PRESETS = [
   CHART_COLORS.gray, // gray
 ] as const;
 
+/** Ordered array of retailer colors for price history charts (8 colors for unique retailers) */
+export const RETAILER_COLORS = [
+  CHART_COLORS.blue, // Blue
+  CHART_COLORS.green, // Green
+  CHART_COLORS.amber, // Amber
+  CHART_COLORS.red, // Red
+  CHART_COLORS.purple, // Purple
+  CHART_COLORS.pink, // Pink
+  '#06b6d4', // Cyan (tailwind cyan-500)
+  CHART_COLORS.orange, // Orange
+] as const;
+
 /** Get a color for a product by index (cycles through PRODUCT_COLORS) */
 export function getProductColor(index: number): string {
   return PRODUCT_COLORS[index % PRODUCT_COLORS.length];
+}
+
+/** Get a color for a retailer by index (cycles through RETAILER_COLORS) */
+export function getRetailerColor(index: number): string {
+  return RETAILER_COLORS[index % RETAILER_COLORS.length];
 }

@@ -14,6 +14,7 @@ import { db } from '../server/db';
 import { users } from '../shared/schema';
 import bcrypt from 'bcrypt';
 import { hashEmail } from '../server/utils/encryption';
+import { PASSWORD } from '../server/utils/constants';
 
 const USERNAME = 'devuser';
 const EMAIL = 'dev@example.com';
@@ -23,7 +24,8 @@ const ROLE = 'admin'; // Give admin access for testing
 async function createUser() {
   console.log(`\n🔐 Creating user: ${USERNAME} (${EMAIL})\n`);
 
-  const passwordHash = await bcrypt.hash(PASSWORD, 10);
+  // DEV SCRIPT: Use reduced bcrypt rounds for faster testing
+  const passwordHash = await bcrypt.hash(PASSWORD, PASSWORD.BCRYPT_ROUNDS_TEST);
   const emailHash = hashEmail(EMAIL);
 
   try {

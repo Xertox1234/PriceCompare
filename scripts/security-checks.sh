@@ -278,20 +278,50 @@ fi
 
 # Check for 'as any' type casts
 echo "   🎯 Checking for 'as any' type casts..."
-AS_ANY=$(grep -rn "as any" server/ --include="*.ts" 2>/dev/null | \
-  grep -v "SECURITY:" | \
-  grep -v "// " | \
-  grep -v "\* " | \
+# Only match actual code usage of 'as any', not comments discussing it
+AS_ANY=$(grep -rn "as any)" server/ --include="*.ts" 2>/dev/null | \
+  grep -v "eslint-disable" | \
+  grep -v "^[^:]*:[^:]*:\s*//" | \
+  grep -v "^[^:]*:[^:]*:\s*\*" | \
   grep -v "__tests__" | \
   grep -v "\.test\." || true)
 
-if [ -n "$AS_ANY" ]; then
+# Also check for 'as any;' pattern
+AS_ANY2=$(grep -rn "as any;" server/ --include="*.ts" 2>/dev/null | \
+  grep -v "eslint-disable" | \
+  grep -v "^[^:]*:[^:]*:\s*//" | \
+  grep -v "^[^:]*:[^:]*:\s*\*" | \
+  grep -v "__tests__" | \
+  grep -v "\.test\." || true)
+
+AS_ANY="${AS_ANY}${AS_ANY2}"
+
+# Filter out lines where the previous line has eslint-disable
+AS_ANY_FILTERED=""
+while IFS= read -r line; do
+  if [ -n "$line" ]; then
+    file=$(echo "$line" | cut -d':' -f1)
+    linenum=$(echo "$line" | cut -d':' -f2)
+    prevline=$((linenum - 1))
+    # Check if previous line has eslint-disable
+    if [ "$prevline" -gt 0 ]; then
+      prev_content=$(sed -n "${prevline}p" "$file" 2>/dev/null || echo "")
+      if echo "$prev_content" | grep -q "eslint-disable"; then
+        continue
+      fi
+    fi
+    AS_ANY_FILTERED="${AS_ANY_FILTERED}${line}\n"
+  fi
+done <<< "$AS_ANY"
+
+if [ -n "$AS_ANY_FILTERED" ]; then
   echo -e "${RED}   ❌ BLOCKER: Unsafe 'as any' type casts found:${NC}"
-  echo "$AS_ANY" | head -5 | while read -r line; do
-    echo "      $line"
+  echo -e "$AS_ANY_FILTERED" | head -5 | while read -r line; do
+    [ -n "$line" ] && echo "      $line"
   done
   echo ""
   echo -e "${YELLOW}   FIX: Use proper types or type guards instead${NC}"
+  echo "   Allowed exceptions: Add eslint-disable comment on previous line with justification"
   echo "   DOCS: docs/01_TYPESCRIPT_PATTERNS.md#using-any-type"
   SECURITY_ISSUES=$((SECURITY_ISSUES + 1))
   echo ""

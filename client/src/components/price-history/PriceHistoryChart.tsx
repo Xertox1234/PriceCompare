@@ -21,6 +21,7 @@ import { TrendingDown } from 'lucide-react';
 import { createLogger } from '@/utils/logger';
 import { cn } from '@/lib/utils';
 import { calculatePriceDropAnnotations, calculateHistoricalContext } from './price-drop-calculator';
+import { RETAILER_COLORS } from '@/lib/chart-colors';
 
 interface PriceHistoryData {
   id: number;
@@ -45,17 +46,7 @@ interface PriceHistoryChartProps {
   onTimeRangeChange?: (days: number) => void;
 }
 
-// Color palette for different retailers
-const RETAILER_COLORS = [
-  '#3b82f6', // Blue
-  '#10b981', // Green
-  '#f59e0b', // Amber
-  '#ef4444', // Red
-  '#8b5cf6', // Purple
-  '#ec4899', // Pink
-  '#06b6d4', // Cyan
-  '#f97316', // Orange
-];
+// Use centralized RETAILER_COLORS from @/lib/chart-colors
 
 const logger = createLogger('PriceHistoryChart');
 

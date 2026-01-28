@@ -16,6 +16,7 @@ import { users } from '../shared/schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcrypt';
 import { hashEmail } from '../server/utils/encryption';
+import { PASSWORD } from '../server/utils/constants';
 
 const EMAIL = 'dev@example.com';
 const NEW_PASSWORD = 'password123'; // Change this to your desired password
@@ -23,8 +24,8 @@ const NEW_PASSWORD = 'password123'; // Change this to your desired password
 async function resetPassword() {
   console.log(`\n🔐 Resetting password for: ${EMAIL}\n`);
 
-  // Hash the new password
-  const passwordHash = await bcrypt.hash(NEW_PASSWORD, 10);
+  // DEV SCRIPT: Use reduced bcrypt rounds for faster testing
+  const passwordHash = await bcrypt.hash(NEW_PASSWORD, PASSWORD.BCRYPT_ROUNDS_TEST);
 
   // Create email hash for lookup (emails are encrypted in DB)
   const emailHash = hashEmail(EMAIL);
